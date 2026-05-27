@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AssetType, BlockType, JobType, ServiceStatus } from "@prisma/client";
@@ -46,9 +48,30 @@ const updateServiceFormSchema = z.object({
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
+type SongWorkflowStep = "upload" | "extraction" | "format";
 
 const PASTEL_TAG_COLORS = ["#DDECCB", "#F7E7B2", "#FFDCC8", "#CFE8F6", "#E8D7F1", "#F7D7DF", "#D6F0E4"];
 const NEUTRAL_TAG_COLOR = "#E8E1D4";
+const SONG_WORKFLOW_STEPS: Array<{ id: SongWorkflowStep; label: string; href: string; description: string }> = [
+  {
+    id: "upload",
+    label: "Upload",
+    href: "/songs/upload",
+    description: "Choose a temporary file or paste lyrics.",
+  },
+  {
+    id: "extraction",
+    label: "Extraction",
+    href: "/songs/extraction",
+    description: "Review parser status and optional AI cleanup.",
+  },
+  {
+    id: "format",
+    label: "Format",
+    href: "/songs/format",
+    description: "Tag, regroup, edit, and generate DOCX.",
+  },
+];
 
 function normalizeTagToken(value: string) {
   return value
@@ -247,8 +270,26 @@ function getExtractorSummary(outputJson: unknown) {
   return `${record.extractedLineCount} extracted lines${sectionText}`;
 }
 
-export default function ServiceBuilderClient({ module }: { module: WorkspaceModule }) {
+function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upload") {
+  const segment = pathname.split("/").filter(Boolean).at(-1);
+  if (segment === "upload" || segment === "extraction" || segment === "format") {
+    return segment;
+  }
+
+  return fallback;
+}
+
+export default function ServiceBuilderClient({
+  module,
+  songStep,
+}: {
+  module: WorkspaceModule;
+  songStep?: SongWorkflowStep;
+}) {
   const queryClient = useQueryClient();
+  const pathname = usePathname();
+  const router = useRouter();
+  const activeSongStep = songStep ?? getSongWorkflowStep(pathname);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [extractorSourceMode, setExtractorSourceMode] = useState<"upload" | "paste">("upload");
@@ -548,6 +589,10 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
     return result;
   };
 
+  const shouldAutoAdvanceToFormat = (result: LyricsExtractorEditableResponse) => {
+    return !result.retry && result.outputJson.warningCodes.length === 0;
+  };
+
   const uploadExtractorMutation = useMutation({
     mutationFn: async ({ serviceId, file, songTitle }: { serviceId: string; file: File; songTitle?: string }) => {
       const extractingTimer = window.setTimeout(() => {
@@ -567,6 +612,9 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
           ? "Lyrics extracted with warnings. Review the draft or use AI cleanup before generating DOCX."
           : "Lyrics extracted into the editor. Review your draft before generating DOCX."
       );
+      if (shouldAutoAdvanceToFormat(result)) {
+        router.push("/songs/format");
+      }
     },
     onError: (error: Error) => {
       setExtractorStatus("Extraction failed.");
@@ -593,6 +641,9 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
           ? "Pasted lyrics were normalized with warnings. Review the draft before generating DOCX."
           : "Pasted lyrics were normalized into the editor."
       );
+      if (shouldAutoAdvanceToFormat(result)) {
+        router.push("/songs/format");
+      }
     },
     onError: (error: Error) => {
       setExtractorStatus("Extraction failed.");
@@ -609,6 +660,7 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
       setExtractorStatus("AI-cleaned lyrics are ready for review.");
       await invalidateServices();
       setFeedback("AI cleanup completed for this one-time extraction. Review before generating DOCX.");
+      router.push("/songs/format");
     },
     onError: (error: Error) => {
       setExtractorStatus(error.message);
@@ -1185,6 +1237,38 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                   </div>
                 ) : null}
 
+                <section className="rounded-2xl border border-black/10 bg-white p-4">
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {SONG_WORKFLOW_STEPS.map((step, index) => {
+                      const active = activeSongStep === step.id;
+                      return (
+                        <Link
+                          key={step.id}
+                          href={step.href}
+                          className={`rounded-xl border p-4 transition ${
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-black/10 bg-white text-black hover:bg-black/[0.03]"
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                              active ? "bg-white text-black" : "bg-black text-white"
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+                          <p className="mt-3 text-sm font-semibold">{step.label}</p>
+                          <p className={`mt-1 text-xs leading-5 ${active ? "text-white/70" : "text-black/50"}`}>
+                            {step.description}
+                          </p>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {activeSongStep === "upload" ? (
                 <section className="rounded-xl border border-black/10 bg-white p-5">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex gap-2">
@@ -1219,12 +1303,6 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                     Paste text
                   </button>
                   </div>
-                  <input
-                    value={extractorSongTitle}
-                    onChange={(event) => setExtractorSongTitle(event.target.value)}
-                    placeholder="Song title (optional)"
-                    className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm text-black placeholder:text-black/40 md:w-[260px]"
-                  />
                 </div>
 
                 {extractorSourceMode === "upload" ? (
@@ -1254,10 +1332,10 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                         setExtractorDraftText("");
                         setExtractorDraftMeta(null);
                         setExtractorStatus("Uploading...");
+                        router.push("/songs/extraction");
                         uploadExtractorMutation.mutate({
                           serviceId: selectedService.id,
                           file,
-                          songTitle: extractorSongTitle || undefined,
                         });
                         event.currentTarget.value = "";
                       }}
@@ -1265,7 +1343,9 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                   </div>
                 ) : null}
                 </section>
+                ) : null}
 
+                {activeSongStep === "extraction" ? (
                 <div className="mt-3 rounded-xl border border-black/10 bg-white p-4">
                   <p className="text-sm font-semibold">Extractor status</p>
                   <p className="mt-2 text-xs text-black/50">
@@ -1313,211 +1393,182 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                     </div>
                   ) : null}
                 </div>
+                ) : null}
 
-                <section className="rounded-xl border border-black/10 bg-white p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
-                        Quick tags
-                      </p>
-                      <p className="mt-1 text-xs text-black/50">
-                        {extractorDraftText
-                          ? "Select lines, then click a tag. No selection inserts the tag at the cursor."
-                          : "Extract lyrics first, then use these tags to mark verses, choruses, and sections."}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTagSettingsOpen((current) => !current)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60"
-                    >
-                      <Settings2 className="h-4 w-4" />
-                      {tagSettingsOpen ? "Hide settings" : "Tag settings"}
-                    </button>
-                  </div>
+                {activeSongStep === "format" ? (
+                  extractorDraftText ? (
+                    <section className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-black/10 bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
+                            Output
+                          </p>
+                          <input
+                            value={extractorSongTitle}
+                            onChange={(event) => setExtractorSongTitle(event.target.value)}
+                            placeholder="Output filename / song title"
+                            className="mt-3 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm text-black placeholder:text-black/40"
+                          />
+                          <p className="mt-3 text-xs leading-5 text-black/50">
+                            Lyrics stay in this browser review state until you generate the DOCX. They are not saved to the database.
+                          </p>
+                        </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {songTagsQuery.isLoading ? (
-                      <span className="text-sm text-black/50">Loading tag presets...</span>
-                    ) : null}
-                    {songTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => extractorDraftText && applySongTagToDraft(tag)}
-                        disabled={!extractorDraftText}
-                        className="rounded-full border border-black/5 px-3 py-2 text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-45"
-                        style={{
-                          backgroundColor: tag.color,
-                          color: getReadableTextColor(tag.color),
-                        }}
-                      >
-                        {tag.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {tagSettingsOpen ? (
-                    <div className="mt-4 space-y-3 rounded-xl border border-black/10 bg-black/[0.02] p-3">
-                      <form
-                        className="grid gap-2 md:grid-cols-[1fr_auto_auto]"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          const label = newTagLabel.trim();
-                          const token = normalizeTagToken(label);
-                          if (!label || !token) {
-                            setFeedback("Enter a valid tag label.");
-                            return;
-                          }
-
-                          createSongTagMutation.mutate({
-                            label,
-                            token,
-                            color: newTagColor,
-                            order: songTags.length,
-                          });
-                        }}
-                      >
-                        <input
-                          value={newTagLabel}
-                          onChange={(event) => setNewTagLabel(event.target.value)}
-                          placeholder="Custom tag label"
-                          className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                        />
-                        <select
-                          value={newTagColor}
-                          onChange={(event) => setNewTagColor(event.target.value)}
-                          className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                        >
-                          {PASTEL_TAG_COLORS.map((color) => (
-                            <option key={color} value={color}>
-                              {color}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="submit"
-                          disabled={createSongTagMutation.isPending}
-                          className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                        >
-                          Add tag
-                        </button>
-                      </form>
-
-                      <div className="grid gap-2">
-                        {songTags.map((tag, index) => (
-                          <div
-                            key={tag.id}
-                            className="grid gap-2 rounded-lg border border-black/10 bg-white p-2 md:grid-cols-[1fr_1fr_auto_auto]"
-                          >
-                            <input
-                              defaultValue={tag.label}
-                              onBlur={(event) => {
-                                const label = event.target.value;
-                                if (label === tag.label) {
-                                  return;
-                                }
-
-                                updateSongTagMutation.mutate({
-                                  id: tag.id,
-                                  payload: {
-                                    label,
-                                    token: normalizeTagToken(label) || tag.token,
-                                  },
-                                });
-                              }}
-                              disabled={tag.isDefault}
-                              className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm disabled:bg-black/[0.03]"
-                            />
-                            <select
-                              value={tag.color}
-                              onChange={(event) =>
-                                updateSongTagMutation.mutate({
-                                  id: tag.id,
-                                  payload: { color: event.target.value },
-                                })
-                              }
-                              className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                            >
-                              {PASTEL_TAG_COLORS.map((color) => (
-                                <option key={color} value={color}>
-                                  {color}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                disabled={index === 0}
-                                onClick={() =>
-                                  updateSongTagMutation.mutate({
-                                    id: tag.id,
-                                    payload: { order: Math.max(0, tag.order - 1) },
-                                  })
-                                }
-                                className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs disabled:opacity-40"
-                              >
-                                Up
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateSongTagMutation.mutate({
-                                    id: tag.id,
-                                    payload: { order: tag.order + 1 },
-                                  })
-                                }
-                                className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"
-                              >
-                                Down
-                              </button>
+                        <section className="rounded-xl border border-black/10 bg-white p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
+                                Quick tags
+                              </p>
+                              <p className="mt-1 text-xs text-black/50">
+                                Select lines, then click a tag. No selection inserts the tag at the cursor.
+                              </p>
                             </div>
                             <button
                               type="button"
-                              disabled={tag.isDefault || deleteSongTagMutation.isPending}
-                              onClick={() => deleteSongTagMutation.mutate(tag.id)}
-                              className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60 disabled:opacity-40"
+                              onClick={() => setTagSettingsOpen((current) => !current)}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60"
                             >
-                              {tag.isDefault ? "Default" : "Delete"}
+                              <Settings2 className="h-4 w-4" />
+                              Settings
                             </button>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </section>
 
-                {extractorDraftText ? (
-                  <section className="mt-4 rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">Review extracted lyrics</p>
-                        <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
-                          Edit the structured text before generating the Word document. Tags like [Title], [Verse], and [Chorus] will be preserved in the DOCX.
-                        </p>
-                      </div>
-                      {extractorDraftMeta ? (
-                        <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                          {extractorDraftMeta.parser.toUpperCase()} / {extractorDraftMeta.confidence.toUpperCase()} confidence / {extractorDraftMeta.extractedLineCount} lines
-                        </div>
-                      ) : null}
-                    </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {songTagsQuery.isLoading ? (
+                              <span className="text-sm text-black/50">Loading tag presets...</span>
+                            ) : null}
+                            {songTags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => applySongTagToDraft(tag)}
+                                className="rounded-full border border-black/5 px-3 py-2 text-xs font-semibold shadow-sm"
+                                style={{
+                                  backgroundColor: tag.color,
+                                  color: getReadableTextColor(tag.color),
+                                }}
+                              >
+                                {tag.label}
+                              </button>
+                            ))}
+                          </div>
 
-                    <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] p-3">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
+                          {tagSettingsOpen ? (
+                            <div className="mt-4 space-y-3 rounded-xl border border-black/10 bg-black/[0.02] p-3">
+                              <form
+                                className="grid gap-2"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const label = newTagLabel.trim();
+                                  const token = normalizeTagToken(label);
+                                  if (!label || !token) {
+                                    setFeedback("Enter a valid tag label.");
+                                    return;
+                                  }
+
+                                  createSongTagMutation.mutate({
+                                    label,
+                                    token,
+                                    color: newTagColor,
+                                    order: songTags.length,
+                                  });
+                                }}
+                              >
+                                <input
+                                  value={newTagLabel}
+                                  onChange={(event) => setNewTagLabel(event.target.value)}
+                                  placeholder="Custom tag label"
+                                  className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
+                                />
+                                <select
+                                  value={newTagColor}
+                                  onChange={(event) => setNewTagColor(event.target.value)}
+                                  className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
+                                >
+                                  {PASTEL_TAG_COLORS.map((color) => (
+                                    <option key={color} value={color}>
+                                      {color}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="submit"
+                                  disabled={createSongTagMutation.isPending}
+                                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                                >
+                                  Add tag
+                                </button>
+                              </form>
+                              <div className="grid gap-2">
+                                {songTags.map((tag) => (
+                                  <div
+                                    key={tag.id}
+                                    className="grid gap-2 rounded-lg border border-black/10 bg-white p-2"
+                                  >
+                                    <input
+                                      defaultValue={tag.label}
+                                      onBlur={(event) => {
+                                        const label = event.target.value.trim();
+                                        if (!label || label === tag.label) {
+                                          return;
+                                        }
+
+                                        updateSongTagMutation.mutate({
+                                          id: tag.id,
+                                          payload: {
+                                            label,
+                                            token: normalizeTagToken(label) || tag.token,
+                                          },
+                                        });
+                                      }}
+                                      disabled={tag.isDefault}
+                                      className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm disabled:bg-black/[0.03]"
+                                    />
+                                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                                      <select
+                                        value={tag.color}
+                                        onChange={(event) =>
+                                          updateSongTagMutation.mutate({
+                                            id: tag.id,
+                                            payload: { color: event.target.value },
+                                          })
+                                        }
+                                        className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
+                                      >
+                                        {PASTEL_TAG_COLORS.map((color) => (
+                                          <option key={color} value={color}>
+                                            {color}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        disabled={tag.isDefault || deleteSongTagMutation.isPending}
+                                        onClick={() => deleteSongTagMutation.mutate(tag.id)}
+                                        className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60 disabled:opacity-40"
+                                      >
+                                        {tag.isDefault ? "Default" : "Delete"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </section>
+
+                        <section className="rounded-xl border border-black/10 bg-white p-4">
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
                             Line grouping
                           </p>
                           <p className="mt-1 text-xs leading-5 text-black/50">
-                            Choose a tag, then regroup consecutive sections into two-line or three-line singing blocks.
+                            Regroup consecutive sections into two-line or three-line singing blocks.
                           </p>
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <select
                             value={sectionFormatTag}
                             onChange={(event) => setSectionFormatTag(event.target.value)}
-                            className="h-10 rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-black"
+                            className="mt-3 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-black"
                           >
                             {songTags.map((tag) => (
                               <option key={tag.id} value={tag.token}>
@@ -1525,13 +1576,13 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                               </option>
                             ))}
                           </select>
-                          <div className="flex rounded-lg border border-black/10 bg-white p-1">
+                          <div className="mt-3 flex rounded-lg border border-black/10 bg-white p-1">
                             {[2, 3].map((size) => (
                               <button
                                 key={size}
                                 type="button"
                                 onClick={() => setSectionLineGroupSize(size as 2 | 3)}
-                                className={`rounded-md px-3 py-2 text-xs font-semibold ${
+                                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold ${
                                   sectionLineGroupSize === size
                                     ? "bg-black text-white"
                                     : "text-black/60 hover:bg-black/[0.04]"
@@ -1554,72 +1605,101 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                                 `${sectionFormatTag} sections regrouped into ${sectionLineGroupSize}-line blocks.`
                               );
                             }}
-                            className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white"
+                            className="mt-3 h-10 w-full rounded-lg bg-black px-4 text-sm font-semibold text-white"
                           >
                             Apply grouping
                           </button>
-                        </div>
+                        </section>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedService || !extractorDraftText.trim()) {
+                              setFeedback("Extract or enter lyrics before generating DOCX.");
+                              return;
+                            }
+
+                            setExtractorStatus("Generating DOCX...");
+                            generateLyricsDocxMutation.mutate({
+                              serviceId: selectedService.id,
+                              text: extractorDraftText,
+                              songTitle: extractorSongTitle || undefined,
+                            });
+                          }}
+                          disabled={generateLyricsDocxMutation.isPending}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {generateLyricsDocxMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4" />
+                          )}
+                          {generateLyricsDocxMutation.isPending ? "Generating DOCX..." : "Generate DOCX"}
+                        </button>
                       </div>
-                    </div>
 
-                    <textarea
-                      ref={extractorEditorRef}
-                      value={extractorDraftText}
-                      onChange={(event) => setExtractorDraftText(event.target.value)}
-                      rows={16}
-                      spellCheck={false}
-                      style={{
-                        backgroundImage: buildTaggedEditorBackground(extractorDraftText, songTags),
-                        backgroundAttachment: "local",
-                        lineHeight: "24px",
-                      }}
-                      className="mt-4 min-h-[420px] w-full resize-y rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-accent)]"
-                    />
+                      <section className="rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold">Review extracted lyrics</p>
+                            <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+                              Edit the structured text before generating the Word document.
+                            </p>
+                          </div>
+                          {extractorDraftMeta ? (
+                            <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                              {extractorDraftMeta.parser.toUpperCase()} / {extractorDraftMeta.confidence.toUpperCase()} confidence / {extractorDraftMeta.extractedLineCount} lines
+                            </div>
+                          ) : null}
+                        </div>
 
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!selectedService || !extractorDraftText.trim()) {
-                            setFeedback("Extract or enter lyrics before generating DOCX.");
-                            return;
-                          }
+                        <textarea
+                          ref={extractorEditorRef}
+                          value={extractorDraftText}
+                          onChange={(event) => setExtractorDraftText(event.target.value)}
+                          rows={20}
+                          spellCheck={false}
+                          style={{
+                            backgroundImage: buildTaggedEditorBackground(extractorDraftText, songTags),
+                            backgroundAttachment: "local",
+                            lineHeight: "24px",
+                          }}
+                          className="mt-4 min-h-[620px] w-full resize-y rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-accent)]"
+                        />
 
-                          setExtractorStatus("Generating DOCX...");
-                          generateLyricsDocxMutation.mutate({
-                            serviceId: selectedService.id,
-                            text: extractorDraftText,
-                            songTitle: extractorSongTitle || undefined,
-                          });
-                        }}
-                        disabled={generateLyricsDocxMutation.isPending}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExtractorDraftText("");
+                            setExtractorDraftMeta(null);
+                            setExtractorAiRetry(null);
+                            setExtractorStatus("Draft cleared.");
+                            router.push("/songs/upload");
+                          }}
+                          className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-brand-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-text-secondary)]"
+                        >
+                          <X className="h-4 w-4" />
+                          Clear draft
+                        </button>
+                      </section>
+                    </section>
+                  ) : (
+                    <section className="rounded-xl border border-dashed border-black/10 bg-white p-8 text-center">
+                      <p className="text-sm font-semibold text-black">No extracted draft yet</p>
+                      <p className="mt-2 text-xs text-black/50">
+                        Start on Upload, then review Extraction before formatting the lyrics.
+                      </p>
+                      <Link
+                        href="/songs/upload"
+                        className="mt-4 inline-flex rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
                       >
-                        {generateLyricsDocxMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4" />
-                        )}
-                        {generateLyricsDocxMutation.isPending ? "Generating DOCX..." : "Generate DOCX"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExtractorDraftText("");
-                          setExtractorDraftMeta(null);
-                          setExtractorAiRetry(null);
-                          setExtractorStatus("Draft cleared.");
-                        }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-brand-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-text-secondary)]"
-                      >
-                        <X className="h-4 w-4" />
-                        Clear draft
-                      </button>
-                    </div>
-                  </section>
+                        Go to Upload
+                      </Link>
+                    </section>
+                  )
                 ) : null}
 
-                {extractorSourceMode === "paste" ? (
+                {activeSongStep === "upload" && extractorSourceMode === "paste" ? (
                   <form
                     className="space-y-3 rounded-xl border border-[var(--color-brand-border)] bg-white p-5"
                     onSubmit={(event) => {
@@ -1635,10 +1715,10 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                       setExtractorDraftText("");
                       setExtractorDraftMeta(null);
                       setExtractorStatus("Extracting...");
+                      router.push("/songs/extraction");
                       pasteExtractorMutation.mutate({
                         serviceId: selectedService.id,
                         pastedText,
-                        songTitle: extractorSongTitle || undefined,
                       });
                     }}
                   >
@@ -1664,6 +1744,7 @@ export default function ServiceBuilderClient({ module }: { module: WorkspaceModu
                     </button>
                   </form>
                 ) : null}
+
               </>
             ) : (
               <p className="text-sm text-[var(--color-text-secondary)]">

@@ -49,7 +49,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
 
           <nav className="space-y-2">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
+              const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link
                   key={href}
@@ -86,7 +86,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
 
         <nav className="sticky top-0 z-20 flex items-center gap-2 border-b border-[var(--color-brand-border)] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
+            const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}

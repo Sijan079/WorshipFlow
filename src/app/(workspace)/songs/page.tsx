@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function SongsPage() {
-  return <ServiceBuilderClient module="songs" />;
+  redirect("/songs/upload");
 }
