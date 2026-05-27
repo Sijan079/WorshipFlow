@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ServiceStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum BlockType {
+  CALL_TO_WORSHIP
+  PRAISE_AND_WORSHIP
+  MC
+  AWIT_NG_PAKIKINIG
+  SCRIPTURE_READING
+  SERMON
+  AWIT_NG_PAGTUGON
+  OFFERING
+  FLOWERS_FOR_THE_LORD
+  DETAILS
+}
+
+enum SongRole {
+  OPENING
+  PRAISE
+  TRANSITION
+  RESPONSE
+  SPECIAL
+  CUSTOM
+}
+
+enum AssetType {
+  SCREENSHOT
+  DOCX
+  PDF
+  IMAGE
+  VIDEO
+  EXPORT
+  OTHER
+}
+
+enum JobType {
+  TRANSPOSE
+  FREESHOW_GENERATE
+  CAPTION_GENERATE
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum OutputType {
+  FREESHOW
+  DOCX
+  PDF
+  CAPTION_PACK
+  ZIP
+}
+
+model WorshipService {
+  id            String         @id @default(uuid())
+  serviceDate   DateTime
+  ministryName  String
+  theme         String?
+  status        ServiceStatus  @default(DRAFT)
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  blocks        WorshipServiceBlock[]
+  songs         WorshipServiceSong[]
+  details       WorshipServiceDetail[]
+  assets        ServiceAsset[]
+  jobs          AutomationJob[]
+  outputs       GeneratedOutput[]
+}
+
+model WorshipServiceBlock {
+  id          String     @id @default(uuid())
+  serviceId   String
+  blockType   BlockType
+  order       Int
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  people      BlockPerson[]
+  songs       WorshipServiceSong[]
+  details     WorshipServiceDetail[]
+
+  createdAt   DateTime @default(now())
+}
+
+model BlockPerson {
+  id          String   @id @default(uuid())
+  blockId     String
+
+  personName  String
+  personTitle String?
+
+  order       Int @default(0)
+
+  block       WorshipServiceBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+}
+
+model Song {
+  id           String   @id @default(uuid())
+  title        String
+  author       String?
+  defaultKey   String?
+  bpm          Int?
+  language     String?
+  isOriginal   Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+
+  files        SongFile[]
+  serviceSongs WorshipServiceSong[]
+}
+
+model SongFile {
+  id          String   @id @default(uuid())
+  songId      String
+
+  fileName    String
+  filePath    String
+  version     String?
+
+  createdAt   DateTime @default(now())
+
+  song        Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+}
+
+model SongTagPreset {
+  id        String   @id @default(uuid())
+  label     String
+  token     String   @unique
+  color     String
+  order     Int      @default(0)
+  isDefault Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+model WorshipServiceSong {
+  id          String @id @default(uuid())
+
+  serviceId   String
+  blockId     String
+  songId      String
+
+  order       Int
+  songRole    SongRole
+
+  pageRef     String?
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  block       WorshipServiceBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  song        Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+}
+
+model WorshipServiceDetail {
+  id          String @id @default(uuid())
+
+  serviceId   String
+  blockId     String?
+  key         String
+  value       String
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  block       WorshipServiceBlock? @relation(fields: [blockId], references: [id], onDelete: Cascade)
+}
+
+model ServiceAsset {
+  id          String @id @default(uuid())
+
+  serviceId   String
+  type        AssetType
+
+  fileName    String
+  filePath    String
+
+  createdAt   DateTime @default(now())
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model AutomationJob {
+  id          String @id @default(uuid())
+
+  serviceId   String
+  jobType     JobType
+  status      JobStatus @default(QUEUED)
+
+  inputJson   Json?
+  outputJson  Json?
+
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  outputs     GeneratedOutput[]
+}
+
+model GeneratedOutput {
+  id          String @id @default(uuid())
+
+  serviceId   String
+  jobId       String?
+
+  type        OutputType
+  filePath    String
+
+  createdAt   DateTime @default(now())
+
+  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  job         AutomationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+}

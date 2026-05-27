@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-bg: #ffffff;
+  --color-brand-panel: #ffffff;
+  --color-brand-panel-alt: #f6f5f4;
+  --color-brand-border: #e5e3df;
+  --color-brand-accent: #5645d4;
+  --color-brand-accent-hover: #4534b3;
+  --color-brand-ink: #1a1a1a;
+  --color-brand-olive: #787671;
+  --color-brand-navy: #0a1530;
+  --color-card-peach: #ffe8d4;
+  --color-card-rose: #fde0ec;
+  --color-card-mint: #d9f3e1;
+  --color-card-lavender: #e6e0f5;
+  --color-card-sky: #dcecfa;
+  --color-card-yellow: #fef7d6;
+  --color-card-yellow-bold: #f9e79f;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #5d5b54;
+  --color-text-muted: #787671;
+}
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #1a1a1a;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), Inter, -apple-system, system-ui, "Segoe UI", Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f6f5f4;
+}
+::-webkit-scrollbar-thumb {
+  background: #bbb8b1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #5645d4;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
