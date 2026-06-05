@@ -26,6 +26,7 @@ function toSafeInput(input: LyricsExtractorJobInput): LyricsExtractorSafeInput {
   return {
     sourceMode: input.sourceMode,
     hasSongContext: Boolean(input.songId || input.serviceSongId),
+    sourceLabel: input.songTitle?.trim() || undefined,
   };
 }
 

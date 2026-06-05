@@ -37,6 +37,7 @@ export const LyricsExtractorJobInputSchema = z.union([
 export const LyricsExtractorSafeInputSchema = z.object({
   sourceMode: z.enum(EXTRACTOR_SOURCE_MODES),
   hasSongContext: z.boolean(),
+  sourceLabel: z.string().optional(),
 });
 
 export const LyricsExtractorSafeOutputSchema = z.object({

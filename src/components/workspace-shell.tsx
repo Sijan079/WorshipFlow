@@ -11,7 +11,6 @@ import {
   Sparkles,
   MonitorPlay,
   Users,
-  WandSparkles,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -19,7 +18,6 @@ const NAV_ITEMS = [
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
   { href: "/songs/library", label: "Song Library", shortLabel: "Library", icon: Library },
   { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
-  { href: "/songs/format", label: "Editor", shortLabel: "Editor", icon: WandSparkles },
   { href: "/assets", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
   { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
   { href: "/services#team", label: "Team", shortLabel: "Team", icon: Users },
@@ -27,7 +25,7 @@ const NAV_ITEMS = [
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/songs/upload") {
-    return pathname === "/songs" || pathname === "/songs/upload";
+    return pathname === "/songs" || pathname === "/songs/upload" || pathname === "/songs/format";
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

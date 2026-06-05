@@ -250,6 +250,19 @@ function getExtractorSource(inputJson: unknown) {
   return sourceMode === "paste" ? "Pasted lyrics" : sourceMode === "upload" ? "Uploaded file" : "Formatter";
 }
 
+function getExtractorSourceLabel(inputJson: unknown) {
+  if (!inputJson || typeof inputJson !== "object") {
+    return null;
+  }
+
+  const sourceLabel = (inputJson as { sourceLabel?: unknown }).sourceLabel;
+  return typeof sourceLabel === "string" && sourceLabel.trim() ? sourceLabel.trim() : null;
+}
+
+function isUploadedExtractorJob(inputJson: unknown) {
+  return Boolean(inputJson && typeof inputJson === "object" && (inputJson as { sourceMode?: unknown }).sourceMode === "upload");
+}
+
 function getFileNameWithoutExtension(fileName: string) {
   return fileName.replace(/\.[^/.]+$/, "").trim();
 }
@@ -852,10 +865,9 @@ export default function ServiceBuilderClient({
     : selectedServiceBlockOrder[0];
   const activeServiceBlock = selectedService ? getBlockByType(selectedService, effectiveActiveServiceBlockType) : null;
   const recentSongConversions = selectedService
-    ? selectedService.jobs.filter((job) => {
-        const createdAt = new Date(job.createdAt).getTime();
-        return job.jobType === JobType.TRANSPOSE && Number.isFinite(createdAt) && recentConversionNow - createdAt <= 24 * 60 * 60 * 1000;
-      })
+    ? selectedService.jobs
+        .filter((job) => job.jobType === JobType.TRANSPOSE && isUploadedExtractorJob(job.inputJson))
+        .slice(0, 5)
     : [];
   const isFormatterProcessing =
     uploadExtractorMutation.isPending || pasteExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
@@ -1946,12 +1958,6 @@ export default function ServiceBuilderClient({
           <div className="space-y-5">
             {selectedService ? (
               <>
-                {feedback ? (
-                  <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                    {feedback}
-                  </div>
-                ) : null}
-
                 {activeSongStep === "library" ? (
                   <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                     <div className="space-y-6">
@@ -2094,48 +2100,81 @@ export default function ServiceBuilderClient({
 
                     <div className="mx-auto max-w-6xl">
                       <div className="group flex min-h-[300px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-10 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:border-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]">
-                        <span className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)] transition group-hover:scale-105">
-                          <CloudUpload className="h-10 w-10" />
-                        </span>
-                        <span className="text-2xl font-bold text-[var(--color-brand-ink)]">
-                          Drag & drop your song files
-                        </span>
-                        <span className="mt-2 text-base font-semibold text-[var(--color-text-secondary)]">
-                          PDF, TXT, or DOCX up to 25MB
-                        </span>
-                        <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExtractorSourceMode("upload");
-                              setExtractorAiRetry(null);
-                              setExtractorStatus(null);
-                              extractorFileInputRef.current?.click();
-                            }}
-                            className="pressable inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-8 py-3 text-sm font-bold text-[var(--color-brand-ink)]"
-                          >
-                            <Upload className="h-4 w-4" />
-                            Select File
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExtractorSourceMode("paste");
-                              setExtractorAiRetry(null);
-                              setExtractorStatus(null);
-                              showToast("Paste mode selected.");
-                            }}
-                            className="text-sm font-semibold italic text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]"
-                          >
-                            or copy/paste lyrics
-                          </button>
-                        </div>
-                        {extractorFileLabel ? (
-                          <span className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-                            <FileText className="h-4 w-4 text-[var(--color-focus)]" />
-                            {extractorFileLabel}
-                          </span>
-                        ) : null}
+                        {extractorSourceMode === "paste" ? (
+                          <div className="w-full max-w-5xl text-left">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xl font-bold text-[var(--color-brand-ink)]">Paste lyrics</p>
+                                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                                  Paste a chord sheet or lyric text. It is processed temporarily and not stored.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExtractorSourceMode("upload");
+                                  setExtractorStatus(null);
+                                  showToast("Upload mode selected.");
+                                }}
+                                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-4 py-2 text-sm font-bold text-[var(--color-brand-ink)]"
+                              >
+                                Back to file
+                              </button>
+                            </div>
+                            <textarea
+                              value={extractorPastedText}
+                              onChange={(event) => setExtractorPastedText(event.target.value)}
+                              rows={10}
+                              placeholder="Paste your chord sheet here. This text is processed temporarily and not stored."
+                              className="max-h-[320px] min-h-[220px] w-full resize-y overflow-y-auto rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-4 py-3 text-sm leading-6 text-[var(--color-brand-ink)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-focus)]"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <span className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)] transition group-hover:scale-105">
+                              <CloudUpload className="h-10 w-10" />
+                            </span>
+                            <span className="text-2xl font-bold text-[var(--color-brand-ink)]">
+                              Drag & drop your song files
+                            </span>
+                            <span className="mt-2 text-base font-semibold text-[var(--color-text-secondary)]">
+                              PDF, TXT, or DOCX up to 25MB
+                            </span>
+                            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExtractorSourceMode("upload");
+                                  setExtractorAiRetry(null);
+                                  setExtractorStatus(null);
+                                  extractorFileInputRef.current?.click();
+                                }}
+                                className="pressable inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-8 py-3 text-sm font-bold text-[var(--color-brand-ink)]"
+                              >
+                                <Upload className="h-4 w-4" />
+                                Select File
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExtractorSourceMode("paste");
+                                  setExtractorAiRetry(null);
+                                  setExtractorStatus(null);
+                                  showToast("Paste mode selected.");
+                                }}
+                                className="text-sm font-semibold italic text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]"
+                              >
+                                or copy/paste lyrics
+                              </button>
+                            </div>
+                            {extractorFileLabel ? (
+                              <span className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
+                                <FileText className="h-4 w-4 text-[var(--color-focus)]" />
+                                {extractorFileLabel}
+                              </span>
+                            ) : null}
+                          </>
+                        )}
                         <input
                           ref={extractorFileInputRef}
                           name="file"
@@ -2171,7 +2210,7 @@ export default function ServiceBuilderClient({
                           type="button"
                           onClick={() => processFormatterSource(false)}
                           disabled={isFormatterProcessing}
-                          className="pressable min-w-48 rounded-xl bg-[var(--color-focus)] px-10 py-4 text-sm font-bold text-[var(--color-accent-ink)] shadow-[0_18px_36px_rgba(210,187,255,0.18)] disabled:opacity-60"
+                          className="pressable min-w-48 rounded-xl bg-[var(--color-focus)] px-10 py-4 text-sm font-bold text-[#3f008e] shadow-[0_18px_36px_rgba(210,187,255,0.18)] disabled:opacity-60"
                         >
                           Process Locally
                         </button>
@@ -2229,7 +2268,7 @@ export default function ServiceBuilderClient({
                             recentSongConversions.map((job) => {
                               const parser = getExtractorParser(job.outputJson);
                               const summary = getExtractorSummary(job.outputJson);
-                              const source = getExtractorSource(job.inputJson);
+                              const source = getExtractorSourceLabel(job.inputJson) ?? getExtractorSource(job.inputJson);
 
                               return (
                                 <div key={job.id} className="group flex items-center justify-between rounded-lg p-3 transition hover:bg-[var(--color-brand-panel-strong)]">
@@ -2254,7 +2293,7 @@ export default function ServiceBuilderClient({
                             })
                           ) : (
                             <div className="rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] p-4 text-sm text-[var(--color-text-secondary)]">
-                              No formatter conversions in the last 24 hours.
+                              No uploaded files tracked yet.
                             </div>
                           )}
                         </div>
@@ -2656,37 +2695,6 @@ export default function ServiceBuilderClient({
                       </Link>
                     </section>
                   )
-                ) : null}
-
-                {activeSongStep === "upload" && extractorSourceMode === "paste" ? (
-                  <form
-                    className="space-y-4 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 lg:p-6"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      processFormatterSource(false);
-                    }}
-                  >
-                    <textarea
-                      value={extractorPastedText}
-                      onChange={(event) => setExtractorPastedText(event.target.value)}
-                      rows={8}
-                      placeholder="Paste your chord sheet here. This text is processed temporarily and not stored."
-                      className="w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--color-brand-accent)]"
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={pasteExtractorMutation.isPending}
-                      className="pressable flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      {pasteExtractorMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <WandSparkles className="h-4 w-4" />
-                      )}
-                      {pasteExtractorMutation.isPending ? "Processing..." : "Process locally"}
-                    </button>
-                  </form>
                 ) : null}
 
               </>
