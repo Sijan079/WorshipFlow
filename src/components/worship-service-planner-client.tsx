@@ -4,19 +4,15 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BlockType, JobStatus } from "@prisma/client";
 import {
-  CalendarDays,
   Check,
-  ChevronRight,
   ClipboardList,
-  FileText,
+  Eye,
   Loader2,
-  Music4,
+  Play,
   RefreshCcw,
-  Sparkles,
-  Users,
 } from "lucide-react";
 import { apiFetch, type ServiceRecord } from "@/lib/api-client";
-import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER } from "@/lib/service-data";
+import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-data";
 
 function formatServiceDate(dateString: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -48,10 +44,6 @@ function isBlockReady(service: ServiceRecord, blockType: BlockType) {
     return block.songs.length > 0;
   }
 
-  if (blockType === BlockType.DETAILS) {
-    return block.details.length > 0 || service.details.length > 0;
-  }
-
   return block.people.length > 0 || block.details.length > 0;
 }
 
@@ -68,12 +60,6 @@ function getBlockSummary(service: ServiceRecord, blockType: BlockType) {
   ].filter(Boolean);
 
   return parts.length ? parts.join(" / ") : "Needs content";
-}
-
-function statusTone(ready: boolean) {
-  return ready
-    ? "border-[#d9f3e1] bg-[#d9f3e1] text-[#1aae39]"
-    : "border-[#ffe8d4] bg-[#ffe8d4] text-[#793400]";
 }
 
 export default function WorshipServicePlannerClient() {
@@ -99,13 +85,15 @@ export default function WorshipServicePlannerClient() {
       return null;
     }
 
-    const readyBlocks = STRICT_BLOCK_ORDER.filter((blockType) =>
+    const serviceBlockOrder = getServiceBlockOrder(selectedService.serviceVariant);
+    const readyBlocks = serviceBlockOrder.filter((blockType) =>
       isBlockReady(selectedService, blockType)
     ).length;
     const doneJobs = selectedService.jobs.filter((job) => job.status === JobStatus.DONE).length;
 
     return {
       readyBlocks,
+      totalBlocks: serviceBlockOrder.length,
       participants: countParticipants(selectedService),
       songs: countServiceSongs(selectedService),
       assets: selectedService.assets.length,
@@ -113,273 +101,233 @@ export default function WorshipServicePlannerClient() {
     };
   }, [selectedService]);
 
-  const prepLanes = useMemo(() => {
-    if (!selectedService) {
-      return [];
-    }
-
-    const callToWorship = getBlockByType(selectedService, BlockType.CALL_TO_WORSHIP);
-    const scripture = getBlockByType(selectedService, BlockType.SCRIPTURE_READING);
-    const sermon = getBlockByType(selectedService, BlockType.SERMON);
-    const details = getBlockByType(selectedService, BlockType.DETAILS);
-
-    return [
-      {
-        title: "People",
-        icon: Users,
-        tint: "bg-[#d9f3e1]",
-        checks: [
-          { label: "Call to Worship assigned", done: Boolean(callToWorship?.people.length) },
-          { label: "MC assigned", done: isBlockReady(selectedService, BlockType.MC) },
-          { label: "Offering team assigned", done: isBlockReady(selectedService, BlockType.OFFERING) },
-          {
-            label: "Flowers team assigned",
-            done: isBlockReady(selectedService, BlockType.FLOWERS_FOR_THE_LORD),
-          },
-        ],
-      },
-      {
-        title: "Music",
-        icon: Music4,
-        tint: "bg-[#e6e0f5]",
-        checks: [
-          {
-            label: "Praise & Worship songs selected",
-            done: isBlockReady(selectedService, BlockType.PRAISE_AND_WORSHIP),
-          },
-          {
-            label: "Awit ng Pakikinig selected",
-            done: isBlockReady(selectedService, BlockType.AWIT_NG_PAKIKINIG),
-          },
-          {
-            label: "Awit ng Pagtugon selected",
-            done: isBlockReady(selectedService, BlockType.AWIT_NG_PAGTUGON),
-          },
-        ],
-      },
-      {
-        title: "Message",
-        icon: ClipboardList,
-        tint: "bg-[#dcecfa]",
-        checks: [
-          { label: "Scripture reader assigned", done: Boolean(scripture?.people.length) },
-          { label: "Sermon preacher assigned", done: Boolean(sermon?.people.length) },
-          {
-            label: "Bible references captured",
-            done: Boolean(scripture?.details.length || sermon?.details.length || details?.details.length),
-          },
-        ],
-      },
-      {
-        title: "Files",
-        icon: FileText,
-        tint: "bg-[#fef7d6]",
-        checks: [
-          { label: "Service assets attached", done: selectedService.assets.length > 0 },
-          { label: "Automation output available", done: selectedService.outputs.length > 0 },
-          { label: "Completed automation job", done: selectedService.jobs.some((job) => job.status === JobStatus.DONE) },
-        ],
-      },
-    ];
-  }, [selectedService]);
-
   if (servicesQuery.isLoading) {
     return (
-      <main className="flex min-h-[70vh] items-center justify-center rounded-xl border border-[#e5e3df] bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-[#5645d4]" />
+      <main className="flex min-h-[70vh] items-center justify-center border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-brand-accent)]" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-full bg-white text-[#1a1a1a]">
-      <section className="overflow-hidden rounded-xl bg-[#0a1530] text-white shadow-[rgba(15,15,15,0.20)_0px_24px_48px_-8px]">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_420px] lg:p-8">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-              <CalendarDays className="h-3.5 w-3.5" />
-              Worship Service Planner
-            </div>
-            <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight md:text-5xl">
-              Plan the service flow before Sunday pressure arrives.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[#d8dce8]">
-              Review the strict worship order, confirm assignments, and spot missing preparation work from one focused planner.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/15 bg-white text-[#1a1a1a]">
-            <div className="border-b border-[#e5e3df] px-4 py-3">
-              <p className="text-sm font-semibold">Selected service</p>
-            </div>
-            <div className="max-h-[260px] space-y-2 overflow-y-auto p-3">
-              {services.length === 0 ? (
-                <p className="p-3 text-sm text-[#5d5b54]">No worship services yet.</p>
-              ) : (
-                services.map((service) => {
-                  const active = selectedService?.id === service.id;
-                  return (
-                    <button
-                      key={service.id}
-                      type="button"
-                      onClick={() => setSelectedServiceId(service.id)}
-                      className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
-                        active
-                          ? "border-[#5645d4] bg-[#e6e0f5]"
-                          : "border-[#e5e3df] bg-white text-[#37352f]"
-                      }`}
-                    >
-                      <span>
-                        <span className="block font-semibold">{service.ministryName}</span>
-                        <span className="mt-1 block text-xs text-[#787671]">
-                          {formatServiceDate(service.serviceDate)}
-                        </span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-[#787671]" />
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+    <main className="min-h-full text-[var(--color-brand-ink)]">
+      <header className="production-panel-strong flex flex-col gap-4 px-4 py-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="technical-label">SERVICE FLOW HUB</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.01em]">Run of service control</h1>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
+            Review the run of service and finish the remaining production preparation.
+          </p>
         </div>
-      </section>
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--color-text-muted)]">
+          Worship service
+          <select
+            value={resolvedSelectedServiceId ?? ""}
+            onChange={(event) => setSelectedServiceId(event.target.value)}
+            className="min-h-10 min-w-[240px] rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 text-sm text-[var(--color-brand-ink)]"
+          >
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.ministryName} / {formatServiceDate(service.serviceDate)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </header>
+
+      {services.length === 0 ? (
+        <section className="mt-5 border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
+          <p className="text-sm font-semibold">No worship services yet.</p>
+        </section>
+      ) : null}
 
       {selectedService && plannerStats ? (
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="rounded-xl border border-[#e5e3df] bg-[#f6f5f4] p-4">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="mt-5 animate-fade-in">
+          <section className="production-panel overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-brand-border)] px-4 py-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-[#787671]">
-                  {formatServiceDate(selectedService.serviceDate)}
-                </p>
-                <h2 className="mt-1 text-2xl font-semibold text-[#1a1a1a]">
-                  {selectedService.ministryName}
-                </h2>
-                <p className="mt-1 text-sm text-[#5d5b54]">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="status-pip status-pip-ready" />
+                  <h2 className="text-base font-semibold text-[var(--color-brand-ink)]">
+                    {selectedService.ministryName}
+                  </h2>
+                  <p className="font-[var(--font-plex-mono)] text-xs text-[var(--color-text-muted)]">
+                    {formatServiceDate(selectedService.serviceDate)}
+                  </p>
+                </div>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                   {selectedService.theme || "No theme recorded yet"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => void servicesQuery.refetch()}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#c8c4be] bg-white px-3 text-sm font-medium text-[#37352f]"
+                className="pressable inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 text-sm font-medium text-[var(--color-brand-ink)]"
               >
                 <RefreshCcw className="h-4 w-4" />
                 Refresh
               </button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-brand-border)] md:grid-cols-5 md:divide-y-0">
               {[
-                ["Ready blocks", `${plannerStats.readyBlocks}/10`],
+                ["Ready blocks", `${plannerStats.readyBlocks}/${plannerStats.totalBlocks}`],
                 ["People", plannerStats.participants],
                 ["Songs", plannerStats.songs],
                 ["Assets", plannerStats.assets],
                 ["Done jobs", plannerStats.doneJobs],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-[#e5e3df] bg-white p-3">
-                  <p className="text-xs font-medium text-[#787671]">{label}</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#1a1a1a]">{value}</p>
+                <div key={label} className="min-w-0 bg-[var(--color-brand-panel)]/60 px-4 py-3">
+                  <p className="technical-label">{label}</p>
+                  <p className="mt-1 font-[var(--font-plex-mono)] text-lg font-semibold text-[var(--color-brand-ink)]">{value}</p>
                 </div>
               ))}
             </div>
+          </section>
 
-            <div className="mt-4 rounded-xl border border-[#e5e3df] bg-white">
-              <div className="grid grid-cols-[72px_1fr_140px] border-b border-[#e5e3df] px-4 py-3 text-xs font-semibold uppercase text-[#787671]">
-                <span>Order</span>
-                <span>Service block</span>
-                <span>Status</span>
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section>
+              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="technical-label tracking-[0.2em] text-[var(--color-focus)]">SERVICE TIMELINE</p>
+                  <h2 className="mt-1 text-3xl font-semibold tracking-[-0.02em] text-[var(--color-brand-ink)]">
+                    Live Execution Flow
+                  </h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]/25 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-danger)]">
+                    <span className="status-pip status-pip-live" />
+                    Live
+                  </span>
+                  <span className="font-[var(--font-mono)] text-sm text-[var(--color-text-secondary)]">
+                    Elapsed: <span className="text-[var(--color-brand-ink)]">14:22</span>
+                  </span>
+                </div>
               </div>
-              <div className="divide-y divide-[#ede9e4]">
-                {STRICT_BLOCK_ORDER.map((blockType, index) => {
+
+              <div className="space-y-4">
+                {getServiceBlockOrder(selectedService.serviceVariant).map((blockType, index) => {
                   const block = getBlockByType(selectedService, blockType);
                   const ready = isBlockReady(selectedService, blockType);
+                  const active = index === 1;
+                  const time = `09:${String(index * 4).padStart(2, "0")}`;
 
                   return (
-                    <div
-                      key={blockType}
-                      className="grid grid-cols-[72px_1fr_140px] items-start gap-3 px-4 py-3"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f0eeec] text-sm font-semibold text-[#37352f]">
-                        {index + 1}
+                    <div key={blockType} className={`flex gap-4 ${index === 0 ? "opacity-55" : ""}`}>
+                      <div className="flex w-16 flex-col items-center pt-2">
+                        <span className={`font-[var(--font-mono)] text-xs ${active ? "text-[var(--color-focus)]" : "text-[var(--color-text-muted)]"}`}>
+                          {time}
+                        </span>
+                        <div className="my-2 w-px flex-1 bg-[var(--color-brand-border)]" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-[#1a1a1a]">{BLOCK_LABELS[blockType]}</p>
-                        <p className="mt-1 text-sm text-[#5d5b54]">
-                          {getBlockSummary(selectedService, blockType)}
-                        </p>
-                        {block?.songs.length ? (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {block.songs.map((serviceSong) => (
-                              <span
-                                key={serviceSong.id}
-                                className="rounded-md bg-[#dcecfa] px-2 py-1 text-xs font-semibold text-[#005bab]"
-                              >
-                                {serviceSong.song.title}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                      <span
-                        className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(ready)}`}
+                      <article
+                        className={`flex min-h-20 flex-1 items-center justify-between rounded-xl border p-4 ${
+                          active
+                            ? "border-[var(--color-focus)]/40 bg-[var(--color-brand-panel-strong)] shadow-[inset_4px_0_0_var(--color-focus)]"
+                            : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]"
+                        }`}
                       >
-                        {ready ? "Ready" : "Needs prep"}
-                      </span>
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-[var(--color-brand-panel-elevated)] text-[var(--color-focus)]" : "bg-[var(--color-brand-panel-strong)] text-[var(--color-text-secondary)]"}`}>
+                            {active ? <Play className="h-5 w-5" /> : ready ? <Check className="h-5 w-5" /> : <ClipboardList className="h-5 w-5" />}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className={`${active ? "text-2xl" : "text-lg"} font-bold text-[var(--color-brand-ink)]`}>
+                              {BLOCK_LABELS[blockType]}
+                            </h3>
+                            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                              {getBlockSummary(selectedService, blockType)}
+                            </p>
+                            {block?.songs.length ? (
+                              <p className="mt-2 inline-flex rounded-md bg-[var(--color-brand-panel-elevated)] px-2 py-1 font-[var(--font-mono)] text-xs text-[var(--color-text-secondary)]">
+                                {block.songs[0]?.song.title}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="ml-4 text-right">
+                          {active ? (
+                            <>
+                              <p className="font-[var(--font-mono)] text-3xl font-bold text-[var(--color-focus)]">03:41</p>
+                              <p className="mt-1 text-[10px] font-bold uppercase text-[var(--color-text-secondary)]">Remaining</p>
+                            </>
+                          ) : (
+                            <span className={`inline-flex items-center gap-2 text-xs font-semibold ${ready ? "text-[var(--color-success)]" : "text-[var(--color-clay)]"}`}>
+                              <span className={`status-pip ${ready ? "status-pip-ready" : "status-pip-alert"}`} />
+                              {ready ? "Ready" : "Prep"}
+                            </span>
+                          )}
+                        </div>
+                      </article>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-xl border border-[#e5e3df] bg-[#f9e79f] p-5 text-[#37352f]">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                <h2 className="text-lg font-semibold">Prep Focus</h2>
-              </div>
-              <p className="mt-3 text-sm leading-6">
-                Work through the unchecked items first. The flow table stays locked to the approved worship order.
-              </p>
+              <section className="mt-8 rounded-xl border border-[var(--color-brand-border)] bg-[#14151d] p-8">
+                <div className="grid gap-5 md:grid-cols-[1fr_auto_auto] md:items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[var(--color-brand-ink)]">Production Quick Actions</h2>
+                    <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--color-text-secondary)]">
+                      Instantly trigger global service states from the booth.
+                    </p>
+                  </div>
+                  <button className="pressable rounded-xl border border-[var(--color-danger)] bg-[var(--color-danger-soft)]/35 px-5 py-3 text-sm font-bold uppercase text-[var(--color-danger)]">
+                    Emergency Reset
+                  </button>
+                  <button className="pressable rounded-xl border border-[var(--color-secondary)] bg-[var(--color-secondary-soft)] px-5 py-3 text-sm font-bold uppercase text-[var(--color-secondary)]">
+                    Blackout
+                  </button>
+                </div>
+              </section>
             </section>
 
-            {prepLanes.map((lane) => {
-              const Icon = lane.icon;
-              return (
-                <section key={lane.title} className="rounded-xl border border-[#e5e3df] bg-white p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${lane.tint}`}>
-                      <Icon className="h-4 w-4 text-[#37352f]" />
+            <aside className="space-y-6 border-l border-[var(--color-brand-border)] pl-5">
+              <section>
+                <p className="technical-label">NEXT UP PREVIEW</p>
+                <div className="mt-4 overflow-hidden rounded-xl border border-[var(--color-brand-border)] bg-[#060e20]">
+                  <div className="flex aspect-video items-center justify-center bg-[radial-gradient(circle_at_center,#3b235f,#060e20_62%)]">
+                    <Eye className="h-10 w-10 text-[var(--color-focus)]" />
+                  </div>
+                  <p className="px-4 py-3 text-sm font-bold text-[var(--color-brand-ink)]">Pastor Dave Standby</p>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <p className="technical-label">ITEM DETAILS</p>
+                <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                  <p className="technical-label">SONG KEY</p>
+                  <p className="mt-2 text-xl font-bold">B Minor <span className="text-sm font-medium text-[var(--color-text-secondary)]">/ 74 BPM</span></p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                  <p className="technical-label">LYRICS & CHORDS</p>
+                  <p className="mt-2 text-sm text-[var(--color-brand-ink)]">glorious_day_chart.pdf</p>
+                </div>
+              </section>
+
+              <section>
+                <p className="technical-label">SYNC STATUS</p>
+                <div className="mt-4 space-y-3">
+                  {["Main FOH Console", "ProPresenter 7", "Lighting MIDI"].map((item, index) => (
+                    <div key={item} className="flex items-center justify-between rounded-lg bg-[var(--color-brand-panel)] px-3 py-2 text-sm">
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`status-pip ${index < 2 ? "status-pip-ready" : ""}`} />
+                        {item}
+                      </span>
+                      <span className="font-[var(--font-mono)] text-[10px] uppercase text-[var(--color-text-secondary)]">
+                        {index < 2 ? "Linked" : "Idle"}
+                      </span>
                     </div>
-                    <h3 className="font-semibold text-[#1a1a1a]">{lane.title}</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {lane.checks.map((check) => (
-                      <div key={check.label} className="flex items-center gap-2 text-sm text-[#37352f]">
-                        <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                            check.done
-                              ? "border-[#1aae39] bg-[#d9f3e1] text-[#1aae39]"
-                              : "border-[#c8c4be] bg-[#f6f5f4] text-transparent"
-                          }`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </span>
-                        {check.label}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </aside>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
       ) : (
-        <section className="mt-4 rounded-xl border border-[#e5e3df] bg-white p-8 text-center">
+        <section className="mt-4 border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
           <h2 className="text-2xl font-semibold">No service to plan yet</h2>
-          <p className="mt-2 text-sm text-[#5d5b54]">
+          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Create or seed a worship service, then return here to review the preparation flow.
           </p>
         </section>

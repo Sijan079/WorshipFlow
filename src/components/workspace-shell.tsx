@@ -2,113 +2,130 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, PanelLeftClose, PanelLeftOpen, Upload, Users, WandSparkles, Music4 } from "lucide-react";
-import { useState } from "react";
+import {
+  AudioLines,
+  CalendarDays,
+  Captions,
+  Library,
+  ListMusic,
+  Sparkles,
+  MonitorPlay,
+  Users,
+  WandSparkles,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/planner", label: "Planner", icon: CalendarDays },
-  { href: "/services", label: "Services", icon: Users },
-  { href: "/songs", label: "Songs", icon: Music4 },
-  { href: "/assets", label: "Assets", icon: Upload },
-  { href: "/automation", label: "Automation", icon: WandSparkles },
+  { href: "/planner", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
+  { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
+  { href: "/songs/library", label: "Song Library", shortLabel: "Library", icon: Library },
+  { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
+  { href: "/songs/format", label: "Editor", shortLabel: "Editor", icon: WandSparkles },
+  { href: "/assets", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
+  { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
+  { href: "/services#team", label: "Team", shortLabel: "Team", icon: Users },
 ] as const;
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/songs/upload") {
+    return pathname === "/songs" || pathname === "/songs/upload";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const formatterMode = pathname === "/songs/upload" || pathname === "/songs/format";
+  const shellNavItems = NAV_ITEMS;
 
   return (
-    <div className="min-h-screen bg-[var(--color-brand-bg)] text-[var(--color-text-primary)]">
-      <div className="min-h-screen">
-        <aside
-          className={`fixed left-0 top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4 transition-all lg:flex ${
-            collapsed ? "w-[88px]" : "w-[272px]"
-          }`}
-        >
-          <div className={`mb-6 flex ${collapsed ? "flex-col items-center gap-3" : "items-start justify-between gap-3"}`}>
-            <div className={collapsed ? "text-center" : ""}>
-              <p className="font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.24em] text-[var(--color-brand-olive)]">
-                WFO
-              </p>
-              {!collapsed ? <h1 className="mt-3 text-[22px] font-semibold tracking-[-0.02em]">Worship Flow OS</h1> : null}
-              {!collapsed ? (
-                <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                  Worship service preparation for the tech team.
-                </p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={() => setCollapsed((value) => !value)}
-              className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3 text-[var(--color-brand-accent)]"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
+    <div className="min-h-screen bg-[var(--color-brand-bg)] text-[var(--color-text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="hidden min-h-screen border-r border-[var(--color-brand-border)] bg-[#060e20] px-4 py-4 lg:flex lg:flex-col">
+        <div className="mb-10 flex items-center gap-3 px-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-brand-accent)] text-[var(--color-accent-ink)]">
+              {formatterMode ? <Sparkles className="h-5 w-5" /> : <ListMusic className="h-5 w-5" />}
           </div>
-
-          <nav className="space-y-2">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(`${href}/`);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                    active
-                      ? "border-[#000000] bg-[#000000] text-white"
-                      : "border-transparent text-[var(--color-text-secondary)] hover:border-[var(--color-brand-border)] hover:bg-[var(--color-brand-panel-alt)]"
-                  } ${collapsed ? "justify-center" : "gap-3"}`}
-                  title={collapsed ? label : undefined}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed ? <span>{label}</span> : null}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-            {!collapsed ? (
-              <>
-                <p className="text-sm font-semibold">Module navigation</p>
-                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                  Each workflow now has its own page so the prep team can move faster with less clutter.
-                </p>
-              </>
-            ) : (
-              <div className="flex justify-center">
-                <WandSparkles className="h-4 w-4 text-[var(--color-brand-accent)]" />
-              </div>
-            )}
+          <div>
+            <Link href="/planner" className="block text-2xl font-bold leading-none text-[var(--color-focus)]">
+              Tech Suite
+            </Link>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              {formatterMode ? "Song Formatter" : "Production Hub"}
+            </p>
           </div>
-        </aside>
+        </div>
 
-        <nav className="sticky top-0 z-20 flex items-center gap-2 border-b border-[var(--color-brand-border)] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+        <nav className="flex flex-1 flex-col gap-1" aria-label="Production workspace">
+          {shellNavItems.map(({ href, label, icon: Icon }) => {
+            const active = isActivePath(pathname, href);
             return (
               <Link
-                key={href}
+                key={`${href}-${label}`}
                 href={href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                  active ? "bg-black text-white" : "text-[var(--color-text-secondary)]"
+                className={`pressable flex items-center gap-3 rounded-lg border-l-4 px-3 py-2.5 text-sm font-semibold ${
+                  active
+                    ? "border-l-[var(--color-focus)] border-y-transparent border-r-transparent bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
+                    : "border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
                 }`}
+                aria-current={active ? "page" : undefined}
               >
-                <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{label}</span>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div
-          className={`min-w-0 transition-[padding] ${
-            collapsed ? "lg:pl-[88px]" : "lg:pl-[272px]"
-          }`}
-        >
-          <div className="mx-auto max-w-[1280px] px-4 py-6 lg:px-8 lg:py-8">{children}</div>
+        <div className="mt-auto border-t border-[var(--color-brand-border)] pt-4">
+          <div className="rounded-xl bg-[var(--color-brand-panel)] p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-brand-accent)] font-bold text-[var(--color-accent-ink)]">
+                {formatterMode ? "AU" : "CH"}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                  {formatterMode ? "Admin User" : "Central Church"}
+                </p>
+                <p className="mt-0.5 inline-flex items-center gap-1 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--color-danger)]">
+                  {formatterMode ? null : <span className="status-pip status-pip-live" />}
+                  {formatterMode ? "Production Mode" : "Live Booth"}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </aside>
+
+      <div className="min-w-0">
+        <header className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] lg:hidden">
+          <div className="px-4 py-3">
+            <Link href="/planner" className="text-sm font-semibold text-[var(--color-brand-ink)]">
+              Worship Production OS
+            </Link>
+          </div>
+          <nav className="flex gap-2 overflow-x-auto border-t border-[var(--color-brand-border)] px-3 py-2" aria-label="Production workspace">
+            {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
+              const active = isActivePath(pathname, href);
+              return (
+                <Link
+                  key={`${href}-${shortLabel}`}
+                  href={href}
+                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
+                    active
+                      ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-panel-strong)] text-[var(--color-brand-ink)] shadow-[0_4px_12px_color-mix(in_oklab,var(--color-brand-accent)_10%,transparent)]"
+                      : "border-[var(--color-brand-border)] text-[var(--color-text-secondary)]"
+                  }`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {shortLabel}
+                </Link>
+              );
+            })}
+          </nav>
+        </header>
+
+        <main className="mx-auto min-h-screen max-w-[1540px] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
       </div>
     </div>
   );

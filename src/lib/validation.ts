@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ServiceStatus, SongRole, AssetType, JobType } from "@prisma/client";
+import { ServiceStatus, ServiceVariant, SongRole, AssetType, JobType } from "@prisma/client";
 import { LyricsExtractorJobInputSchema } from "@/lib/extractor-types";
 
 export const WorshipServiceSchema = z.object({
@@ -7,6 +7,7 @@ export const WorshipServiceSchema = z.object({
   ministryName: z.string().min(1, "Ministry name is required"),
   theme: z.string().optional().nullable(),
   status: z.nativeEnum(ServiceStatus).default(ServiceStatus.DRAFT),
+  serviceVariant: z.nativeEnum(ServiceVariant).default(ServiceVariant.STANDARD),
 });
 
 export const UpdateWorshipServiceSchema = z.object({

@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+.next-dev*.log
 
 # production
 /build
@@ -23,6 +24,19 @@
 # misc
 .DS_Store
 *.pem
+
+# local/generated app data
+/public/uploads/
+
+# local design/reference exports
+/stitch_exports/
+/stitch_worship_production_os/
+
+# local agent artifacts
+/.agents/
+/.hallmark/
+/docs/superpowers/plans/
+/skills-lock.json
 
 # debug
 npm-debug.log*

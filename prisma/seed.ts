@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, BlockType, SongRole, ServiceStatus, type WorshipServiceBlock } from "@prisma/client";
+import { PrismaClient, BlockType, SongRole, ServiceStatus, ServiceVariant, type WorshipServiceBlock } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { upsertDefaultSongTagPresets } from "./song-tag-defaults";
@@ -67,6 +67,7 @@ async function main() {
       ministryName: "Ladies Ministry",
       theme: "Serving God with Faithful Hearts",
       status: ServiceStatus.READY,
+      serviceVariant: ServiceVariant.STANDARD,
     },
   });
 
@@ -81,7 +82,6 @@ async function main() {
     BlockType.AWIT_NG_PAGTUGON,
     BlockType.OFFERING,
     BlockType.FLOWERS_FOR_THE_LORD,
-    BlockType.DETAILS,
   ];
 
   const blocks: Partial<Record<BlockType, WorshipServiceBlock>> = {};
@@ -138,13 +138,13 @@ async function main() {
     },
   });
 
-  // 3. MC
-  console.log("Adding MC data...");
+  // 3. Papuri At Pasasalamat
+  console.log("Adding Papuri At Pasasalamat data...");
   await prisma.blockPerson.create({
     data: {
       blockId: requireBlock(BlockType.MC).id,
       personName: "Sis. Marichu Supan",
-      personTitle: "MC",
+      personTitle: "Papuri At Pasasalamat",
       order: 0,
     },
   });
@@ -224,33 +224,14 @@ async function main() {
     },
   });
 
-  // 9. FLOWERS_FOR_THE_LORD
-  console.log("Adding Flowers data...");
-  await prisma.blockPerson.create({
-    data: {
-      blockId: requireBlock(BlockType.FLOWERS_FOR_THE_LORD).id,
-      personName: "Sis. Luz Hipolito Olivares",
-      personTitle: "Flower Presenter",
-      order: 0,
-    },
-  });
-  await prisma.blockPerson.create({
-    data: {
-      blockId: requireBlock(BlockType.FLOWERS_FOR_THE_LORD).id,
-      personName: "Sis. Angeline De Jesus",
-      personTitle: "Flower Presenter",
-      order: 1,
-    },
-  });
-
-  // 10. DETAILS
-  console.log("Adding service details...");
+  // 9. ANNOUNCEMENTS
+  console.log("Adding Announcements data...");
   await prisma.worshipServiceDetail.create({
     data: {
       serviceId: service.id,
-      blockId: requireBlock(BlockType.DETAILS).id,
-      key: "Preparation Notes",
-      value: "Ensure slides for all songs are verified in FreeShow.",
+      blockId: requireBlock(BlockType.FLOWERS_FOR_THE_LORD).id,
+      key: "Announcements",
+      value: "Ensure announcements are reviewed before projection.",
     },
   });
 

@@ -12,10 +12,17 @@ enum ServiceStatus {
   ARCHIVED
 }
 
+enum ServiceVariant {
+  STANDARD
+  EXTENDED
+}
+
 enum BlockType {
   CALL_TO_WORSHIP
   PRAISE_AND_WORSHIP
   MC
+  AWIT_NG_HIMNO
+  TIPAN_PAHAYAG
   AWIT_NG_PAKIKINIG
   SCRIPTURE_READING
   SERMON
@@ -71,6 +78,7 @@ model WorshipService {
   ministryName  String
   theme         String?
   status        ServiceStatus  @default(DRAFT)
+  serviceVariant ServiceVariant @default(STANDARD)
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

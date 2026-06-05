@@ -1,0 +1,75 @@
+/* Hallmark · macrostructure: Production OS Rail · tone: lights-down worship production · anchor hue: electric purple
+ * Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4
+ */
+:root {
+  --color-paper: #0b1326;
+  --color-paper-2: #131b2e;
+  --color-panel: #171f33;
+  --color-panel-strong: #222a3d;
+  --color-panel-elevated: #2d3449;
+  --color-ink: #dae2fd;
+  --color-ink-2: #ccc3d8;
+  --color-muted: #958da1;
+  --color-rule: #4a4455;
+  --color-rule-strong: #958da1;
+  --color-accent: #7c3aed;
+  --color-accent-hover: #8b5cf6;
+  --color-accent-ink: #ede0ff;
+  --color-secondary: #89ceff;
+  --color-secondary-soft: #00344d;
+  --color-clay: #ffb2b7;
+  --color-focus: #d2bbff;
+  --color-danger: #ffb4ab;
+  --color-danger-soft: #93000a;
+  --color-success: #89ceff;
+  --color-success-soft: #00344d;
+  --color-warning-soft: #31394d;
+  --color-live: #c81a42;
+  --color-ready: #00a2e6;
+  --color-idle: #958da1;
+  --color-qr-dark: #0b1326;
+  --color-qr-light: #dae2fd;
+  --color-pastel-peach: #ffdadb;
+  --color-pastel-rose: #ffb2b7;
+  --color-pastel-mint: #c9e6ff;
+  --color-pastel-lavender: #eaddff;
+  --color-pastel-sky: #89ceff;
+  --color-pastel-yellow: #31394d;
+
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --font-manrope: var(--font-inter);
+  --font-plex-mono: var(--font-geist-mono);
+
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-display: clamp(1.75rem, 2.6vw, 2.45rem);
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+}

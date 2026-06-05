@@ -1,41 +1,69 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AssetType, BlockType, JobType, ServiceStatus } from "@prisma/client";
-import { Loader2, Plus, RefreshCcw, Save, Settings2, Upload, WandSparkles, X } from "lucide-react";
+import { BlockType, JobStatus, JobType, ServiceStatus, ServiceVariant, SongRole } from "@prisma/client";
+import {
+  CloudUpload,
+  Copy,
+  FileText,
+  History,
+  ListMusic,
+  Loader2,
+  Play,
+  Plus,
+  RefreshCcw,
+  Redo2,
+  Save,
+  Settings2,
+  ShieldCheck,
+  Trash2,
+  Undo2,
+  Upload,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
   apiFetch,
-  type CreateAssetMetadataPayload,
   type CreateAutomationJobPayload,
   type CreateParticipantPayload,
   type CreateServicePayload,
-  type CreateSongTagPresetPayload,
+  type CreateServiceSongPayload,
+  type CreateSongPayload,
   type LyricsExtractorEditableResponse,
   type ServiceRecord,
+  type SongRecord,
   type SongTagPresetRecord,
   type UpdateParticipantPayload,
   type UpdateServicePayload,
-  type UpdateSongTagPresetPayload,
   type UpsertServiceDetailPayload,
   generateLyricsDocx,
   runAiLyricsExtractorRetry,
+  runAiLyricsReformat,
   runPasteLyricsExtractor,
   runUploadLyricsExtractor,
   triggerBrowserDownload,
 } from "@/lib/api-client";
-import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER } from "@/lib/service-data";
+import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-data";
 import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from "@/lib/extractor-types";
+import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
+import {
+  analyzeServiceText,
+  type AnalyzedServiceDetail,
+  type AnalyzedServiceDraft,
+  type AnalyzedServiceParticipant,
+} from "@/lib/service-text-analysis";
 
 const createServiceFormSchema = z.object({
   serviceDate: z.string().min(1, "Service date is required"),
   ministryName: z.string().min(1, "Ministry name is required"),
   theme: z.string().optional(),
+  serviceVariant: z.nativeEnum(ServiceVariant),
 });
 
 const updateServiceFormSchema = z.object({
@@ -48,76 +76,14 @@ const updateServiceFormSchema = z.object({
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
-type SongWorkflowStep = "upload" | "extraction" | "format";
+type SongWorkflowStep = "library" | "upload" | "extraction" | "format";
+type ServiceWorkflowStep = "setup" | "flow" | "review";
 
-const PASTEL_TAG_COLORS = ["#DDECCB", "#F7E7B2", "#FFDCC8", "#CFE8F6", "#E8D7F1", "#F7D7DF", "#D6F0E4"];
-const NEUTRAL_TAG_COLOR = "#E8E1D4";
-const SONG_WORKFLOW_STEPS: Array<{ id: SongWorkflowStep; label: string; href: string; description: string }> = [
-  {
-    id: "upload",
-    label: "Upload",
-    href: "/songs/upload",
-    description: "Choose a temporary file or paste lyrics.",
-  },
-  {
-    id: "extraction",
-    label: "Extraction",
-    href: "/songs/extraction",
-    description: "Review parser status and optional AI cleanup.",
-  },
-  {
-    id: "format",
-    label: "Format",
-    href: "/songs/format",
-    description: "Tag, regroup, edit, and generate DOCX.",
-  },
+const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
+  { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
+  { id: "flow", label: "Flow Hub", description: "Assign people, songs, and details by block." },
+  { id: "review", label: "Run of Service", description: "Scan the complete service in strict order." },
 ];
-
-function normalizeTagToken(value: string) {
-  return value
-    .trim()
-    .replace(/[^A-Za-z0-9 -]/g, "")
-    .replace(/\s+/g, " ")
-    .slice(0, 32);
-}
-
-function getReadableTextColor(hexColor: string) {
-  const normalized = hexColor.replace("#", "");
-  const red = parseInt(normalized.slice(0, 2), 16);
-  const green = parseInt(normalized.slice(2, 4), 16);
-  const blue = parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
-  return luminance > 0.7 ? "#1f2a24" : "#ffffff";
-}
-
-function buildTaggedEditorBackground(text: string, tags: SongTagPresetRecord[]) {
-  const tagColorByToken = new Map(tags.map((tag) => [tag.token.toLowerCase(), tag.color]));
-  const lineHeight = 24;
-  const paddingTop = 12;
-  const segments: string[] = [];
-  let cursor = 0;
-  let currentColor = "transparent";
-
-  text.split("\n").forEach((line, index) => {
-    const match = /^\[([^\]]+)\]\s*$/.exec(line.trim());
-    if (match) {
-      const tag = match[1].trim();
-      currentColor = tagColorByToken.get(tag.toLowerCase()) ?? NEUTRAL_TAG_COLOR;
-    }
-
-    if (currentColor !== "transparent") {
-      const top = paddingTop + index * lineHeight;
-      const bottom = top + lineHeight;
-      if (cursor < top) {
-        segments.push(`transparent ${cursor}px ${top}px`);
-      }
-      segments.push(`${currentColor} ${top}px ${bottom}px`);
-      cursor = bottom;
-    }
-  });
-
-  return segments.length ? `linear-gradient(to bottom, ${segments.join(", ")}, transparent)` : undefined;
-}
 
 type TaggedDraftSection = {
   tag: string | null;
@@ -211,31 +177,27 @@ const JOB_DESCRIPTIONS: Record<JobType, string> = {
 
 const MODULE_CONTENT: Record<
   WorkspaceModule,
-  { eyebrow: string; title: string; description: string }
+  { title: string; description: string }
 > = {
   services: {
-    eyebrow: "Service Builder",
-    title: "Worship Service Flow",
+    title: "Service Flow Hub",
     description:
-      "Build the service flow in the exact worship order, keep participants and songs attached to their proper blocks, and prepare outputs for the tech team.",
+      "Build the run of service in the exact worship order, keep participants and songs attached to their proper blocks, and prepare production handoffs.",
   },
   songs: {
-    eyebrow: "Songs",
-    title: "Song Lyrics Extractor",
+    title: "Worship Song Formatter",
     description:
-      "Securely extract lyrics and chord-sheet text from one temporary file or pasted text with zero persistence.",
+      "Start from uploaded lyrics or pasted text, review extraction, then finish the document in the interactive editor.",
   },
   assets: {
-    eyebrow: "Assets",
-    title: "Service Files",
+    title: "Production Media Tools",
     description:
-      "Attach and review persistent service assets such as PDFs, screenshots, media files, and supporting documents.",
+      "Attach and review service media, screenshots, PDFs, and supporting production documents.",
   },
   automation: {
-    eyebrow: "Automation",
-    title: "Automation Modules",
+    title: "Live Captions & Outputs",
     description:
-      "Run export workflows and review safe automation job history without embedding the extractor workflow here.",
+      "Queue caption, translation, and export jobs while keeping generated outputs as service records.",
   },
 };
 
@@ -266,13 +228,86 @@ function getExtractorSummary(outputJson: unknown) {
   }
 
   const sectionText =
-    typeof record.sectionCount === "number" ? ` · ${record.sectionCount} sections` : "";
+    typeof record.sectionCount === "number" ? ` - ${record.sectionCount} sections` : "";
   return `${record.extractedLineCount} extracted lines${sectionText}`;
+}
+
+function getExtractorParser(outputJson: unknown) {
+  if (!outputJson || typeof outputJson !== "object") {
+    return null;
+  }
+
+  const parser = (outputJson as Partial<LyricsExtractorSafeOutput>).parser;
+  return parser ? parser.toUpperCase() : null;
+}
+
+function getExtractorSource(inputJson: unknown) {
+  if (!inputJson || typeof inputJson !== "object") {
+    return "Formatter";
+  }
+
+  const sourceMode = (inputJson as { sourceMode?: unknown }).sourceMode;
+  return sourceMode === "paste" ? "Pasted lyrics" : sourceMode === "upload" ? "Uploaded file" : "Formatter";
+}
+
+function getFileNameWithoutExtension(fileName: string) {
+  return fileName.replace(/\.[^/.]+$/, "").trim();
+}
+
+function formatRecentConversionTime(value: string, now: number) {
+  const createdAt = new Date(value).getTime();
+  if (!Number.isFinite(createdAt)) {
+    return "Recently";
+  }
+
+  const minutesAgo = Math.max(0, Math.floor((now - createdAt) / 60000));
+  if (minutesAgo < 1) {
+    return "Just now";
+  }
+  if (minutesAgo < 60) {
+    return `${minutesAgo}m ago`;
+  }
+
+  return `${Math.floor(minutesAgo / 60)}h ago`;
+}
+
+function formatSavedStatus(savedAt: number | null, now: number) {
+  if (!savedAt) {
+    return "Not saved";
+  }
+
+  const minutesAgo = Math.max(0, Math.floor((now - savedAt) / 60000));
+  if (minutesAgo < 1) {
+    return "Saved just now";
+  }
+  if (minutesAgo === 1) {
+    return "Saved 1m ago";
+  }
+
+  return `Saved ${minutesAgo}m ago`;
+}
+
+function replaceDraftParticipant(
+  draft: AnalyzedServiceDraft,
+  index: number,
+  participant: AnalyzedServiceParticipant
+) {
+  return {
+    ...draft,
+    participants: draft.participants.map((item, itemIndex) => (itemIndex === index ? participant : item)),
+  };
+}
+
+function replaceDraftDetail(draft: AnalyzedServiceDraft, index: number, detail: AnalyzedServiceDetail) {
+  return {
+    ...draft,
+    details: draft.details.map((item, itemIndex) => (itemIndex === index ? detail : item)),
+  };
 }
 
 function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upload") {
   const segment = pathname.split("/").filter(Boolean).at(-1);
-  if (segment === "upload" || segment === "extraction" || segment === "format") {
+  if (segment === "library" || segment === "upload" || segment === "extraction" || segment === "format") {
     return segment;
   }
 
@@ -290,22 +325,35 @@ export default function ServiceBuilderClient({
   const pathname = usePathname();
   const router = useRouter();
   const activeSongStep = songStep ?? getSongWorkflowStep(pathname);
+  const { dismissToast, showToast, toasts } = usePAPToasts();
+  const [activeServiceStep, setActiveServiceStep] = useState<ServiceWorkflowStep>("setup");
+  const [activeServiceBlockType, setActiveServiceBlockType] = useState<BlockType>(STRICT_BLOCK_ORDER[0]);
+  const [recentConversionNow] = useState(() => Date.now());
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [newServiceModalOpen, setNewServiceModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [serviceAnalysisText, setServiceAnalysisText] = useState("");
+  const [serviceAnalysisDraft, setServiceAnalysisDraft] = useState<AnalyzedServiceDraft | null>(null);
   const [extractorSourceMode, setExtractorSourceMode] = useState<"upload" | "paste">("upload");
   const [extractorStatus, setExtractorStatus] = useState<string | null>(null);
+  const [extractorSelectedFile, setExtractorSelectedFile] = useState<File | null>(null);
   const [extractorFileLabel, setExtractorFileLabel] = useState<string | null>(null);
   const [extractorSongTitle, setExtractorSongTitle] = useState("");
   const [extractorPastedText, setExtractorPastedText] = useState("");
   const [extractorAiRetry, setExtractorAiRetry] = useState<LyricsExtractorAiRetryDescriptor | null>(null);
+  const [directAiReformatUsed, setDirectAiReformatUsed] = useState(false);
   const [extractorDraftText, setExtractorDraftText] = useState("");
-  const [extractorDraftMeta, setExtractorDraftMeta] = useState<LyricsExtractorSafeOutput | null>(null);
-  const [tagSettingsOpen, setTagSettingsOpen] = useState(false);
+  const [extractorUndoStack, setExtractorUndoStack] = useState<string[]>([]);
+  const [extractorRedoStack, setExtractorRedoStack] = useState<string[]>([]);
+  const [extractorLastSavedAt, setExtractorLastSavedAt] = useState<number | null>(null);
+  const [editorClock, setEditorClock] = useState(() => Date.now());
+  const [draggedEditorSectionIndex, setDraggedEditorSectionIndex] = useState<number | null>(null);
   const [sectionFormatTag, setSectionFormatTag] = useState("Verse");
   const [sectionLineGroupSize, setSectionLineGroupSize] = useState<2 | 3>(2);
-  const [newTagLabel, setNewTagLabel] = useState("");
-  const [newTagColor, setNewTagColor] = useState(PASTEL_TAG_COLORS[0]);
+  const [editorControlsWidth, setEditorControlsWidth] = useState(360);
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
+  const editorScrollRef = useRef<HTMLDivElement | null>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -317,8 +365,63 @@ export default function ServiceBuilderClient({
     queryFn: () => apiFetch<SongTagPresetRecord[]>("/api/song-tags"),
   });
 
+  const songsQuery = useQuery({
+    queryKey: ["songs"],
+    queryFn: () => apiFetch<SongRecord[]>("/api/songs"),
+  });
+
   const services = servicesQuery.data ?? [];
   const songTags = songTagsQuery.data ?? [];
+  const songs = songsQuery.data ?? [];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setEditorClock(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const commitExtractorDraftText = (nextText: string) => {
+    setExtractorDraftText((currentText) => {
+      if (currentText === nextText) {
+        return currentText;
+      }
+
+      setExtractorUndoStack((currentStack) => [...currentStack.slice(-49), currentText]);
+      setExtractorRedoStack([]);
+      setExtractorLastSavedAt(Date.now());
+      setEditorClock(Date.now());
+      return nextText;
+    });
+  };
+
+  const undoExtractorDraft = () => {
+    setExtractorUndoStack((currentStack) => {
+      const previousText = currentStack.at(-1);
+      if (previousText === undefined) {
+        return currentStack;
+      }
+
+      setExtractorRedoStack((currentRedoStack) => [...currentRedoStack, extractorDraftText]);
+      setExtractorDraftText(previousText);
+      setExtractorLastSavedAt(Date.now());
+      setEditorClock(Date.now());
+      return currentStack.slice(0, -1);
+    });
+  };
+
+  const redoExtractorDraft = () => {
+    setExtractorRedoStack((currentStack) => {
+      const nextText = currentStack.at(-1);
+      if (nextText === undefined) {
+        return currentStack;
+      }
+
+      setExtractorUndoStack((currentUndoStack) => [...currentUndoStack, extractorDraftText]);
+      setExtractorDraftText(nextText);
+      setExtractorLastSavedAt(Date.now());
+      setEditorClock(Date.now());
+      return currentStack.slice(0, -1);
+    });
+  };
 
   const createServiceForm = useForm<CreateServiceFormValues>({
     resolver: zodResolver(createServiceFormSchema),
@@ -326,6 +429,7 @@ export default function ServiceBuilderClient({
       serviceDate: new Date().toISOString().slice(0, 10),
       ministryName: "",
       theme: "",
+      serviceVariant: ServiceVariant.STANDARD,
     },
   });
 
@@ -343,10 +447,6 @@ export default function ServiceBuilderClient({
     await queryClient.invalidateQueries({ queryKey: ["services"] });
   };
 
-  const invalidateSongTags = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
-  };
-
   const createServiceMutation = useMutation({
     mutationFn: (payload: CreateServicePayload) =>
       apiFetch<ServiceRecord>("/api/services", {
@@ -360,10 +460,30 @@ export default function ServiceBuilderClient({
         serviceDate: new Date().toISOString().slice(0, 10),
         ministryName: "",
         theme: "",
+        serviceVariant: ServiceVariant.STANDARD,
       });
       setFeedback("Service created.");
+      setNewServiceModalOpen(false);
+      showToast("Service created.", "success");
     },
     onError: (error: Error) => setFeedback(error.message),
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: (serviceId: string) =>
+      apiFetch(`/api/services/${serviceId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: async (_result, serviceId) => {
+      await invalidateServices();
+      setSelectedServiceId((currentServiceId) => (currentServiceId === serviceId ? null : currentServiceId));
+      setFeedback("Service deleted.");
+      showToast("Service deleted.", "success");
+    },
+    onError: (error: Error) => {
+      setFeedback(error.message);
+      showToast(error.message);
+    },
   });
 
   const updateServiceMutation = useMutation({
@@ -445,6 +565,47 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => setFeedback(error.message),
   });
 
+  const quickAddServiceSongMutation = useMutation({
+    mutationFn: async ({
+      serviceId,
+      blockId,
+      payload,
+      pageRef,
+      order,
+    }: {
+      serviceId: string;
+      blockId: string;
+      payload: CreateSongPayload;
+      pageRef?: string | null;
+      order: number;
+    }) => {
+      const song = await apiFetch<{ id: string }>("/api/songs", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      return apiFetch(`/api/services/${serviceId}/songs`, {
+        method: "POST",
+        body: JSON.stringify({
+          songId: song.id,
+          blockId,
+          order,
+          songRole: SongRole.CUSTOM,
+          pageRef,
+        } satisfies CreateServiceSongPayload),
+      });
+    },
+    onSuccess: async () => {
+      await invalidateServices();
+      setFeedback("Song record added to the service block.");
+      showToast("Song added for record keeping.", "success");
+    },
+    onError: (error: Error) => {
+      setFeedback(error.message);
+      showToast(error.message);
+    },
+  });
+
   const upsertDetailMutation = useMutation({
     mutationFn: ({
       serviceId,
@@ -460,27 +621,6 @@ export default function ServiceBuilderClient({
     onSuccess: async () => {
       await invalidateServices();
       setFeedback("Detail saved.");
-    },
-    onError: (error: Error) => setFeedback(error.message),
-  });
-
-  const uploadAssetMutation = useMutation({
-    mutationFn: ({
-      serviceId,
-      formData,
-      jsonPayload,
-    }: {
-      serviceId: string;
-      formData?: FormData;
-      jsonPayload?: CreateAssetMetadataPayload;
-    }) =>
-      apiFetch(`/api/services/${serviceId}/assets`, {
-        method: "POST",
-        body: formData ?? JSON.stringify(jsonPayload),
-      }),
-    onSuccess: async () => {
-      await invalidateServices();
-      setFeedback("Asset stored.");
     },
     onError: (error: Error) => setFeedback(error.message),
   });
@@ -507,51 +647,13 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => setFeedback(error.message),
   });
 
-  const createSongTagMutation = useMutation({
-    mutationFn: (payload: CreateSongTagPresetPayload) =>
-      apiFetch<SongTagPresetRecord>("/api/song-tags", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: async () => {
-      setNewTagLabel("");
-      await invalidateSongTags();
-      setFeedback("Song tag preset created.");
-    },
-    onError: (error: Error) => setFeedback(error.message),
-  });
-
-  const updateSongTagMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateSongTagPresetPayload }) =>
-      apiFetch<SongTagPresetRecord>(`/api/song-tags/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: async () => {
-      await invalidateSongTags();
-      setFeedback("Song tag preset updated.");
-    },
-    onError: (error: Error) => setFeedback(error.message),
-  });
-
-  const deleteSongTagMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/api/song-tags/${id}`, {
-        method: "DELETE",
-      }),
-    onSuccess: async () => {
-      await invalidateSongTags();
-      setFeedback("Song tag preset deleted.");
-    },
-    onError: (error: Error) => setFeedback(error.message),
-  });
-
   const applySongTagToDraft = (tag: SongTagPresetRecord) => {
     const editor = extractorEditorRef.current;
     const marker = `[${tag.token}]`;
 
     if (!editor) {
-      setExtractorDraftText((current) => `${current}${current.endsWith("\n") || !current ? "" : "\n"}${marker}\n`);
+      commitExtractorDraftText(`${extractorDraftText}${extractorDraftText.endsWith("\n") || !extractorDraftText ? "" : "\n"}${marker}\n`);
+      showToast(`${tag.label} tag inserted.`, "success");
       return;
     }
 
@@ -565,7 +667,8 @@ export default function ServiceBuilderClient({
     const nextText = `${before}${needsLeadingBreak ? "\n" : ""}${insertion}${after}`;
     const cursorPosition = before.length + (needsLeadingBreak ? 1 : 0) + insertion.length;
 
-    setExtractorDraftText(nextText);
+    commitExtractorDraftText(nextText);
+    showToast(`${tag.label} tag applied.`, "success");
     window.requestAnimationFrame(() => {
       editor.focus();
       editor.setSelectionRange(cursorPosition, cursorPosition);
@@ -574,7 +677,11 @@ export default function ServiceBuilderClient({
 
   const applyExtractorResult = (result: LyricsExtractorEditableResponse) => {
     setExtractorDraftText(result.text);
-    setExtractorDraftMeta(result.outputJson);
+    setExtractorUndoStack([]);
+    setExtractorRedoStack([]);
+    setExtractorLastSavedAt(Date.now());
+    setEditorClock(Date.now());
+    setDirectAiReformatUsed(false);
     setExtractorAiRetry(result.retry ?? null);
 
     if (result.retry) {
@@ -589,12 +696,17 @@ export default function ServiceBuilderClient({
     return result;
   };
 
-  const shouldAutoAdvanceToFormat = (result: LyricsExtractorEditableResponse) => {
-    return !result.retry && result.outputJson.warningCodes.length === 0;
-  };
-
   const uploadExtractorMutation = useMutation({
-    mutationFn: async ({ serviceId, file, songTitle }: { serviceId: string; file: File; songTitle?: string }) => {
+    mutationFn: async ({
+      serviceId,
+      file,
+      songTitle,
+    }: {
+      serviceId: string;
+      file: File;
+      songTitle?: string;
+      useAi?: boolean;
+    }) => {
       const extractingTimer = window.setTimeout(() => {
         setExtractorStatus("Extracting...");
       }, 500);
@@ -605,20 +717,30 @@ export default function ServiceBuilderClient({
         window.clearTimeout(extractingTimer);
       }
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, variables) => {
       await invalidateServices();
       setFeedback(
         result.retry
           ? "Lyrics extracted with warnings. Review the draft or use AI cleanup before generating DOCX."
           : "Lyrics extracted into the editor. Review your draft before generating DOCX."
       );
-      if (shouldAutoAdvanceToFormat(result)) {
-        router.push("/songs/format");
+      showToast(result.retry ? "Lyrics extracted with warnings." : "Lyrics extracted into the editor.", result.retry ? "info" : "success");
+      setExtractorSelectedFile(null);
+      setExtractorFileLabel(null);
+      if (variables.useAi && result.retry) {
+        setExtractorStatus("Running AI cleanup...");
+        aiExtractorRetryMutation.mutate({
+          serviceId: variables.serviceId,
+          retryToken: result.retry.retryToken,
+        });
+        return;
       }
+      router.push("/songs/format");
     },
     onError: (error: Error) => {
       setExtractorStatus("Extraction failed.");
       setFeedback(error.message);
+      showToast(error.message);
     },
   });
 
@@ -631,23 +753,32 @@ export default function ServiceBuilderClient({
       serviceId: string;
       pastedText: string;
       songTitle?: string;
+      useAi?: boolean;
     }) => {
       return applyExtractorResult(await runPasteLyricsExtractor({ serviceId, pastedText, songTitle }));
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, variables) => {
       await invalidateServices();
       setFeedback(
         result.retry
           ? "Pasted lyrics were normalized with warnings. Review the draft before generating DOCX."
           : "Pasted lyrics were normalized into the editor."
       );
-      if (shouldAutoAdvanceToFormat(result)) {
-        router.push("/songs/format");
+      showToast(result.retry ? "Pasted lyrics normalized with warnings." : "Pasted lyrics normalized.", result.retry ? "info" : "success");
+      if (variables.useAi && result.retry) {
+        setExtractorStatus("Running AI cleanup...");
+        aiExtractorRetryMutation.mutate({
+          serviceId: variables.serviceId,
+          retryToken: result.retry.retryToken,
+        });
+        return;
       }
+      router.push("/songs/format");
     },
     onError: (error: Error) => {
       setExtractorStatus("Extraction failed.");
       setFeedback(error.message);
+      showToast(error.message);
     },
   });
 
@@ -660,11 +791,33 @@ export default function ServiceBuilderClient({
       setExtractorStatus("AI-cleaned lyrics are ready for review.");
       await invalidateServices();
       setFeedback("AI cleanup completed for this one-time extraction. Review before generating DOCX.");
+      showToast("AI cleanup completed.", "success");
       router.push("/songs/format");
     },
     onError: (error: Error) => {
       setExtractorStatus(error.message);
       setFeedback(error.message);
+      showToast(error.message);
+    },
+  });
+
+  const aiLyricsReformatMutation = useMutation({
+    mutationFn: async ({ serviceId, text, songTitle }: { serviceId: string; text: string; songTitle?: string }) => {
+      return applyExtractorResult(await runAiLyricsReformat({ serviceId, text, songTitle }));
+    },
+    onSuccess: async () => {
+      setDirectAiReformatUsed(true);
+      setExtractorAiRetry(null);
+      setExtractorStatus("AI reformat applied.");
+      await invalidateServices();
+      setFeedback("AI reformat completed for this draft.");
+      showToast("AI reformat completed.", "success");
+      router.push("/songs/format");
+    },
+    onError: (error: Error) => {
+      setExtractorStatus(error.message);
+      setFeedback(error.message);
+      showToast(error.message);
     },
   });
 
@@ -677,10 +830,12 @@ export default function ServiceBuilderClient({
     onSuccess: (fileName) => {
       setExtractorStatus(`DOCX generated: ${fileName}`);
       setFeedback("Reviewed lyrics downloaded as DOCX. Edited lyrics were not stored.");
+      showToast(`${fileName} downloaded.`, "success");
     },
     onError: (error: Error) => {
       setExtractorStatus("DOCX generation failed.");
       setFeedback(error.message);
+      showToast(error.message);
     },
   });
 
@@ -691,6 +846,193 @@ export default function ServiceBuilderClient({
 
   const selectedService =
     services.find((service) => service.id === resolvedSelectedServiceId) ?? null;
+  const selectedServiceBlockOrder = selectedService ? getServiceBlockOrder(selectedService.serviceVariant) : STRICT_BLOCK_ORDER;
+  const effectiveActiveServiceBlockType = selectedServiceBlockOrder.includes(activeServiceBlockType)
+    ? activeServiceBlockType
+    : selectedServiceBlockOrder[0];
+  const activeServiceBlock = selectedService ? getBlockByType(selectedService, effectiveActiveServiceBlockType) : null;
+  const recentSongConversions = selectedService
+    ? selectedService.jobs.filter((job) => {
+        const createdAt = new Date(job.createdAt).getTime();
+        return job.jobType === JobType.TRANSPOSE && Number.isFinite(createdAt) && recentConversionNow - createdAt <= 24 * 60 * 60 * 1000;
+      })
+    : [];
+  const isFormatterProcessing =
+    uploadExtractorMutation.isPending || pasteExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
+  const editorSections = parseTaggedDraft(extractorDraftText);
+
+  const updateEditorSection = (sectionIndex: number, section: TaggedDraftSection) => {
+    const nextSections = editorSections.map((item, index) => (index === sectionIndex ? section : item));
+    commitExtractorDraftText(serializeTaggedDraft(nextSections));
+  };
+
+  const reorderEditorSection = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+      return;
+    }
+
+    const nextSections = [...editorSections];
+    const [movedSection] = nextSections.splice(fromIndex, 1);
+    if (!movedSection) {
+      return;
+    }
+
+    nextSections.splice(toIndex, 0, movedSection);
+    commitExtractorDraftText(serializeTaggedDraft(nextSections));
+    setDraggedEditorSectionIndex(null);
+    showToast("Section reordered.", "success");
+  };
+
+  const autoScrollEditorDuringDrag = (clientY: number) => {
+    const container = editorScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const edgeSize = 96;
+    const maxStep = 22;
+
+    if (clientY < rect.top + edgeSize) {
+      const intensity = (rect.top + edgeSize - clientY) / edgeSize;
+      container.scrollTop -= Math.ceil(maxStep * intensity);
+      return;
+    }
+
+    if (clientY > rect.bottom - edgeSize) {
+      const intensity = (clientY - (rect.bottom - edgeSize)) / edgeSize;
+      container.scrollTop += Math.ceil(maxStep * intensity);
+    }
+  };
+
+  const startEditorControlsResize = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = editorControlsWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const nextWidth = Math.min(520, Math.max(320, startWidth + moveEvent.clientX - startX));
+      setEditorControlsWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const processFormatterSource = (useAi: boolean) => {
+    if (isFormatterProcessing) {
+      return;
+    }
+
+    if (!selectedService) {
+      showToast("Select a service before processing lyrics.");
+      return;
+    }
+
+    setFeedback(null);
+    setExtractorAiRetry(null);
+
+    if (extractorSourceMode === "paste") {
+      const pastedText = extractorPastedText.trim();
+      if (!pastedText) {
+        setFeedback("Paste lyrics before processing.");
+        showToast("Paste lyrics before processing.");
+        return;
+      }
+
+      setExtractorDraftText("");
+      setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
+      showToast(useAi ? "Processing pasted lyrics with AI assist." : "Processing pasted lyrics locally.");
+      pasteExtractorMutation.mutate({
+        serviceId: selectedService.id,
+        pastedText,
+        songTitle: extractorSongTitle || undefined,
+        useAi,
+      });
+      return;
+    }
+
+    if (!extractorSelectedFile) {
+      setFeedback("Select a song file before processing.");
+      showToast("Select a song file before processing.");
+      return;
+    }
+
+    setExtractorDraftText("");
+    setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
+    showToast(useAi ? "Processing selected file with AI assist." : "Processing selected file locally.");
+    uploadExtractorMutation.mutate({
+      serviceId: selectedService.id,
+      file: extractorSelectedFile,
+      songTitle: extractorSongTitle || undefined,
+      useAi,
+    });
+  };
+
+  const applyServiceAnalysisDraft = async () => {
+    if (!selectedService || !serviceAnalysisDraft) {
+      showToast("Analyze text and select a service first.");
+      return;
+    }
+
+    setFeedback(null);
+
+    try {
+      await apiFetch<ServiceRecord>(`/api/services/${selectedService.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          serviceDate: serviceAnalysisDraft.serviceDate
+            ? new Date(serviceAnalysisDraft.serviceDate).toISOString()
+            : selectedService.serviceDate,
+          ministryName: serviceAnalysisDraft.ministryName || selectedService.ministryName,
+          theme: serviceAnalysisDraft.theme ?? selectedService.theme,
+          status: serviceAnalysisDraft.status,
+        } satisfies UpdateServicePayload),
+      });
+
+      for (const participant of serviceAnalysisDraft.participants) {
+        const block = getBlockByType(selectedService, participant.blockType);
+        if (!block) continue;
+
+        await apiFetch(`/api/services/${selectedService.id}/blocks/${block.id}/people`, {
+          method: "POST",
+          body: JSON.stringify({
+            personName: participant.personName,
+            personTitle: participant.personTitle || null,
+            order: participant.order,
+          } satisfies CreateParticipantPayload),
+        });
+      }
+
+      for (const detail of serviceAnalysisDraft.details) {
+        const block = getBlockByType(selectedService, detail.blockType);
+        if (!block) continue;
+
+        await apiFetch(`/api/services/${selectedService.id}/details`, {
+          method: "POST",
+          body: JSON.stringify({
+            key: detail.key,
+            value: detail.value,
+            blockId: block.id,
+          } satisfies UpsertServiceDetailPayload),
+        });
+      }
+
+      await invalidateServices();
+      setFeedback("Analysis applied to the selected service.");
+      showToast("Analysis applied to service.", "success");
+      setActiveServiceStep("review");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to apply analysis.";
+      setFeedback(message);
+      showToast(message);
+    }
+  };
 
   useEffect(() => {
     if (!selectedService) {
@@ -711,97 +1053,140 @@ export default function ServiceBuilderClient({
 
   return (
     <div className="min-h-full space-y-5">
-      {module === "songs" ? (
-        <section className="border-b border-black/10 pb-8">
-          <h1 className="font-serif text-4xl font-semibold tracking-[-0.04em] text-black md:text-5xl">
-            Song Formatter
-          </h1>
-          <p className="mt-2 text-lg text-black/60">
-            Upload a song file and get a clean FreeShow-ready lyrics file downloaded automatically.
-          </p>
+      {module === "songs" ? null : module === "services" ? (
+        <section className="production-panel-strong px-4 py-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="technical-label">SERVICE FLOW HUB</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[var(--color-brand-ink)]">
+                Service Flow Hub
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
+                Prepare the worship run, keep blocks in the approved order, and attach participants, songs, and details where they belong.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNewServiceModalOpen(true)}
+              className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]"
+            >
+              <Plus className="h-4 w-4" />
+              New service
+            </button>
+          </div>
         </section>
       ) : (
-        <section className="overflow-hidden rounded-xl bg-[var(--color-brand-navy)] text-white shadow-[rgba(15,15,15,0.20)_0px_24px_48px_-8px]">
-          <div className="relative p-6 lg:p-8">
-            <div className="absolute right-8 top-8 h-16 w-16 rounded-xl bg-[#f9e79f] opacity-90" />
-            <div className="absolute bottom-8 right-28 h-10 w-10 rounded-lg bg-[#ff64c8] opacity-80" />
-            <div className="absolute right-48 top-20 h-8 w-8 rounded-lg bg-[#2a9d99] opacity-80" />
-            <p className="relative z-10 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-              {moduleCopy.eyebrow}
-            </p>
-            <h1 className="relative z-10 mt-3 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] md:text-5xl">
+        <section className="production-panel-strong px-4 py-4">
+          <div>
+            <p className="technical-label">{module === "assets" ? "PRODUCTION MEDIA TOOLS" : "LIVE CAPTIONS & OUTPUTS"}</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[var(--color-brand-ink)]">
               {moduleCopy.title}
             </h1>
-            <p className="relative z-10 mt-4 max-w-2xl text-base leading-7 text-white/75">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
               {moduleCopy.description}
             </p>
           </div>
         </section>
       )}
 
-      <div className={showServiceSidebar ? "flex min-h-full gap-4" : "block"}>
+      <div className={showServiceSidebar ? "flex min-h-full flex-col items-stretch gap-5 lg:flex-row lg:items-start" : "block"}>
         {showServiceSidebar ? (
-          <aside className="flex w-full max-w-xs flex-col rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5">
-            <div className="mb-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-brand-olive)]">
-                Service Index
-              </p>
-              <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.02em]">Worship services</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                Select or create the worship service you are preparing.
-              </p>
+          <aside className="production-panel flex w-full flex-col overflow-hidden lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[320px]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-brand-border)] px-4 py-3">
+              <div>
+                <p className="technical-label">SERVICE INDEX</p>
+                <h2 className="mt-1 text-sm font-semibold text-[var(--color-brand-ink)]">Worship services</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => void invalidateServices()}
+                className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
+                aria-label="Refresh services"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </button>
             </div>
 
-        <section className="flex-1 overflow-hidden">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
-              Services
-            </h2>
-            <button
-              type="button"
-              onClick={() => void invalidateServices()}
-              className="rounded-lg border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-brand-accent)]"
-            >
-              <RefreshCcw className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 divide-y divide-[var(--color-brand-border)] overflow-y-auto">
             {services.map((service) => (
-              <button
+              <div
                 key={service.id}
-                type="button"
-                onClick={() => {
-                  setSelectedServiceId(service.id);
-                  setExtractorStatus(null);
-                  setExtractorFileLabel(null);
-                  setExtractorAiRetry(null);
-                }}
-                className={`w-full rounded-xl border px-4 py-4 text-left transition ${
+                className={`w-full px-4 py-3 text-left transition ${
                   selectedService?.id === service.id
-                    ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-panel-alt)]"
-                    : "border-[var(--color-brand-border)] bg-white/70 hover:border-[var(--color-brand-accent)]"
+                    ? "production-stripe bg-[var(--color-brand-panel-strong)] pl-5"
+                    : "bg-[var(--color-brand-panel)] hover:bg-[var(--color-brand-panel-alt)]"
                 }`}
               >
-                <p className="font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
-                  {formatServiceDate(service.serviceDate)}
-                </p>
-                <p className="mt-2 text-base font-semibold">{service.ministryName}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                  {service.theme || "No theme yet"}
-                </p>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedServiceId(service.id);
+                    setExtractorStatus(null);
+                    setExtractorFileLabel(null);
+                    setExtractorAiRetry(null);
+                  }}
+                  className="block w-full text-left"
+                >
+                  <p className="technical-label">
+                    {formatServiceDate(service.serviceDate)}
+                  </p>
+                  <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
+                    <span className="status-pip status-pip-ready" />
+                    {service.ministryName}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    {service.theme || "No theme yet"}
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteServiceMutation.isPending}
+                  onClick={() => {
+                    const confirmed = window.confirm(`Delete ${service.ministryName} on ${formatServiceDate(service.serviceDate)}?`);
+                    if (!confirmed) return;
+                    showToast("Deleting service.");
+                    deleteServiceMutation.mutate(service.id);
+                  }}
+                  className="pressable mt-3 inline-flex items-center gap-2 rounded-md border border-[var(--color-danger)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-danger)] disabled:opacity-60"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
             ))}
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4 text-[var(--color-brand-accent)]" />
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
-              New Service
-            </h2>
-          </div>
+        <div className="shrink-0 border-t border-[var(--color-brand-border)] p-4">
+          <button
+            type="button"
+            onClick={() => setNewServiceModalOpen(true)}
+            className="pressable flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]"
+          >
+            <Plus className="h-4 w-4" />
+            New Service
+          </button>
+        </div>
+      </aside>
+        ) : null}
+
+      {newServiceModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-brand-ink)]/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Create worship service</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewServiceModalOpen(false)}
+                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-2 text-[var(--color-text-secondary)]"
+                aria-label="Close new service modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           <form
             className="space-y-3"
             onSubmit={createServiceForm.handleSubmit((values) => {
@@ -811,6 +1196,7 @@ export default function ServiceBuilderClient({
                 ministryName: values.ministryName,
                 theme: values.theme || null,
                 status: ServiceStatus.DRAFT,
+                serviceVariant: values.serviceVariant,
               });
             })}
           >
@@ -818,7 +1204,7 @@ export default function ServiceBuilderClient({
               Service date
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
+                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
                 {...createServiceForm.register("serviceDate")}
               />
             </label>
@@ -827,7 +1213,7 @@ export default function ServiceBuilderClient({
               <input
                 type="text"
                 placeholder="Ladies Ministry"
-                className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
+                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
                 {...createServiceForm.register("ministryName")}
               />
             </label>
@@ -836,14 +1222,24 @@ export default function ServiceBuilderClient({
               <input
                 type="text"
                 placeholder="Optional theme"
-                className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
+                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
                 {...createServiceForm.register("theme")}
               />
+            </label>
+            <label className="block text-sm text-[var(--color-text-secondary)]">
+              Template
+              <select
+                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                {...createServiceForm.register("serviceVariant")}
+              >
+                <option value={ServiceVariant.STANDARD}>Standard Worship Service</option>
+                <option value={ServiceVariant.EXTENDED}>Extended Worship Service</option>
+              </select>
             </label>
             <button
               type="submit"
               disabled={createServiceMutation.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
+              className="pressable flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
               {createServiceMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -853,15 +1249,15 @@ export default function ServiceBuilderClient({
               Create service
             </button>
           </form>
-        </section>
-      </aside>
-        ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {module === "services" ? (
         <main className="flex min-w-0 flex-1 flex-col gap-4">
-          <section className="rounded-[28px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-[0_24px_80px_rgba(61,49,31,0.08)]">
+          <section className="production-panel overflow-hidden">
             {feedback ? (
-              <div className="mb-4 rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                 {feedback}
               </div>
             ) : null}
@@ -872,93 +1268,321 @@ export default function ServiceBuilderClient({
               </div>
             ) : selectedService ? (
               <>
-                <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-[var(--color-brand-border)] pb-6">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--color-brand-border)] px-5 py-4">
                   <div>
-                    <p className="font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.24em] text-[var(--color-brand-olive)]">
-                      Service Builder
-                    </p>
-                    <h2 className="mt-2 text-3xl font-semibold">
+                    <p className="technical-label">SELECTED SERVICE</p>
+                    <h2 className="mt-2 text-xl font-semibold">
                       {formatServiceDate(selectedService.serviceDate)} - {selectedService.ministryName}
                     </h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                      Build the service flow in the exact worship order, keep participants and songs attached to their proper blocks, and prepare outputs for the tech team.
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
+                      {selectedService.theme || "No theme yet"}
                     </p>
                   </div>
-                  <div className="rounded-full border border-[var(--color-brand-border)] bg-white px-4 py-2 font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
-                    {selectedService.status}
+                  <div className="inline-flex items-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-2 font-[var(--font-plex-mono)] text-xs text-[var(--color-text-secondary)]">
+                    <span className="status-pip status-pip-ready" />
+                    {selectedService.status} / {selectedService.serviceVariant === ServiceVariant.EXTENDED ? "EXTENDED" : "STANDARD"}
                   </div>
                 </div>
 
-                <form
-                  className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4"
-                  onSubmit={serviceHeaderForm.handleSubmit((values) => {
-                    setFeedback(null);
-                    updateServiceMutation.mutate({
-                      id: selectedService.id,
-                      payload: {
-                        serviceDate: new Date(values.serviceDate).toISOString(),
-                        ministryName: values.ministryName,
-                        theme: values.theme || null,
-                        status: values.status,
-                      },
-                    });
+                <div className="grid border-b border-[var(--color-brand-border)] md:grid-cols-3">
+                  {SERVICE_WORKFLOW_STEPS.map((step) => {
+                    const active = activeServiceStep === step.id;
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveServiceStep(step.id);
+                          showToast(`${step.label} step opened.`);
+                        }}
+                        className={`pressable border-b-2 border-r border-[var(--color-brand-border)] p-4 text-left last:border-r-0 ${
+                          active
+                            ? "border-b-[var(--color-brand-accent)] bg-[var(--color-brand-panel-strong)] text-[var(--color-brand-ink)]"
+                            : "bg-[var(--color-brand-panel)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)]"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold">{step.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+                          {step.description}
+                        </p>
+                      </button>
+                    );
                   })}
-                >
-                  <label className="text-sm text-[var(--color-text-secondary)]">
-                    Date
-                    <input
-                      type="date"
-                      className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
-                      {...serviceHeaderForm.register("serviceDate")}
-                    />
-                  </label>
-                  <label className="text-sm text-[var(--color-text-secondary)]">
-                    Ministry
-                    <input
-                      type="text"
-                      className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
-                      {...serviceHeaderForm.register("ministryName")}
-                    />
-                  </label>
-                  <label className="text-sm text-[var(--color-text-secondary)]">
-                    Theme
-                    <input
-                      type="text"
-                      className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
-                      {...serviceHeaderForm.register("theme")}
-                    />
-                  </label>
-                  <label className="text-sm text-[var(--color-text-secondary)]">
-                    Status
-                    <select
-                      className="mt-1 w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2"
-                      {...serviceHeaderForm.register("status")}
-                    >
-                      {Object.values(ServiceStatus).map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="md:col-span-2 xl:col-span-4">
-                    <button
-                      type="submit"
-                      disabled={updateServiceMutation.isPending}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
-                    >
-                      {updateServiceMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      Save service header
-                    </button>
-                  </div>
-                </form>
+                </div>
 
+                {activeServiceStep === "setup" ? (
+                  <section className="space-y-5 p-5">
+                    <form
+                      className="grid gap-4 border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4 md:grid-cols-2"
+                      onSubmit={serviceHeaderForm.handleSubmit((values) => {
+                        setFeedback(null);
+                        showToast("Saving service info.");
+                        updateServiceMutation.mutate({
+                          id: selectedService.id,
+                          payload: {
+                            serviceDate: new Date(values.serviceDate).toISOString(),
+                            ministryName: values.ministryName,
+                            theme: values.theme || null,
+                            status: values.status,
+                          },
+                        });
+                      })}
+                    >
+                      <div className="md:col-span-2">
+                        <h3 className="text-base font-semibold">Header and status</h3>
+                      </div>
+                      <label className="text-sm text-[var(--color-text-secondary)]">
+                        Date
+                        <input
+                          type="date"
+                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                          {...serviceHeaderForm.register("serviceDate")}
+                        />
+                      </label>
+                      <label className="text-sm text-[var(--color-text-secondary)]">
+                        Ministry
+                        <input
+                          type="text"
+                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                          {...serviceHeaderForm.register("ministryName")}
+                        />
+                      </label>
+                      <label className="text-sm text-[var(--color-text-secondary)]">
+                        Theme
+                        <input
+                          type="text"
+                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                          {...serviceHeaderForm.register("theme")}
+                        />
+                      </label>
+                      <label className="text-sm text-[var(--color-text-secondary)]">
+                        Status
+                        <select
+                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                          {...serviceHeaderForm.register("status")}
+                        >
+                          {Object.values(ServiceStatus).map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="md:col-span-2">
+                        <button
+                          type="submit"
+                          disabled={updateServiceMutation.isPending}
+                          className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {updateServiceMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4" />
+                          )}
+                          Save service header
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold">Import WS participants and details</h3>
+                      <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+                        Paste the service prep text. The analyzer creates a review draft and does not save until you apply it.
+                      </p>
+                    </div>
+                    <textarea
+                      value={serviceAnalysisText}
+                      onChange={(event) => setServiceAnalysisText(event.target.value)}
+                      rows={12}
+                      placeholder="Paste WS PARTICIPANTS text here..."
+                      className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-4 py-3 font-mono text-sm leading-6 outline-none focus:border-[var(--color-brand-accent)]"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const draft = analyzeServiceText(serviceAnalysisText);
+                          setServiceAnalysisDraft(draft);
+                          if (draft.serviceDate || draft.ministryName) {
+                            serviceHeaderForm.reset({
+                              serviceDate: draft.serviceDate ?? toDateInputValue(selectedService.serviceDate),
+                              ministryName: draft.ministryName ?? selectedService.ministryName,
+                              theme: draft.theme ?? selectedService.theme ?? "",
+                              status: draft.status,
+                            });
+                          }
+                          showToast("Text analyzed. Review before applying.", "success");
+                        }}
+                        className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-2.5 text-sm font-semibold text-white"
+                      >
+                        <WandSparkles className="h-4 w-4" />
+                        Analyze text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void applyServiceAnalysisDraft()}
+                        disabled={!serviceAnalysisDraft}
+                        className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        <Save className="h-4 w-4" />
+                        Apply analysis
+                      </button>
+                    </div>
+
+                    {serviceAnalysisDraft ? (
+                      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                          <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                            Service info
+                          </h4>
+                          <input
+                            type="date"
+                            value={serviceAnalysisDraft.serviceDate ?? ""}
+                            onChange={(event) =>
+                              setServiceAnalysisDraft({ ...serviceAnalysisDraft, serviceDate: event.target.value })
+                            }
+                            className="mt-3 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                          />
+                          <input
+                            value={serviceAnalysisDraft.ministryName ?? ""}
+                            onChange={(event) =>
+                              setServiceAnalysisDraft({ ...serviceAnalysisDraft, ministryName: event.target.value })
+                            }
+                            className="mt-3 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                          <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                            Participants
+                          </h4>
+                          <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto">
+                            {serviceAnalysisDraft.participants.map((participant, index) => (
+                              <div key={`${participant.blockType}-${index}`} className="rounded-md bg-[var(--color-brand-panel-alt)] p-3">
+                                <p className="text-xs font-semibold text-[var(--color-brand-olive)]">{BLOCK_LABELS[participant.blockType]}</p>
+                                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                  <input
+                                    value={participant.personTitle ?? ""}
+                                    onChange={(event) =>
+                                      setServiceAnalysisDraft(
+                                        replaceDraftParticipant(serviceAnalysisDraft, index, {
+                                          ...participant,
+                                          personTitle: event.target.value || null,
+                                        })
+                                      )
+                                    }
+                                    className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                  />
+                                  <input
+                                    value={participant.personName}
+                                    onChange={(event) =>
+                                      setServiceAnalysisDraft(
+                                        replaceDraftParticipant(serviceAnalysisDraft, index, {
+                                          ...participant,
+                                          personName: event.target.value,
+                                        })
+                                      )
+                                    }
+                                    className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                          <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                            Details and warnings
+                          </h4>
+                          <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto">
+                            {serviceAnalysisDraft.details.map((detail, index) => (
+                              <div key={`${detail.blockType}-${index}`} className="rounded-md bg-[var(--color-brand-panel-alt)] p-3">
+                                <p className="text-xs font-semibold text-[var(--color-brand-olive)]">{BLOCK_LABELS[detail.blockType]}</p>
+                                <input
+                                  value={detail.key}
+                                  onChange={(event) =>
+                                    setServiceAnalysisDraft(
+                                      replaceDraftDetail(serviceAnalysisDraft, index, {
+                                        ...detail,
+                                        key: event.target.value,
+                                      })
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                />
+                                <textarea
+                                  value={detail.value}
+                                  onChange={(event) =>
+                                    setServiceAnalysisDraft(
+                                      replaceDraftDetail(serviceAnalysisDraft, index, {
+                                        ...detail,
+                                        value: event.target.value,
+                                      })
+                                    )
+                                  }
+                                  rows={2}
+                                  className="mt-2 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                />
+                              </div>
+                            ))}
+                            {serviceAnalysisDraft.warnings.map((warning) => (
+                              <p key={warning} className="rounded-lg bg-[var(--color-card-yellow)] p-3 text-xs text-[var(--color-text-secondary)]">
+                                {warning}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
+                {activeServiceStep === "flow" || activeServiceStep === "review" ? (
                 <div className="space-y-4">
-                  {STRICT_BLOCK_ORDER.map((blockType) => {
+                  {activeServiceStep === "flow" ? (
+                    <div className="animate-fade-in border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                        <div>
+                          <h3 className="text-lg font-semibold">Choose a Service Block</h3>
+                        </div>
+                        <span className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 font-[var(--font-plex-mono)] text-xs text-[var(--color-text-secondary)]">
+                          {activeServiceBlock ? `Block ${activeServiceBlock.order + 1}` : "Select block"}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                        {selectedServiceBlockOrder.map((blockType) => {
+                          const block = getBlockByType(selectedService, blockType);
+                          const active = effectiveActiveServiceBlockType === blockType;
+                          return (
+                            <button
+                              key={blockType}
+                              type="button"
+                              onClick={() => {
+                                setActiveServiceBlockType(blockType);
+                                showToast(`${BLOCK_LABELS[blockType]} opened.`);
+                              }}
+                              className={`pressable rounded-lg border px-3 py-3 text-left transition ${
+                                active
+                                  ? "border-[var(--color-brand-ink)] bg-[var(--color-brand-ink)] text-white"
+                                  : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] hover:border-[var(--color-brand-accent)]"
+                              }`}
+                            >
+                              <span className="block font-[var(--font-plex-mono)] text-[11px] opacity-75">
+                                Block {(block?.order ?? selectedServiceBlockOrder.indexOf(blockType)) + 1}
+                              </span>
+                              <span className="mt-1 block text-sm font-semibold">{BLOCK_LABELS[blockType]}</span>
+                              <span className="mt-2 block text-xs opacity-75">
+                                {block ? `${block.people.length} people / ${block.songs.length} songs / ${block.details.length} details` : "No data yet"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(activeServiceStep === "flow" ? [effectiveActiveServiceBlockType] : selectedServiceBlockOrder).map((blockType) => {
                     const block = getBlockByType(selectedService, blockType);
                     if (!block) {
                       return null;
@@ -967,32 +1591,33 @@ export default function ServiceBuilderClient({
                     return (
                       <section
                         key={block.id}
-                        className="animate-fade-in rounded-[24px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-5"
+                        className="animate-fade-in border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-5"
                       >
                         <div className="mb-4 flex items-center justify-between gap-4">
                           <div>
-                            <p className="font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.22em] text-[var(--color-brand-olive)]">
+                            <p className="font-[var(--font-plex-mono)] text-xs text-[var(--color-text-muted)]">
                               Block {block.order + 1}
                             </p>
-                            <h3 className="mt-2 text-xl font-semibold">
+                            <h3 className="mt-1 text-xl font-semibold">
                               {BLOCK_LABELS[block.blockType]}
                             </h3>
                           </div>
-                          <div className="rounded-full border border-[var(--color-brand-border)] bg-white px-3 py-2 font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
-                            {block.people.length} people · {block.songs.length} songs · {block.details.length} details
+                          <div className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 font-[var(--font-plex-mono)] text-xs text-[var(--color-text-secondary)]">
+                            {block.people.length} people - {block.songs.length} songs - {block.details.length} details
                           </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-3">
-                          <div className="rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
-                            <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
+                        <div className={`grid gap-4 ${activeServiceStep === "review" ? "xl:grid-cols-1" : "xl:grid-cols-3"}`}>
+                          {activeServiceStep === "flow" ? (
+                          <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                            <h4 className="mb-3 text-sm font-semibold text-[var(--color-brand-ink)]">
                               Participants
                             </h4>
                             <div className="space-y-3">
                               {block.people.map((person) => (
                                 <form
                                   key={person.id}
-                                  className="space-y-2 rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
+                                  className="space-y-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
                                   onSubmit={(event) => {
                                     event.preventDefault();
                                     const formData = new FormData(event.currentTarget);
@@ -1011,24 +1636,17 @@ export default function ServiceBuilderClient({
                                   <input
                                     name="personName"
                                     defaultValue={person.personName}
-                                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                   />
-                                  <div className="grid gap-2 md:grid-cols-[1fr_96px]">
-                                    <input
-                                      name="personTitle"
-                                      defaultValue={person.personTitle ?? ""}
-                                      placeholder="Role or title"
-                                      className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                                    />
-                                    <input
-                                      name="order"
-                                      type="number"
-                                      defaultValue={person.order}
-                                      className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                                    />
-                                  </div>
+                                  <input type="hidden" name="order" value={person.order} />
+                                  <input
+                                    name="personTitle"
+                                    defaultValue={person.personTitle ?? ""}
+                                    placeholder="Role or title"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                  />
                                   <div className="flex gap-2">
-                                    <button type="submit" className="rounded-xl bg-[var(--color-brand-accent)] px-3 py-2 text-sm font-semibold text-white">
+                                    <button type="submit" className="rounded-md bg-[var(--color-brand-ink)] px-3 py-2 text-sm font-semibold text-white">
                                       Save
                                     </button>
                                     <button
@@ -1040,7 +1658,7 @@ export default function ServiceBuilderClient({
                                           personId: person.id,
                                         })
                                       }
-                                      className="rounded-xl border border-[var(--color-brand-border)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"
+                                      className="rounded-md border border-[var(--color-brand-border)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"
                                     >
                                       Remove
                                     </button>
@@ -1049,7 +1667,7 @@ export default function ServiceBuilderClient({
                               ))}
 
                               <form
-                                className="space-y-2 rounded-2xl border border-dashed border-[var(--color-brand-border)] p-3"
+                                className="space-y-2 rounded-lg border border-dashed border-[var(--color-brand-border)] p-3"
                                 onSubmit={(event) => {
                                   event.preventDefault();
                                   const formData = new FormData(event.currentTarget);
@@ -1068,30 +1686,25 @@ export default function ServiceBuilderClient({
                                 <input
                                   name="personName"
                                   placeholder="Add participant"
-                                  className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                 />
-                                <div className="grid gap-2 md:grid-cols-[1fr_96px]">
-                                  <input
-                                    name="personTitle"
-                                    placeholder="Role or title"
-                                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                                  />
-                                  <input
-                                    name="order"
-                                    type="number"
-                                    defaultValue={block.people.length}
-                                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                                  />
-                                </div>
-                                <button type="submit" className="rounded-xl border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-accent)]">
+                                <input type="hidden" name="order" value={block.people.length} />
+                                <input
+                                  name="personTitle"
+                                  placeholder="Role or title"
+                                  className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                />
+                                <button type="submit" className="rounded-md border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
                                   Add participant
                                 </button>
                               </form>
                             </div>
                           </div>
+                          ) : null}
 
-                          <div className="rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
-                            <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
+                          {activeServiceStep === "flow" ? (
+                          <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                            <h4 className="mb-3 text-sm font-semibold text-[var(--color-brand-ink)]">
                               Songs
                             </h4>
                             {block.songs.length === 0 ? (
@@ -1101,14 +1714,14 @@ export default function ServiceBuilderClient({
                                 {block.songs.map((serviceSong) => (
                                   <div
                                     key={serviceSong.id}
-                                    className="rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
+                                    className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
                                         <p className="font-semibold">{serviceSong.song.title}</p>
                                         <p className="text-sm text-[var(--color-text-secondary)]">
-                                          {serviceSong.song.author || "Unknown author"} · {serviceSong.songRole}
-                                          {serviceSong.pageRef ? ` · ${serviceSong.pageRef}` : ""}
+                                          {serviceSong.song.author || "Unknown author"} - {serviceSong.songRole}
+                                          {serviceSong.pageRef ? ` - ${serviceSong.pageRef}` : ""}
                                         </p>
                                       </div>
                                       <button
@@ -1119,7 +1732,7 @@ export default function ServiceBuilderClient({
                                             serviceSongId: serviceSong.id,
                                           })
                                         }
-                                        className="rounded-full border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)]"
+                                        className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)]"
                                       >
                                         <X className="h-4 w-4" />
                                       </button>
@@ -1129,22 +1742,79 @@ export default function ServiceBuilderClient({
                               </div>
                             )}
 
-                            {!SONG_BLOCK_TYPES.has(block.blockType) ? (
-                              <p className="mt-4 text-sm text-[var(--color-text-muted)]">
-                                Use the secure extractor from the Songs page when you need temporary chord-sheet processing.
-                              </p>
-                            ) : null}
-                          </div>
+                            {SONG_BLOCK_TYPES.has(block.blockType) ? (
+                              <form
+                                className="mt-4 space-y-2 rounded-lg border border-dashed border-[var(--color-brand-border)] p-3"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const form = event.currentTarget;
+                                  const formData = new FormData(form);
+                                  const title = String(formData.get("title") ?? "").trim();
+                                  if (!title) {
+                                    showToast("Song title is required.");
+                                    return;
+                                  }
 
-                          <div className="rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
-                            <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-brand-olive)]">
+                                  showToast("Adding song record.");
+                                  quickAddServiceSongMutation.mutate({
+                                    serviceId: selectedService.id,
+                                    blockId: block.id,
+                                    order: block.songs.length,
+                                    pageRef: null,
+                                    payload: {
+                                      title,
+                                      author: null,
+                                      defaultKey: null,
+                                      bpm: null,
+                                      language: String(formData.get("language") ?? "").trim() || null,
+                                      isOriginal: false,
+                                    },
+                                  });
+                                  form.reset();
+                                }}
+                              >
+                                <p className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                                  Add song record
+                                </p>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                  <input
+                                    name="title"
+                                    placeholder="Song title"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                  />
+                                  <input
+                                    name="language"
+                                    placeholder="Language"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                                  />
+                                </div>
+                                <button
+                                  type="submit"
+                                  disabled={quickAddServiceSongMutation.isPending}
+                                  className="pressable inline-flex items-center gap-2 rounded-md border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)] disabled:opacity-60"
+                                >
+                                  {quickAddServiceSongMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                  Add song
+                                </button>
+                              </form>
+                            ) : (
+                              <p className="mt-4 text-sm text-[var(--color-text-muted)]">
+                                Song records are only added in Praise and Worship, Awit ng Pakikinig, and Awit ng Pagtugon.
+                              </p>
+                            )}
+                          </div>
+                          ) : null}
+
+                          {activeServiceStep === "flow" ? (
+                          <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                            <h4 className="mb-3 text-sm font-semibold text-[var(--color-brand-ink)]">
                               Details
                             </h4>
                             <div className="space-y-3">
                               {block.details.map((detail) => (
                                 <form
                                   key={detail.id}
-                                  className="space-y-2 rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
+                                  className="space-y-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
                                   onSubmit={(event) => {
                                     event.preventDefault();
                                     const formData = new FormData(event.currentTarget);
@@ -1161,22 +1831,22 @@ export default function ServiceBuilderClient({
                                   <input
                                     name="key"
                                     defaultValue={detail.key}
-                                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                   />
                                   <textarea
                                     name="value"
                                     defaultValue={detail.value}
                                     rows={2}
-                                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                    className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                   />
-                                  <button type="submit" className="rounded-xl bg-[var(--color-brand-accent)] px-3 py-2 text-sm font-semibold text-white">
+                                  <button type="submit" className="rounded-md bg-[var(--color-brand-ink)] px-3 py-2 text-sm font-semibold text-white">
                                     Save detail
                                   </button>
                                 </form>
                               ))}
 
                               <form
-                                className="space-y-2 rounded-2xl border border-dashed border-[var(--color-brand-border)] p-3"
+                                className="space-y-2 rounded-lg border border-dashed border-[var(--color-brand-border)] p-3"
                                 onSubmit={(event) => {
                                   event.preventDefault();
                                   const formData = new FormData(event.currentTarget);
@@ -1194,31 +1864,76 @@ export default function ServiceBuilderClient({
                                 <input
                                   name="key"
                                   placeholder="Detail key"
-                                  className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                 />
                                 <textarea
                                   name="value"
                                   rows={2}
                                   placeholder="Detail value"
-                                  className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                                 />
-                                <button type="submit" className="rounded-xl border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-accent)]">
+                                <button type="submit" className="rounded-md border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
                                   Add detail
                                 </button>
                               </form>
                             </div>
                           </div>
+                          ) : null}
+
+                          {activeServiceStep === "review" ? (
+                            <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
+                              <div className="grid gap-3 md:grid-cols-3">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                                    Participants
+                                  </h4>
+                                  <div className="mt-3 space-y-2">
+                                    {block.people.length > 0 ? block.people.map((person) => (
+                                      <p key={person.id} className="rounded-md bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm">
+                                        {person.personTitle ? `${person.personTitle} ` : ""}{person.personName}
+                                      </p>
+                                    )) : <p className="text-sm text-[var(--color-text-secondary)]">None yet.</p>}
+                                  </div>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                                    Songs
+                                  </h4>
+                                  <div className="mt-3 space-y-2">
+                                    {block.songs.length > 0 ? block.songs.map((serviceSong) => (
+                                      <p key={serviceSong.id} className="rounded-md bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm">
+                                        {serviceSong.song.title}
+                                      </p>
+                                    )) : <p className="text-sm text-[var(--color-text-secondary)]">None yet.</p>}
+                                  </div>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                                    Details
+                                  </h4>
+                                  <div className="mt-3 space-y-2">
+                                    {block.details.length > 0 ? block.details.map((detail) => (
+                                      <p key={detail.id} className="rounded-md bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm">
+                                        <span className="font-semibold">{detail.key}:</span> {detail.value}
+                                      </p>
+                                    )) : <p className="text-sm text-[var(--color-text-secondary)]">None yet.</p>}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       </section>
                     );
                   })}
                 </div>
+                ) : null}
               </>
             ) : (
-              <div className="rounded-[24px] border border-dashed border-[var(--color-brand-border)] p-10 text-center">
-                <h2 className="text-2xl font-semibold">No worship service selected</h2>
+              <div className="border border-dashed border-[var(--color-brand-border)] p-10 text-center">
+                <h2 className="text-xl font-semibold">No worship service selected</h2>
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                  Create a service from the left sidebar or seed the database, then start building the worship flow.
+                  Create a service from the service index or seed the database, then start building the worship flow.
                 </p>
               </div>
             )}
@@ -1232,466 +1947,710 @@ export default function ServiceBuilderClient({
             {selectedService ? (
               <>
                 {feedback ? (
-                  <div className="rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 text-sm text-black">
+                  <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                     {feedback}
                   </div>
                 ) : null}
 
-                <section className="rounded-2xl border border-black/10 bg-white p-4">
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {SONG_WORKFLOW_STEPS.map((step, index) => {
-                      const active = activeSongStep === step.id;
-                      return (
-                        <Link
-                          key={step.id}
-                          href={step.href}
-                          className={`rounded-xl border p-4 transition ${
-                            active
-                              ? "border-black bg-black text-white"
-                              : "border-black/10 bg-white text-black hover:bg-black/[0.03]"
-                          }`}
-                        >
-                          <span
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                              active ? "bg-white text-black" : "bg-black text-white"
-                            }`}
-                          >
-                            {index + 1}
-                          </span>
-                          <p className="mt-3 text-sm font-semibold">{step.label}</p>
-                          <p className={`mt-1 text-xs leading-5 ${active ? "text-white/70" : "text-black/50"}`}>
-                            {step.description}
+                {activeSongStep === "library" ? (
+                  <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                        <div>
+                          <h2 className="text-3xl font-semibold tracking-[-0.01em] text-[var(--color-brand-ink)]">Song Library</h2>
+                          <p className="mt-1 text-base text-[var(--color-text-secondary)]">
+                            {songs.length} active worship songs available.
                           </p>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </section>
+                        </div>
+                        <div className="flex gap-3">
+                          <button className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
+                            <Settings2 className="h-4 w-4" />
+                            Filter
+                          </button>
+                          <Link
+                            href="/songs/upload"
+                            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-focus)] px-4 py-2 text-sm font-bold text-[#3f008e]"
+                          >
+                            <Plus className="h-4 w-4" />
+                            New Song
+                          </Link>
+                        </div>
+                      </div>
+
+                      <div className="overflow-hidden rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                        <div className="grid grid-cols-[minmax(220px,1fr)_90px_90px_minmax(160px,220px)_120px] border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-5 py-4 text-sm font-semibold text-[var(--color-text-secondary)]">
+                          <span>Title</span>
+                          <span>Key</span>
+                          <span>BPM</span>
+                          <span>Themes</span>
+                          <span>Last Used</span>
+                        </div>
+                        <div className="divide-y divide-[var(--color-brand-border)]">
+                          {(songs.length ? songs : [
+                            { id: "gratitude", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
+                            { id: "living-hope", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
+                            { id: "thousand", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
+                            { id: "house", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
+                          ] as SongRecord[]).slice(0, 8).map((song, index) => (
+                            <div
+                              key={song.id}
+                              className={`grid grid-cols-[minmax(220px,1fr)_90px_90px_minmax(160px,220px)_120px] items-center px-5 py-4 ${
+                                index === 0 ? "production-stripe bg-[var(--color-brand-panel)] pl-6" : "bg-[var(--color-brand-panel-alt)] hover:bg-[var(--color-brand-panel)]"
+                              }`}
+                            >
+                              <div>
+                                <p className="text-base font-bold text-[var(--color-brand-ink)]">{song.title}</p>
+                                <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">{song.author ?? "Unknown author"}</p>
+                              </div>
+                              <p className="font-semibold text-[var(--color-focus)]">{song.defaultKey ?? "-"}</p>
+                              <p className="font-[var(--font-mono)] text-sm text-[var(--color-brand-ink)]">{song.bpm ?? "-"}</p>
+                              <p>
+                                <span className="rounded-md bg-[var(--color-brand-panel-elevated)] px-2 py-1 text-[11px] font-bold uppercase text-[var(--color-text-secondary)]">
+                                  {song.language ?? "Worship"}
+                                </span>
+                              </p>
+                              <p className="text-sm text-[var(--color-text-secondary)]">{index === 0 ? "Selected" : index === 1 ? "Last Week" : "Never"}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        {[
+                          ["Planning Center Sync", "Automatically pull setlists and song metadata from PCO."],
+                          ["AI Lyrics Scan", "Detect chord changes and sections from simple text blocks."],
+                          ["Usage Analytics", "View which songs are trending in your congregation."],
+                        ].map(([title, description]) => (
+                          <div key={title} className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5">
+                            <p className="text-lg font-bold text-[var(--color-brand-ink)]">{title}</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <aside className="border-l border-[var(--color-brand-border)] pl-5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="technical-label">SONG INSPECTOR</p>
+                          <h2 className="mt-2 text-2xl font-semibold text-[var(--color-brand-ink)]">
+                            {(songs[0]?.title ?? "Gratitude")}
+                          </h2>
+                        </div>
+                        <button className="text-[var(--color-text-secondary)]">
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <section className="mt-8">
+                        <div className="flex items-center justify-between">
+                          <p className="technical-label">QUICK TRANSPOSE</p>
+                          <p className="text-sm font-bold text-[var(--color-focus)]">Key: {songs[0]?.defaultKey ?? "B"}</p>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          {["-1", "0", "+1"].map((step) => (
+                            <button key={step} className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-3 font-[var(--font-mono)] text-sm">
+                              {step}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="mt-8">
+                        <div className="flex items-center justify-between">
+                          <p className="technical-label">LYRICS PREVIEW</p>
+                          <Link href="/songs/format" className="text-sm font-semibold text-[var(--color-focus)]">Edit Lyrics</Link>
+                        </div>
+                        <div className="mt-4 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-4 text-sm leading-7 text-[var(--color-brand-ink)]">
+                          <p className="font-bold text-[var(--color-focus)]">[Verse 1]</p>
+                          <p className="mt-3">All my words are few</p>
+                          <p>And they are all for You</p>
+                          <p>{"And I'm not sure what else to say"}</p>
+                          <p>{"But I'm in awe of You"}</p>
+                          <p className="mt-5 font-bold text-[var(--color-focus)]">[Chorus]</p>
+                          <p className="mt-3">So I throw up my hands</p>
+                          <p>And praise You again and again</p>
+                        </div>
+                      </section>
+
+                      <button className="pressable mt-8 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-ready)] px-4 py-3 text-sm font-bold text-[#001e2f]">
+                        <Play className="h-4 w-4" />
+                        Generate Slides
+                      </button>
+                    </aside>
+                  </section>
+                ) : null}
 
                 {activeSongStep === "upload" ? (
-                <section className="rounded-xl border border-black/10 bg-white p-5">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExtractorSourceMode("upload");
-                      setExtractorAiRetry(null);
-                      setExtractorStatus(null);
-                    }}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold ${
-                      extractorSourceMode === "upload"
-                        ? "border-black bg-black text-white"
-                        : "border-black/10 bg-white text-black/60"
-                    }`}
-                  >
-                    Upload file
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExtractorSourceMode("paste");
-                      setExtractorAiRetry(null);
-                      setExtractorStatus(null);
-                    }}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold ${
-                      extractorSourceMode === "paste"
-                        ? "border-black bg-black text-white"
-                        : "border-black/10 bg-white text-black/60"
-                    }`}
-                  >
-                    Paste text
-                  </button>
-                  </div>
-                </div>
-
-                {extractorSourceMode === "upload" ? (
-                  <div className="mx-auto flex min-h-[300px] max-w-3xl flex-col items-center justify-center rounded-xl border border-dashed border-black/10 bg-white px-6 py-12 text-center">
-                    <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 text-black">
-                      <Upload className="h-9 w-9" />
-                    </div>
-                    <p className="text-2xl font-semibold text-black">Upload a song file</p>
-                    <p className="mt-3 text-base text-black/60">.txt, .docx, or .pdf - chords, notes, and all</p>
-                    <input
-                      name="file"
-                      type="file"
-                        accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
-                      className="mt-6 max-w-xs rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) {
-                          setExtractorFileLabel(null);
-                          setExtractorStatus("No file selected.");
-                          setExtractorAiRetry(null);
-                          return;
-                        }
-
-                        setFeedback(null);
-                        setExtractorAiRetry(null);
-                        setExtractorFileLabel(`${file.name} - ${Math.ceil(file.size / 1024)} KB`);
-                        setExtractorDraftText("");
-                        setExtractorDraftMeta(null);
-                        setExtractorStatus("Uploading...");
-                        router.push("/songs/extraction");
-                        uploadExtractorMutation.mutate({
-                          serviceId: selectedService.id,
-                          file,
-                        });
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                  </div>
-                ) : null}
-                </section>
-                ) : null}
-
-                {activeSongStep === "extraction" ? (
-                <div className="mt-3 rounded-xl border border-black/10 bg-white p-4">
-                  <p className="text-sm font-semibold">Extractor status</p>
-                  <p className="mt-2 text-xs text-black/50">
-                    Files are processed temporarily and removed after extraction. Lyrics appear here only for review and are not saved to the database.
-                  </p>
-                  <p className="mt-3 text-sm font-medium text-black">
-                    {extractorStatus ??
-                      (extractorSourceMode === "upload"
-                        ? "No file selected."
-                        : "Ready to extract pasted text.")}
-                  </p>
-                  {extractorFileLabel ? (
-                    <div className="mt-3 rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2 text-sm">
-                      {extractorFileLabel}
-                    </div>
-                  ) : null}
-                  {extractorAiRetry ? (
-                    <div className="mt-3 rounded-lg border border-black/10 bg-black/[0.04] px-3 py-3 text-sm text-black">
-                      <p className="font-semibold">Manual AI cleanup available</p>
-                      <p className="mt-1 text-xs leading-5 text-black/65">
-                        The local parser found warning signals in this file. AI cleanup sends only the temporary extracted text for this one run and does not store lyrics.
+                  <section className="space-y-10 py-3 lg:px-2">
+                    <div className="mx-auto max-w-3xl text-center">
+                      <h2 className="text-5xl font-bold leading-tight text-[var(--color-brand-ink)]">
+                        Song Formatter
+                      </h2>
+                      <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-[var(--color-brand-ink)]">
+                        Instant church-ready formatting for any song file. Upload your chord sheets or lyrics and let our AI engine structure them for ProPresenter, Planning Center, or PDF lead sheets.
                       </p>
-                      <p className="mt-2 text-xs">
-                        Confidence: {extractorAiRetry.confidence.toUpperCase()} Â· Warnings: {extractorAiRetry.warningCodes.join(", ")}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          selectedService &&
-                          aiExtractorRetryMutation.mutate({
-                            serviceId: selectedService.id,
-                            retryToken: extractorAiRetry.retryToken,
-                          })
-                        }
-                        disabled={aiExtractorRetryMutation.isPending}
-                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        {aiExtractorRetryMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <WandSparkles className="h-4 w-4" />
-                        )}
-                        {aiExtractorRetryMutation.isPending ? "Cleaning with AI..." : "Use AI cleanup"}
-                      </button>
                     </div>
-                  ) : null}
-                </div>
+
+                    <div className="mx-auto max-w-6xl">
+                      <div className="group flex min-h-[300px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-10 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:border-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]">
+                        <span className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)] transition group-hover:scale-105">
+                          <CloudUpload className="h-10 w-10" />
+                        </span>
+                        <span className="text-2xl font-bold text-[var(--color-brand-ink)]">
+                          Drag & drop your song files
+                        </span>
+                        <span className="mt-2 text-base font-semibold text-[var(--color-text-secondary)]">
+                          PDF, TXT, or DOCX up to 25MB
+                        </span>
+                        <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExtractorSourceMode("upload");
+                              setExtractorAiRetry(null);
+                              setExtractorStatus(null);
+                              extractorFileInputRef.current?.click();
+                            }}
+                            className="pressable inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-8 py-3 text-sm font-bold text-[var(--color-brand-ink)]"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Select File
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExtractorSourceMode("paste");
+                              setExtractorAiRetry(null);
+                              setExtractorStatus(null);
+                              showToast("Paste mode selected.");
+                            }}
+                            className="text-sm font-semibold italic text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]"
+                          >
+                            or copy/paste lyrics
+                          </button>
+                        </div>
+                        {extractorFileLabel ? (
+                          <span className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
+                            <FileText className="h-4 w-4 text-[var(--color-focus)]" />
+                            {extractorFileLabel}
+                          </span>
+                        ) : null}
+                        <input
+                          ref={extractorFileInputRef}
+                          name="file"
+                          type="file"
+                          accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
+                          className="sr-only"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) {
+                              setExtractorSelectedFile(null);
+                              setExtractorFileLabel(null);
+                              setExtractorStatus("No file selected.");
+                              setExtractorAiRetry(null);
+                              return;
+                            }
+
+                            setExtractorSourceMode("upload");
+                            setFeedback(null);
+                            setExtractorAiRetry(null);
+                            setExtractorSelectedFile(file);
+                            setExtractorFileLabel(`${file.name} - ${Math.ceil(file.size / 1024)} KB`);
+                            setExtractorSongTitle(getFileNameWithoutExtension(file.name));
+                            setExtractorDraftText("");
+                            setExtractorStatus("File selected. Choose a processing mode.");
+                            showToast(`${file.name} selected.`);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </div>
+
+                      <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => processFormatterSource(false)}
+                          disabled={isFormatterProcessing}
+                          className="pressable min-w-48 rounded-xl bg-[var(--color-focus)] px-10 py-4 text-sm font-bold text-[var(--color-accent-ink)] shadow-[0_18px_36px_rgba(210,187,255,0.18)] disabled:opacity-60"
+                        >
+                          Process Locally
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => processFormatterSource(true)}
+                          disabled={isFormatterProcessing}
+                          className="pressable min-w-48 rounded-xl border border-[var(--color-brand-border)] bg-transparent px-10 py-4 text-sm font-bold text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel)] disabled:opacity-60"
+                        >
+                          Process with AI
+                        </button>
+                      </div>
+                      {extractorStatus || isFormatterProcessing ? (
+                        <div className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
+                          {isFormatterProcessing ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-[var(--color-focus)]" />
+                          ) : null}
+                          {extractorStatus ?? "Processing lyrics..."}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-3">
+                      <section className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                        <div className="flex items-center gap-3">
+                          <ShieldCheck className="h-5 w-5 text-[var(--color-secondary)]" />
+                          <h3 className="font-[var(--font-mono)] text-xs font-bold uppercase tracking-widest text-[var(--color-secondary)]">
+                            Supported Output
+                          </h3>
+                        </div>
+                        <ul className="mt-5 space-y-3 text-sm font-semibold text-[var(--color-text-secondary)]">
+                          {["Planning Center XML", "ProPresenter 7 Slides", "Standard PDF Chords", "Markdown Text"].map((output) => (
+                            <li key={output} className="flex items-center gap-3">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-secondary)]" />
+                              {output}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+
+                      <section className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] md:col-span-2">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <History className="h-5 w-5 text-[var(--color-focus)]" />
+                            <h3 className="font-[var(--font-mono)] text-xs font-bold uppercase tracking-widest text-[var(--color-focus)]">
+                              Recent Conversions
+                            </h3>
+                          </div>
+                          <button type="button" className="text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]">
+                            View All
+                          </button>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          {recentSongConversions.length > 0 ? (
+                            recentSongConversions.map((job) => {
+                              const parser = getExtractorParser(job.outputJson);
+                              const summary = getExtractorSummary(job.outputJson);
+                              const source = getExtractorSource(job.inputJson);
+
+                              return (
+                                <div key={job.id} className="group flex items-center justify-between rounded-lg p-3 transition hover:bg-[var(--color-brand-panel-strong)]">
+                                  <div className="flex items-center gap-4">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded bg-[var(--color-brand-panel-strong)] text-[var(--color-text-secondary)]">
+                                      <FileText className="h-5 w-5" />
+                                    </span>
+                                    <div>
+                                      <p className="text-sm font-bold text-[var(--color-brand-ink)]">
+                                        {source}{parser ? ` - ${parser}` : ""}
+                                      </p>
+                                      <p className="mt-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                                        {formatRecentConversionTime(job.createdAt, recentConversionNow)} - {summary ?? job.status}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="rounded-md border border-[var(--color-brand-border)] px-2 py-1 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-secondary)]">
+                                    {job.status}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] p-4 text-sm text-[var(--color-text-secondary)]">
+                              No formatter conversions in the last 24 hours.
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </div>
+                  </section>
                 ) : null}
 
                 {activeSongStep === "format" ? (
                   extractorDraftText ? (
-                    <section className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-                      <div className="space-y-4">
-                        <div className="rounded-xl border border-black/10 bg-white p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
-                            Output
-                          </p>
-                          <input
-                            value={extractorSongTitle}
-                            onChange={(event) => setExtractorSongTitle(event.target.value)}
-                            placeholder="Output filename / song title"
-                            className="mt-3 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm text-black placeholder:text-black/40"
-                          />
-                          <p className="mt-3 text-xs leading-5 text-black/50">
-                            Lyrics stay in this browser review state until you generate the DOCX. They are not saved to the database.
+                    <section className="overflow-hidden rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)]">
+                      <div className="flex flex-col gap-3 border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-5 py-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <h2 className="text-2xl font-bold text-[var(--color-brand-ink)]">
+                            Song Editor{extractorSongTitle ? `: ${extractorSongTitle}` : ""}
+                          </h2>
+                          <p className="mt-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                            Editing lyrics and structure blocks directly.
                           </p>
                         </div>
-
-                        <section className="rounded-xl border border-black/10 bg-white p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
-                                Quick tags
-                              </p>
-                              <p className="mt-1 text-xs text-black/50">
-                                Select lines, then click a tag. No selection inserts the tag at the cursor.
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setTagSettingsOpen((current) => !current)}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60"
-                            >
-                              <Settings2 className="h-4 w-4" />
-                              Settings
-                            </button>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {songTagsQuery.isLoading ? (
-                              <span className="text-sm text-black/50">Loading tag presets...</span>
-                            ) : null}
-                            {songTags.map((tag) => (
-                              <button
-                                key={tag.id}
-                                type="button"
-                                onClick={() => applySongTagToDraft(tag)}
-                                className="rounded-full border border-black/5 px-3 py-2 text-xs font-semibold shadow-sm"
-                                style={{
-                                  backgroundColor: tag.color,
-                                  color: getReadableTextColor(tag.color),
-                                }}
+                        <div className="flex flex-wrap gap-3">
+                          {extractorAiRetry ? (
+                            <div className="group relative flex items-center">
+                              <span
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-card-yellow-bold)] bg-[var(--color-card-yellow)] text-sm font-black text-[var(--color-brand-ink)]"
+                                aria-label="Confidence warning"
                               >
-                                {tag.label}
-                              </button>
-                            ))}
-                          </div>
-
-                          {tagSettingsOpen ? (
-                            <div className="mt-4 space-y-3 rounded-xl border border-black/10 bg-black/[0.02] p-3">
-                              <form
-                                className="grid gap-2"
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  const label = newTagLabel.trim();
-                                  const token = normalizeTagToken(label);
-                                  if (!label || !token) {
-                                    setFeedback("Enter a valid tag label.");
-                                    return;
-                                  }
-
-                                  createSongTagMutation.mutate({
-                                    label,
-                                    token,
-                                    color: newTagColor,
-                                    order: songTags.length,
-                                  });
-                                }}
-                              >
-                                <input
-                                  value={newTagLabel}
-                                  onChange={(event) => setNewTagLabel(event.target.value)}
-                                  placeholder="Custom tag label"
-                                  className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                                />
-                                <select
-                                  value={newTagColor}
-                                  onChange={(event) => setNewTagColor(event.target.value)}
-                                  className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                                >
-                                  {PASTEL_TAG_COLORS.map((color) => (
-                                    <option key={color} value={color}>
-                                      {color}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="submit"
-                                  disabled={createSongTagMutation.isPending}
-                                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                                >
-                                  Add tag
-                                </button>
-                              </form>
-                              <div className="grid gap-2">
-                                {songTags.map((tag) => (
-                                  <div
-                                    key={tag.id}
-                                    className="grid gap-2 rounded-lg border border-black/10 bg-white p-2"
-                                  >
-                                    <input
-                                      defaultValue={tag.label}
-                                      onBlur={(event) => {
-                                        const label = event.target.value.trim();
-                                        if (!label || label === tag.label) {
-                                          return;
-                                        }
-
-                                        updateSongTagMutation.mutate({
-                                          id: tag.id,
-                                          payload: {
-                                            label,
-                                            token: normalizeTagToken(label) || tag.token,
-                                          },
-                                        });
-                                      }}
-                                      disabled={tag.isDefault}
-                                      className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm disabled:bg-black/[0.03]"
-                                    />
-                                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                                      <select
-                                        value={tag.color}
-                                        onChange={(event) =>
-                                          updateSongTagMutation.mutate({
-                                            id: tag.id,
-                                            payload: { color: event.target.value },
-                                          })
-                                        }
-                                        className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
-                                      >
-                                        {PASTEL_TAG_COLORS.map((color) => (
-                                          <option key={color} value={color}>
-                                            {color}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        disabled={tag.isDefault || deleteSongTagMutation.isPending}
-                                        onClick={() => deleteSongTagMutation.mutate(tag.id)}
-                                        className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/60 disabled:opacity-40"
-                                      >
-                                        {tag.isDefault ? "Default" : "Delete"}
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                                !
+                              </span>
+                              <div className="pointer-events-none absolute right-0 top-10 z-20 hidden w-80 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-3 text-xs leading-5 text-[var(--color-text-secondary)] shadow-lg group-hover:block">
+                                <p className="font-bold text-[var(--color-brand-ink)]">
+                                  Confidence: {extractorAiRetry.confidence.toUpperCase()}
+                                </p>
+                                <p className="mt-1">
+                                  {extractorAiRetry.warningCodes.join(", ")}
+                                </p>
                               </div>
                             </div>
                           ) : null}
-                        </section>
-
-                        <section className="rounded-xl border border-black/10 bg-white p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
-                            Line grouping
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-black/50">
-                            Regroup consecutive sections into two-line or three-line singing blocks.
-                          </p>
-                          <select
-                            value={sectionFormatTag}
-                            onChange={(event) => setSectionFormatTag(event.target.value)}
-                            className="mt-3 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-black"
-                          >
-                            {songTags.map((tag) => (
-                              <option key={tag.id} value={tag.token}>
-                                {tag.label}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="mt-3 flex rounded-lg border border-black/10 bg-white p-1">
-                            {[2, 3].map((size) => (
-                              <button
-                                key={size}
-                                type="button"
-                                onClick={() => setSectionLineGroupSize(size as 2 | 3)}
-                                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold ${
-                                  sectionLineGroupSize === size
-                                    ? "bg-black text-white"
-                                    : "text-black/60 hover:bg-black/[0.04]"
-                                }`}
-                              >
-                                {size} lines
-                              </button>
-                            ))}
-                          </div>
                           <button
                             type="button"
                             onClick={() => {
-                              const nextDraft = regroupDraftTagSections(
-                                extractorDraftText,
-                                sectionFormatTag,
-                                sectionLineGroupSize
-                              );
-                              setExtractorDraftText(nextDraft);
-                              setExtractorStatus(
-                                `${sectionFormatTag} sections regrouped into ${sectionLineGroupSize}-line blocks.`
-                              );
+                              if (!selectedService) {
+                                showToast("Select a service before running AI reformat.");
+                                return;
+                              }
+
+                              if (extractorAiRetry) {
+                                aiExtractorRetryMutation.mutate({ serviceId: selectedService.id, retryToken: extractorAiRetry.retryToken });
+                                return;
+                              }
+
+                              if (directAiReformatUsed) {
+                                showToast("AI reformat can only run once for this draft.");
+                                return;
+                              }
+
+                              aiLyricsReformatMutation.mutate({
+                                serviceId: selectedService.id,
+                                text: extractorDraftText,
+                                songTitle: extractorSongTitle || undefined,
+                              });
                             }}
-                            className="mt-3 h-10 w-full rounded-lg bg-black px-4 text-sm font-semibold text-white"
+                            disabled={aiExtractorRetryMutation.isPending || aiLyricsReformatMutation.isPending || (!extractorAiRetry && directAiReformatUsed)}
+                            className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-accent)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-focus)] disabled:opacity-60"
                           >
-                            Apply grouping
+                            {aiExtractorRetryMutation.isPending || aiLyricsReformatMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+                            {directAiReformatUsed && !extractorAiRetry ? "AI Reformat Used" : "Reformat with AI"}
                           </button>
-                        </section>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!selectedService || !extractorDraftText.trim()) {
-                              setFeedback("Extract or enter lyrics before generating DOCX.");
-                              return;
-                            }
-
-                            setExtractorStatus("Generating DOCX...");
-                            generateLyricsDocxMutation.mutate({
-                              serviceId: selectedService.id,
-                              text: extractorDraftText,
-                              songTitle: extractorSongTitle || undefined,
-                            });
-                          }}
-                          disabled={generateLyricsDocxMutation.isPending}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                        >
-                          {generateLyricsDocxMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
+                          <button
+                            type="button"
+                            onClick={() => showToast("Library save will be connected to the song repository workflow later.")}
+                            className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
+                          >
                             <Save className="h-4 w-4" />
-                          )}
-                          {generateLyricsDocxMutation.isPending ? "Generating DOCX..." : "Generate DOCX"}
-                        </button>
+                            Save to Library
+                          </button>
+                        </div>
                       </div>
 
-                      <section className="rounded-2xl border border-[var(--color-brand-border)] bg-white p-4">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold">Review extracted lyrics</p>
-                            <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
-                              Edit the structured text before generating the Word document.
+                      <div
+                        className="grid min-h-[720px] items-stretch"
+                        style={{ gridTemplateColumns: `${editorControlsWidth}px minmax(0, 1fr)` }}
+                      >
+                        <aside className="relative border-r border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] p-4">
+                          <button
+                            type="button"
+                            onMouseDown={startEditorControlsResize}
+                            className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize border-x border-transparent hover:border-[var(--color-focus)]"
+                            aria-label="Resize section controls"
+                          />
+                          <section>
+                            <p className="technical-label flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              File Name
                             </p>
-                          </div>
-                          {extractorDraftMeta ? (
-                            <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                              {extractorDraftMeta.parser.toUpperCase()} / {extractorDraftMeta.confidence.toUpperCase()} confidence / {extractorDraftMeta.extractedLineCount} lines
+                            <input
+                              value={extractorSongTitle}
+                              onChange={(event) => setExtractorSongTitle(event.target.value)}
+                              placeholder="reviewed-song-lyrics"
+                              className="mt-4 h-11 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 text-sm font-semibold text-[var(--color-brand-ink)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-focus)]"
+                            />
+                            <p className="mt-2 text-xs leading-5 text-[var(--color-text-secondary)]">
+                              Used for DOCX export and defaults to the uploaded file name.
+                            </p>
+                          </section>
+
+                          <section>
+                            <p className="technical-label mt-8 flex items-center gap-2">
+                              <ListMusic className="h-4 w-4" />
+                              Section Segmentation
+                            </p>
+                            <div className="mt-4 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-3">
+                              <p className="text-xs font-semibold text-[var(--color-brand-ink)]">Automatically divide blocks into slides:</p>
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                {[2, 3].map((size) => (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={() => setSectionLineGroupSize(size as 2 | 3)}
+                                    className={`pressable rounded-md border px-3 py-2 text-xs font-bold ${
+                                      sectionLineGroupSize === size
+                                        ? "border-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
+                                        : "border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] text-[var(--color-brand-ink)]"
+                                    }`}
+                                  >
+                                    {size} Lines/Slide
+                                  </button>
+                                ))}
+                              </div>
+                              <label className="mt-3 block">
+                                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                                  Apply to tag
+                                </span>
+                                <select
+                                  value={sectionFormatTag}
+                                  onChange={(event) => setSectionFormatTag(event.target.value)}
+                                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-3 text-sm font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                >
+                                  {songTags.map((tag) => (
+                                    <option key={tag.id} value={tag.token}>
+                                      {tag.label}
+                                    </option>
+                                  ))}
+                                  {songTags.some((tag) => tag.token === sectionFormatTag) ? null : (
+                                    <option value={sectionFormatTag}>{sectionFormatTag}</option>
+                                  )}
+                                </select>
+                              </label>
+                              <div className="mt-3 flex items-center justify-between border-t border-[var(--color-brand-border)] pt-3">
+                                <span className="text-xs font-semibold text-[var(--color-brand-ink)]">Smart Splitting</span>
+                                <span className="flex h-5 w-10 items-center justify-end rounded-full bg-[var(--color-brand-accent)] p-1">
+                                  <span className="h-3 w-3 rounded-full bg-[var(--color-accent-ink)]" />
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const tagToken = sectionFormatTag || songTags[0]?.token || "Verse";
+                                  const nextDraft = regroupDraftTagSections(extractorDraftText, tagToken, sectionLineGroupSize);
+                                  commitExtractorDraftText(nextDraft);
+                                  setExtractorStatus(`${tagToken} sections regrouped into ${sectionLineGroupSize}-line blocks.`);
+                                  showToast(`Applied ${sectionLineGroupSize}-line grouping.`, "success");
+                                }}
+                                className="pressable mt-3 h-10 w-full rounded-lg bg-[var(--color-brand-accent)] px-4 text-sm font-semibold text-[var(--color-accent-ink)]"
+                              >
+                                Apply splitting
+                              </button>
                             </div>
-                          ) : null}
-                        </div>
+                          </section>
 
-                        <textarea
-                          ref={extractorEditorRef}
-                          value={extractorDraftText}
-                          onChange={(event) => setExtractorDraftText(event.target.value)}
-                          rows={20}
-                          spellCheck={false}
-                          style={{
-                            backgroundImage: buildTaggedEditorBackground(extractorDraftText, songTags),
-                            backgroundAttachment: "local",
-                            lineHeight: "24px",
-                          }}
-                          className="mt-4 min-h-[620px] w-full resize-y rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 font-mono text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-accent)]"
-                        />
+                          <section className="mt-8">
+                            <p className="technical-label">Quick Tagging</p>
+                            <p className="mt-3 text-xs font-semibold text-[var(--color-text-secondary)]">Apply tag to selected block:</p>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              {songTags.slice(0, 6).map((tag) => (
+                                <button
+                                  key={tag.id}
+                                  type="button"
+                                  onClick={() => applySongTagToDraft(tag)}
+                                  className="pressable flex items-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-xs font-semibold text-[var(--color-brand-ink)]"
+                                >
+                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
+                                  {tag.label}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => showToast("Tag preset editing will be restored in the song library workflow.")}
+                              className="pressable mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)]"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                              Tag Settings
+                            </button>
+                          </section>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExtractorDraftText("");
-                            setExtractorDraftMeta(null);
-                            setExtractorAiRetry(null);
-                            setExtractorStatus("Draft cleared.");
-                            router.push("/songs/upload");
-                          }}
-                          className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-brand-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-text-secondary)]"
-                        >
-                          <X className="h-4 w-4" />
-                          Clear draft
-                        </button>
-                      </section>
+                        </aside>
+
+                        <section className="flex min-w-0 flex-col bg-[var(--color-brand-panel-alt)]">
+                          <div className="flex items-center justify-between border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-3">
+                            <div className="flex items-center gap-4">
+                              <span className="technical-label">Interactive Block Editor</span>
+                              <span className="h-4 w-px bg-[var(--color-brand-border)]" />
+                              <button
+                                type="button"
+                                onClick={undoExtractorDraft}
+                                disabled={extractorUndoStack.length === 0}
+                                className="rounded p-1 text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Undo"
+                                title="Undo"
+                              >
+                                <Undo2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={redoExtractorDraft}
+                                disabled={extractorRedoStack.length === 0}
+                                className="rounded p-1 text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Redo"
+                                title="Redo"
+                              >
+                                <Redo2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-text-secondary)]">
+                              <span className="h-2 w-2 rounded-full bg-[var(--color-secondary)]" />
+                              {formatSavedStatus(extractorLastSavedAt, editorClock)}
+                            </div>
+                          </div>
+
+                          <div
+                            ref={editorScrollRef}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              autoScrollEditorDuringDrag(event.clientY);
+                            }}
+                            className="max-h-[calc(100vh-14rem)] flex-1 overflow-y-auto p-6"
+                          >
+                            <div className="min-h-full space-y-4">
+                            {editorSections.map((section, index) => {
+                              const tag = section.tag ?? "Section";
+                              const matchingTag = songTags.find((item) => item.token.toLowerCase() === tag.toLowerCase());
+                              const borderColor = matchingTag?.color ?? "var(--color-focus)";
+
+                              return (
+                                <article
+                                  key={`${tag}-${index}`}
+                                  draggable
+                                  onDragStart={(event) => {
+                                    setDraggedEditorSectionIndex(index);
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", String(index));
+                                  }}
+                                  onDragOver={(event) => {
+                                    event.preventDefault();
+                                    event.dataTransfer.dropEffect = "move";
+                                    autoScrollEditorDuringDrag(event.clientY);
+                                  }}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    const sourceIndex = draggedEditorSectionIndex ?? Number(event.dataTransfer.getData("text/plain"));
+                                    if (Number.isFinite(sourceIndex)) {
+                                      reorderEditorSection(sourceIndex, index);
+                                    }
+                                  }}
+                                  onDragEnd={() => setDraggedEditorSectionIndex(null)}
+                                  className={`rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4 shadow-sm transition ${
+                                    draggedEditorSectionIndex === index ? "opacity-50" : ""
+                                  }`}
+                                  style={{ borderLeft: `4px solid ${borderColor}` }}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="cursor-grab select-none text-lg text-[var(--color-text-secondary)] active:cursor-grabbing">::</span>
+                                      <select
+                                        value={tag}
+                                        onChange={(event) => updateEditorSection(index, { ...section, tag: event.target.value })}
+                                        className="h-8 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-2 text-xs font-bold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                      >
+                                        {songTags.map((item) => (
+                                          <option key={item.id} value={item.token}>{item.label}</option>
+                                        ))}
+                                        {!matchingTag ? <option value={tag}>{tag}</option> : null}
+                                      </select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                                        {section.lines.filter((line) => line.trim()).length} lines
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextSections = [
+                                            ...editorSections.slice(0, index + 1),
+                                            { ...section, lines: [...section.lines] },
+                                            ...editorSections.slice(index + 1),
+                                          ];
+                                          commitExtractorDraftText(serializeTaggedDraft(nextSections));
+                                          showToast("Section duplicated.", "success");
+                                        }}
+                                        className="rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] hover:text-[var(--color-focus)]"
+                                        aria-label="Duplicate section"
+                                        title="Duplicate section"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextSections = editorSections.filter((_, itemIndex) => itemIndex !== index);
+                                          commitExtractorDraftText(serializeTaggedDraft(nextSections));
+                                          showToast("Section deleted.");
+                                        }}
+                                        className="rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] hover:text-[var(--color-danger)]"
+                                        aria-label="Delete section"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <textarea
+                                    value={section.lines.join("\n")}
+                                    onChange={(event) => updateEditorSection(index, { ...section, lines: event.target.value.split("\n") })}
+                                    rows={Math.max(3, Math.min(8, section.lines.length + 1))}
+                                    spellCheck={false}
+                                    className={`mt-4 w-full resize-y rounded-md border-0 bg-transparent px-6 py-1 text-base leading-7 text-[var(--color-brand-ink)] outline-none ${
+                                      tag.toLowerCase().includes("chorus") ? "font-semibold italic text-[var(--color-focus)]" : ""
+                                    }`}
+                                  />
+                                </article>
+                              );
+                            })}
+
+                            <button
+                              type="button"
+                              onClick={() => commitExtractorDraftText(serializeTaggedDraft([...editorSections, { tag: "Verse", lines: [""] }]))}
+                              className="pressable flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] py-8 text-sm font-semibold text-[var(--color-text-secondary)] hover:border-[var(--color-focus)] hover:text-[var(--color-focus)]"
+                            >
+                              <Plus className="h-7 w-7" />
+                              Click to add a new song section
+                            </button>
+                            </div>
+
+                          </div>
+                          <div className="flex flex-col gap-3 border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                commitExtractorDraftText("");
+                                setExtractorAiRetry(null);
+                                setExtractorStatus("Draft cleared.");
+                                showToast("Draft cleared.");
+                                router.push("/songs/upload");
+                              }}
+                              className="pressable inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-4 py-3 text-sm font-semibold text-[var(--color-text-secondary)]"
+                            >
+                              <X className="h-4 w-4" />
+                              Clear draft
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!selectedService || !extractorDraftText.trim()) {
+                                  setFeedback("Extract or enter lyrics before generating DOCX.");
+                                  showToast("Extract or enter lyrics before generating DOCX.");
+                                  return;
+                                }
+
+                                setExtractorStatus("Generating DOCX...");
+                                showToast("Generating DOCX...");
+                                generateLyricsDocxMutation.mutate({
+                                  serviceId: selectedService.id,
+                                  text: extractorDraftText,
+                                  songTitle: extractorSongTitle || undefined,
+                                });
+                              }}
+                              disabled={generateLyricsDocxMutation.isPending}
+                              className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-60"
+                            >
+                              {generateLyricsDocxMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                              {generateLyricsDocxMutation.isPending ? "Generating DOCX..." : "Generate DOCX"}
+                            </button>
+                          </div>
+                        </section>
+                      </div>
                     </section>
                   ) : (
-                    <section className="rounded-xl border border-dashed border-black/10 bg-white p-8 text-center">
-                      <p className="text-sm font-semibold text-black">No extracted draft yet</p>
-                      <p className="mt-2 text-xs text-black/50">
-                        Start on Upload, then review Extraction before formatting the lyrics.
+                    <section className="rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
+                      <p className="text-sm font-semibold text-[var(--color-brand-ink)]">No extracted draft yet</p>
+                      <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                        Start on Upload or paste lyrics, then the processed draft will open here.
                       </p>
                       <Link
                         href="/songs/upload"
-                        className="mt-4 inline-flex rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
+                        className="pressable mt-4 inline-flex rounded-lg bg-[var(--color-brand-ink)] px-4 py-3 text-sm font-semibold text-white"
                       >
                         Go to Upload
                       </Link>
@@ -1701,25 +2660,10 @@ export default function ServiceBuilderClient({
 
                 {activeSongStep === "upload" && extractorSourceMode === "paste" ? (
                   <form
-                    className="space-y-3 rounded-xl border border-[var(--color-brand-border)] bg-white p-5"
+                    className="space-y-4 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 lg:p-6"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      const pastedText = extractorPastedText.trim();
-                      if (!pastedText) {
-                        setFeedback("Paste a chord sheet first.");
-                        return;
-                      }
-
-                      setFeedback(null);
-                      setExtractorAiRetry(null);
-                      setExtractorDraftText("");
-                      setExtractorDraftMeta(null);
-                      setExtractorStatus("Extracting...");
-                      router.push("/songs/extraction");
-                      pasteExtractorMutation.mutate({
-                        serviceId: selectedService.id,
-                        pastedText,
-                      });
+                      processFormatterSource(false);
                     }}
                   >
                     <textarea
@@ -1727,148 +2671,195 @@ export default function ServiceBuilderClient({
                       onChange={(event) => setExtractorPastedText(event.target.value)}
                       rows={8}
                       placeholder="Paste your chord sheet here. This text is processed temporarily and not stored."
-                      className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--color-brand-accent)]"
                     />
 
                     <button
                       type="submit"
                       disabled={pasteExtractorMutation.isPending}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
+                      className="pressable flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-ink)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       {pasteExtractorMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <WandSparkles className="h-4 w-4" />
                       )}
-                      {pasteExtractorMutation.isPending ? "Extracting..." : "Extract lyrics"}
+                      {pasteExtractorMutation.isPending ? "Processing..." : "Process locally"}
                     </button>
                   </form>
                 ) : null}
 
               </>
             ) : (
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                Select a service to use the secure lyrics extractor.
-              </p>
+              <section className="rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
+                <p className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                  No worship service selected
+                </p>
+                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                  Select or create a service from the Services page before using the secure lyrics formatter.
+                </p>
+              </section>
             )}
           </div>
         ) : null}
 
         {module === "assets" ? (
-          <section className="rounded-[28px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-[0_24px_80px_rgba(61,49,31,0.08)]">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Assets</h2>
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                Register service files and uploads for the selected worship service.
+          <div className="relative space-y-6">
+            <header>
+              <h2 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--color-brand-ink)]">Media Tools</h2>
+              <p className="mt-1 text-base text-[var(--color-text-secondary)]">
+                Centralized utilities for worship production and technical ministry.
               </p>
-            </div>
+            </header>
 
-            {selectedService ? (
-              <>
-                <form
-                  className="space-y-3 rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const formData = new FormData(event.currentTarget);
-                    const file = formData.get("file");
-                    const type = formData.get("type") as AssetType;
-                    const manualName = String(formData.get("fileName") ?? "");
-                    const manualPath = String(formData.get("filePath") ?? "");
+            <div className="grid grid-cols-12 gap-6">
+              <section className="col-span-12 flex min-h-[420px] flex-col rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:col-span-7">
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Upload className="h-6 w-6 text-[var(--color-focus)]" />
+                    <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Phone-to-PC Transfer</h3>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-1 text-xs font-semibold text-[var(--color-secondary)]">
+                    <span className="status-pip status-pip-ready" />
+                    Awaiting Connection
+                  </div>
+                </div>
 
-                    if (file instanceof File && file.size > 0) {
-                      const uploadData = new FormData();
-                      uploadData.append("file", file);
-                      uploadData.append("type", type);
-                      uploadAssetMutation.mutate({
-                        serviceId: selectedService.id,
-                        formData: uploadData,
-                      });
-                    } else {
-                      uploadAssetMutation.mutate({
-                        serviceId: selectedService.id,
-                        jsonPayload: {
-                          type,
-                          fileName: manualName,
-                          filePath: manualPath,
-                        },
-                      });
-                    }
+                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[#060e20]/55 p-8 text-center">
+                  <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-text-secondary)]">
+                    <Upload className="h-9 w-9" />
+                  </div>
+                  <h4 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Ready for Transfer</h4>
+                  <p className="mt-3 max-w-md text-base leading-7 text-[var(--color-text-secondary)]">
+                    Open the <span className="font-bold text-[var(--color-focus)]">Tech Suite Mobile App</span> and scan the code on your screen to instantly push photos or videos to this workspace.
+                  </p>
+                  <div className="mt-8 flex items-center gap-4">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-white p-2 shadow-lg">
+                      <div className="flex h-full w-full items-center justify-center rounded bg-[#0b1326] text-[10px] font-bold text-white">QR</div>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-[var(--color-brand-ink)]">Direct Link ID</p>
+                      <code className="mt-1 inline-block rounded bg-[var(--color-brand-panel-elevated)] px-2 py-1 font-[var(--font-mono)] text-sm text-[var(--color-focus)]">PROD-7729-SYNC</code>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-                    event.currentTarget.reset();
-                  }}
-                >
-                  <select
-                    name="type"
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                    defaultValue={AssetType.OTHER}
-                  >
-                    {Object.values(AssetType).map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="file"
-                    type="file"
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    name="fileName"
-                    placeholder="Manual file name"
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    name="filePath"
-                    placeholder="Manual file path or URL"
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={uploadAssetMutation.isPending}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Save asset
-                  </button>
-                </form>
-
-                <div className="mt-4 max-h-[220px] space-y-3 overflow-y-auto pr-1">
-                  {selectedService.assets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{asset.fileName}</p>
-                          <p className="text-sm text-[var(--color-text-secondary)]">{asset.type}</p>
-                        </div>
-                        <a
-                          href={asset.filePath}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm font-semibold text-[var(--color-brand-accent)]"
-                        >
-                          Open
-                        </a>
+              <section className="col-span-12 flex flex-col rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:col-span-5">
+                <div className="mb-6 flex items-center gap-3">
+                  <span className="font-[var(--font-mono)] text-xl font-bold text-[var(--color-secondary)]">#</span>
+                  <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">QR Generator</h3>
+                </div>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="technical-label">Destination URL or Text</span>
+                    <input className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-4 py-3 text-sm text-[var(--color-brand-ink)]" placeholder="https://churchname.com/give" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="technical-label">Primary Color</p>
+                      <div className="mt-1 flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
+                        <span className="h-5 w-5 rounded bg-[var(--color-focus)]" />
+                        <span className="font-semibold">#7C3AED</span>
                       </div>
                     </div>
-                  ))}
+                    <label>
+                      <span className="technical-label">Branding</span>
+                      <select className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2 text-sm">
+                        <option>Church Logo</option>
+                        <option>Tech Suite Icon</option>
+                        <option>None</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-[var(--color-brand-border)] bg-[#060e20] p-6">
+                    <div className="flex h-40 w-40 items-center justify-center rounded-xl bg-white p-3">
+                      <div className="grid h-full w-full grid-cols-5 gap-1 bg-[#7c3aed] p-2">
+                        {Array.from({ length: 25 }).map((_, index) => (
+                          <span key={index} className={index % 3 === 0 ? "bg-white" : "bg-[#3f008e]"} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="mt-4 text-xs font-semibold text-[var(--color-text-secondary)]">Live Preview - SVG Format</p>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                Select a service to manage assets.
-              </p>
-            )}
-          </section>
-        ) : null}
+              </section>
 
+              <section className="col-span-12 rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl text-[var(--color-tertiary,#ffb2b7)]">?</span>
+                    <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Media Converter</h3>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <span className="technical-label">Output Format:</span>
+                      <div className="flex rounded-lg bg-[var(--color-brand-panel-strong)] p-1">
+                        {['MP4', 'MOV', 'WAV'].map((format) => (
+                          <button key={format} className={`rounded-md px-3 py-1 text-xs font-bold ${format === 'MP4' ? 'bg-[var(--color-focus)] text-[#3f008e]' : 'text-[var(--color-text-secondary)]'}`}>
+                            {format}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="technical-label">Conversion Settings</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-3">
+                  <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
+                    <Plus className="mb-3 h-10 w-10 text-[var(--color-clay)]" />
+                    <span className="font-bold text-[var(--color-brand-ink)]">Add Files</span>
+                    <span className="mt-1 text-sm text-[var(--color-text-secondary)]">Drag and drop or browse</span>
+                    <input name="file" type="file" className="sr-only" />
+                  </label>
+
+                  <div className="space-y-3 md:col-span-2">
+                    {[
+                      ['Sermon_Intro_V2_Draft.mov', '74%', 'movie'],
+                      ['Worship_Set_Recording.wav', 'Waiting...', 'audio'],
+                    ].map(([name, status], index) => (
+                      <div key={name} className={`flex items-center gap-4 rounded-xl border border-[var(--color-brand-border)] bg-[#060e20] p-4 ${index === 1 ? 'opacity-60' : ''}`}>
+                        <div className="flex h-12 w-12 items-center justify-center rounded bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]">
+                          {index === 0 ? '?' : '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-end justify-between gap-3">
+                            <span className="truncate text-sm font-semibold text-[var(--color-brand-ink)]">{name}</span>
+                            <span className="text-xs font-semibold text-[var(--color-text-secondary)]">{status}</span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-brand-panel-strong)]">
+                            <div className="h-full rounded-full bg-[var(--color-focus)]" style={{ width: index === 0 ? '74%' : '0%' }} />
+                          </div>
+                        </div>
+                        <X className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-8 flex items-center justify-between border-t border-[var(--color-brand-border)] pt-6">
+                  <div className="flex flex-wrap gap-4 text-xs font-semibold text-[var(--color-text-secondary)]">
+                    <span>Auto-sync to Media Library</span>
+                    <span>Hardware acceleration active</span>
+                  </div>
+                  <button className="pressable rounded-lg bg-[var(--color-focus)] px-8 py-3 text-xl font-bold text-[#3f008e] shadow-[0_8px_22px_rgba(124,58,237,0.22)]">
+                    Convert All
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <button className="fixed bottom-8 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-focus)] text-3xl font-light text-[#3f008e] shadow-2xl">
+              +
+            </button>
+          </div>
+        ) : null}
         {module === "automation" ? (
-          <section className="rounded-[28px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-[0_24px_80px_rgba(61,49,31,0.08)]">
+          <section className="production-panel p-5">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold">Automation</h2>
+              <p className="technical-label">LIVE CAPTIONS & OUTPUTS</p>
+              <h2 className="mt-2 text-lg font-semibold">Output queue</h2>
               <p className="text-sm text-[var(--color-text-secondary)]">
                 Persist job history and generated outputs while keeping the workflow simple.
               </p>
@@ -1877,7 +2868,7 @@ export default function ServiceBuilderClient({
             {selectedService ? (
               <>
                 <form
-                  className="space-y-3 rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4"
+                  className="space-y-3 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4"
                   onSubmit={(event) => {
                     event.preventDefault();
                     const formData = new FormData(event.currentTarget);
@@ -1906,7 +2897,7 @@ export default function ServiceBuilderClient({
                 >
                   <select
                     name="jobType"
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                     defaultValue={JobType.FREESHOW_GENERATE}
                   >
                     {Object.values(JobType).filter((jobType) => jobType !== JobType.TRANSPOSE).map((jobType) => (
@@ -1919,23 +2910,23 @@ export default function ServiceBuilderClient({
                     name="inputJson"
                     rows={4}
                     placeholder='Optional JSON input, e.g. {"resolution":"1080p"}'
-                    className="w-full rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
                   />
                   <button
                     type="submit"
                     disabled={createJobMutation.isPending}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
+                    className="pressable flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-3 text-sm font-semibold text-[var(--color-accent-ink)] hover:bg-[var(--color-brand-accent-hover)] disabled:opacity-60"
                   >
                     <WandSparkles className="h-4 w-4" />
                     Queue job
                   </button>
                 </form>
 
-                <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                <div className="mt-4 max-h-[420px] divide-y divide-[var(--color-brand-border)] overflow-y-auto rounded-lg border border-[var(--color-brand-border)]">
                   {selectedService.jobs.map((job) => (
                     <div
                       key={job.id}
-                      className="rounded-2xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4"
+                      className="bg-[var(--color-brand-panel)] p-4 hover:bg-[var(--color-brand-panel-alt)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1951,7 +2942,8 @@ export default function ServiceBuilderClient({
                             </p>
                           ) : null}
                         </div>
-                        <span className="rounded-full border border-[var(--color-brand-border)] bg-white px-3 py-1 font-[var(--font-plex-mono)] text-xs uppercase tracking-[0.14em] text-[var(--color-brand-olive)]">
+                        <span className="inline-flex items-center gap-2 font-[var(--font-plex-mono)] text-xs text-[var(--color-brand-olive)]">
+                          <span className={`status-pip ${job.status === JobStatus.DONE ? "status-pip-ready" : job.status === JobStatus.FAILED ? "status-pip-alert" : ""}`} />
                           {job.status}
                         </span>
                       </div>
@@ -1963,7 +2955,7 @@ export default function ServiceBuilderClient({
                               href={output.filePath}
                               target="_blank"
                               rel="noreferrer"
-                              className="block rounded-xl border border-[var(--color-brand-border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-brand-accent)]"
+                              className="block rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-accent)]"
                             >
                               {output.type} output
                             </a>
@@ -1983,6 +2975,9 @@ export default function ServiceBuilderClient({
         ) : null}
       </aside>
       </div>
+      <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
     </div>
   );
 }
+
+

@@ -1,61 +1,48 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Bulletin Ledger · design-system: DESIGN.md · designed-as-app
+ * Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V5
+ */
 @import "tailwindcss";
+@import "../../tokens.css";
 
 @theme {
-  --color-brand-bg: #ffffff;
-  --color-brand-panel: #ffffff;
-  --color-brand-panel-alt: #f6f5f4;
-  --color-brand-border: #e5e3df;
-  --color-brand-accent: #5645d4;
-  --color-brand-accent-hover: #4534b3;
-  --color-brand-ink: #1a1a1a;
-  --color-brand-olive: #787671;
-  --color-brand-navy: #0a1530;
-  --color-card-peach: #ffe8d4;
-  --color-card-rose: #fde0ec;
-  --color-card-mint: #d9f3e1;
-  --color-card-lavender: #e6e0f5;
-  --color-card-sky: #dcecfa;
-  --color-card-yellow: #fef7d6;
-  --color-card-yellow-bold: #f9e79f;
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #5d5b54;
-  --color-text-muted: #787671;
+  --color-brand-bg: var(--color-paper);
+  --color-brand-panel: var(--color-panel);
+  --color-brand-panel-alt: var(--color-paper-2);
+  --color-brand-panel-strong: var(--color-panel-strong);
+  --color-brand-border: var(--color-rule);
+  --color-brand-accent: var(--color-accent);
+  --color-brand-accent-hover: var(--color-accent-hover);
+  --color-brand-ink: var(--color-ink);
+  --color-brand-olive: var(--color-secondary);
+  --color-brand-navy: var(--color-paper);
+  --color-brand-clay: var(--color-clay);
+  --color-card-peach: var(--color-pastel-peach);
+  --color-card-rose: var(--color-pastel-rose);
+  --color-card-mint: var(--color-pastel-mint);
+  --color-card-lavender: var(--color-pastel-lavender);
+  --color-card-sky: var(--color-pastel-sky);
+  --color-card-yellow: var(--color-pastel-yellow);
+  --color-card-yellow-bold: var(--color-warning-soft);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-ink-2);
+  --color-text-muted: var(--color-muted);
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+}
+
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), Inter, -apple-system, system-ui, "Segoe UI", Helvetica, sans-serif;
-  overflow-x: hidden;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f6f5f4;
-}
-::-webkit-scrollbar-thumb {
-  background: #bbb8b1;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #5645d4;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
+  font-family: var(--font-body), sans-serif;
+  color-scheme: dark;
 }
 
 button,
@@ -63,4 +50,196 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
+  background-color: var(--color-paper-2);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, black 24%, transparent);
+}
+
+h1,
+h2,
+h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 52%, transparent);
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-rule-strong);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: panel-in var(--dur-base) var(--ease-out) both;
+}
+
+.animate-toast-in {
+  animation: toast-in var(--dur-base) var(--ease-out) both;
+}
+
+.pressable {
+  transform: translateY(0);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.pressable:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.pressable:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.96);
+}
+
+.production-panel {
+  border: 1px solid var(--color-rule);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-panel-strong) 28%, transparent), transparent 42%),
+    var(--color-panel);
+  border-radius: var(--radius-card);
+}
+
+.production-panel-strong {
+  border: 1px solid var(--color-rule);
+  background: var(--color-panel-strong);
+  border-radius: var(--radius-card);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+    0 4px 12px color-mix(in oklab, var(--color-accent) 10%, transparent);
+}
+
+.production-stripe {
+  position: relative;
+}
+
+.production-stripe::before {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  bottom: 0.75rem;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 0.75rem;
+  width: 4px;
+}
+
+.status-pip {
+  background: var(--color-idle);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 12%, transparent);
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.status-pip-ready {
+  background: var(--color-ready);
+  color: var(--color-ready);
+}
+
+.status-pip-live {
+  background: var(--color-live);
+  color: var(--color-live);
+}
+
+.status-pip-alert {
+  background: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.technical-label {
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .animate-fade-in,
+  .animate-toast-in {
+    transform: none;
+  }
 }

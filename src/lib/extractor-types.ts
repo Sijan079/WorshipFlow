@@ -54,6 +54,16 @@ export const LyricsExtractorAiRetryRequestSchema = z.object({
   retryToken: z.string().min(1, "Retry token is required"),
 });
 
+export const LyricsExtractorAiDirectRequestSchema = z.object({
+  text: z.string().min(1, "Lyrics text is required"),
+  songTitle: z.string().optional(),
+});
+
+export const LyricsExtractorAiRequestSchema = z.union([
+  LyricsExtractorAiDirectRequestSchema,
+  LyricsExtractorAiRetryRequestSchema,
+]);
+
 export const LyricsExtractorAiRetryDescriptorSchema = z.object({
   retryToken: z.string().min(1),
   confidence: z.enum(EXTRACTOR_CONFIDENCE_LEVELS),
@@ -77,6 +87,7 @@ export type LyricsExtractorJobInput = z.infer<typeof LyricsExtractorJobInputSche
 export type LyricsExtractorSafeInput = z.infer<typeof LyricsExtractorSafeInputSchema>;
 export type LyricsExtractorSafeOutput = z.infer<typeof LyricsExtractorSafeOutputSchema>;
 export type LyricsExtractorAiRetryRequest = z.infer<typeof LyricsExtractorAiRetryRequestSchema>;
+export type LyricsExtractorAiDirectRequest = z.infer<typeof LyricsExtractorAiDirectRequestSchema>;
 export type LyricsExtractorAiRetryDescriptor = z.infer<typeof LyricsExtractorAiRetryDescriptorSchema>;
 export type ExtractorConfidenceLevel = (typeof EXTRACTOR_CONFIDENCE_LEVELS)[number];
 export type ExtractorWarningCode = (typeof EXTRACTOR_WARNING_CODES)[number];

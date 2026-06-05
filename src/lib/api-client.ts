@@ -1,5 +1,5 @@
 import type { ServiceDetailPayload, SongRepositoryItem } from "@/lib/service-data";
-import type { AssetType, BlockPerson, JobStatus, JobType, OutputType, ServiceAsset, ServiceStatus, SongRole, WorshipServiceDetail } from "@prisma/client";
+import type { AssetType, BlockPerson, JobStatus, JobType, OutputType, ServiceAsset, ServiceStatus, ServiceVariant, SongRole, WorshipServiceDetail } from "@prisma/client";
 import type {
   LyricsExtractorAiRetryDescriptor,
   LyricsExtractorDocxRequest,
@@ -132,6 +132,23 @@ export async function runAiLyricsExtractorRetry(params: {
   });
 }
 
+export async function runAiLyricsReformat(params: {
+  serviceId: string;
+  text: string;
+  songTitle?: string;
+}) {
+  return executeExtractorRequest(`/api/services/${params.serviceId}/extractor/ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: params.text,
+      songTitle: params.songTitle?.trim() || undefined,
+    }),
+  });
+}
+
 export async function generateLyricsDocx(params: {
   serviceId: string;
   songTitle?: string;
@@ -188,6 +205,7 @@ export type CreateServicePayload = {
   ministryName: string;
   theme?: string | null;
   status?: ServiceStatus;
+  serviceVariant?: ServiceVariant;
 };
 
 export type UpdateServicePayload = Partial<CreateServicePayload>;
@@ -206,6 +224,15 @@ export type CreateServiceSongPayload = {
   order?: number;
   songRole: SongRole;
   pageRef?: string | null;
+};
+
+export type CreateSongPayload = {
+  title: string;
+  author?: string | null;
+  defaultKey?: string | null;
+  bpm?: number | null;
+  language?: string | null;
+  isOriginal?: boolean;
 };
 
 export type UpsertServiceDetailPayload = {

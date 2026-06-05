@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
-import { STRICT_BLOCK_ORDER, serviceDetailInclude } from "@/lib/service-data";
+import { getServiceBlockOrder, serviceDetailInclude } from "@/lib/service-data";
 
 export async function GET() {
   try {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error.format() }, { status: 400 });
     }
 
-    const { serviceDate, ministryName, theme, status } = result.data;
+    const { serviceDate, ministryName, theme, status, serviceVariant } = result.data;
 
     const newService = await prisma.$transaction(async (tx) => {
       const service = await tx.worshipService.create({
@@ -37,12 +37,14 @@ export async function POST(request: Request) {
           ministryName,
           theme,
           status,
+          serviceVariant,
         },
       });
 
-      // Create all 10 blocks in strict order
+      // Create service blocks in strict order.
+      const blockOrder = getServiceBlockOrder(serviceVariant);
       await Promise.all(
-        STRICT_BLOCK_ORDER.map((blockType, index) =>
+        blockOrder.map((blockType, index) =>
           tx.worshipServiceBlock.create({
             data: {
               serviceId: service.id,

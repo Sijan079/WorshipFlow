@@ -1,6 +1,6 @@
-import { BlockType, Prisma } from "@prisma/client";
+import { BlockType, Prisma, ServiceVariant } from "@prisma/client";
 
-export const STRICT_BLOCK_ORDER = [
+export const STANDARD_BLOCK_ORDER: readonly BlockType[] = [
   BlockType.CALL_TO_WORSHIP,
   BlockType.PRAISE_AND_WORSHIP,
   BlockType.MC,
@@ -10,24 +10,46 @@ export const STRICT_BLOCK_ORDER = [
   BlockType.AWIT_NG_PAGTUGON,
   BlockType.OFFERING,
   BlockType.FLOWERS_FOR_THE_LORD,
-  BlockType.DETAILS,
 ] as const;
+
+export const EXTENDED_BLOCK_ORDER: readonly BlockType[] = [
+  BlockType.CALL_TO_WORSHIP,
+  BlockType.PRAISE_AND_WORSHIP,
+  BlockType.MC,
+  BlockType.AWIT_NG_HIMNO,
+  BlockType.TIPAN_PAHAYAG,
+  BlockType.AWIT_NG_PAKIKINIG,
+  BlockType.SCRIPTURE_READING,
+  BlockType.SERMON,
+  BlockType.AWIT_NG_PAGTUGON,
+  BlockType.OFFERING,
+  BlockType.FLOWERS_FOR_THE_LORD,
+] as const;
+
+export const STRICT_BLOCK_ORDER = STANDARD_BLOCK_ORDER;
+
+export function getServiceBlockOrder(serviceVariant?: ServiceVariant | null) {
+  return serviceVariant === ServiceVariant.EXTENDED ? EXTENDED_BLOCK_ORDER : STANDARD_BLOCK_ORDER;
+}
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   [BlockType.CALL_TO_WORSHIP]: "Call to Worship",
   [BlockType.PRAISE_AND_WORSHIP]: "Praise & Worship",
-  [BlockType.MC]: "MC",
+  [BlockType.MC]: "Papuri At Pasasalamat",
+  [BlockType.AWIT_NG_HIMNO]: "Awit ng Himno",
+  [BlockType.TIPAN_PAHAYAG]: "Tipan/Pahayag",
   [BlockType.AWIT_NG_PAKIKINIG]: "Awit ng Pakikinig",
   [BlockType.SCRIPTURE_READING]: "Scripture Reading",
   [BlockType.SERMON]: "Sermon",
   [BlockType.AWIT_NG_PAGTUGON]: "Awit ng Pagtugon",
   [BlockType.OFFERING]: "Offering",
-  [BlockType.FLOWERS_FOR_THE_LORD]: "Flowers for the Lord",
+  [BlockType.FLOWERS_FOR_THE_LORD]: "Announcements",
   [BlockType.DETAILS]: "Details",
 };
 
 export const SONG_BLOCK_TYPES = new Set<BlockType>([
   BlockType.PRAISE_AND_WORSHIP,
+  BlockType.AWIT_NG_HIMNO,
   BlockType.AWIT_NG_PAKIKINIG,
   BlockType.AWIT_NG_PAGTUGON,
 ]);

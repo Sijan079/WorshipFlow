@@ -193,3 +193,30 @@ export async function processAiRetry(serviceId: string, retryToken: string) {
     } satisfies LyricsExtractorSafeOutput,
   };
 }
+
+export async function processDirectAiCleanup(params: {
+  text: string;
+  songTitle?: string;
+}) {
+  const cleanedText = await runAiLyricsCleanup({
+    extractedText: params.text,
+    parser: "txt",
+    songTitle: params.songTitle,
+    warningCodes: [],
+  });
+
+  return {
+    kind: "editable" as const,
+    text: cleanedText,
+    outputJson: {
+      parser: "txt" as const,
+      extractedLineCount: cleanedText.split("\n").filter((line) => line.trim().length > 0).length,
+      sectionCount: cleanedText.split("\n").filter((line) => /^\[(?!Title\])/i.test(line.trim())).length,
+      normalizationApplied: true,
+      mode: "ai_fallback" as const,
+      confidence: "medium" as const,
+      warningCodes: [],
+      resultAvailable: true,
+    } satisfies LyricsExtractorSafeOutput,
+  };
+}
