@@ -1,25 +1,21 @@
 "use client";
 
-import { AssetType } from "@prisma/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
-  CheckCircle2,
   Copy,
   Download,
   Loader2,
   Maximize2,
   RefreshCw,
-  Save,
   Trash2,
   Wifi,
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
-import { apiFetch, triggerBrowserDownload, type ServiceRecord } from "@/lib/api-client";
-import { usePAPDesktopSession } from "../hooks/use-pap-desktop-session";
-import { PAP_INBOX_TTL_MS, type PAPConnectionState, type PAPTransferFile } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { triggerBrowserDownload } from "@/lib/api-client";
+import { PAP_INBOX_TTL_MS, type PAPTransferFile } from "../types";
+import { usePAPDesktopSessionContext } from "./pap-desktop-session-provider";
 import { PAPToastViewport, usePAPToasts } from "./pap-toasts";
 
 function formatBytes(size: number) {
@@ -28,36 +24,23 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function statusLabel(state: PAPConnectionState) {
-  if (state === "waiting") return "Waiting for mobile device";
-  if (state === "connected") return "Connected";
-  if (state === "connecting") return "Connecting";
-  if (state === "expired") return "Expired";
-  if (state === "failed") return "Needs attention";
-  if (state === "disconnected") return "Disconnected";
-  return "Starting";
-}
-
 const PAP_INBOX_TTL_HOURS = Math.round(PAP_INBOX_TTL_MS / 60 / 60 / 1000);
 
-export default function PAPDesktopClient() {
-  const pap = usePAPDesktopSession();
-  const queryClient = useQueryClient();
+export default function PAPDesktopClient({
+  embedded = false,
+  hideHeader = false,
+}: {
+  embedded?: boolean;
+  hideHeader?: boolean;
+}) {
+  const pap = usePAPDesktopSessionContext();
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [previewFile, setPreviewFile] = useState<PAPTransferFile | null>(null);
+  const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
+  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false);
+  const sessionRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { dismissToast, showToast, toasts } = usePAPToasts();
 
-  const servicesQuery = useQuery({
-    queryKey: ["services"],
-    queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
-  });
-
-  const activeServiceId = selectedServiceId || servicesQuery.data?.[0]?.id || "";
-  const selectedService = useMemo(
-    () => servicesQuery.data?.find((service) => service.id === activeServiceId),
-    [activeServiceId, servicesQuery.data]
-  );
   const groupedBatches = useMemo(() => {
     const batches = new Map<string, PAPTransferFile[]>();
     for (const file of pap.files) {
@@ -74,6 +57,7 @@ export default function PAPDesktopClient() {
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [pap.files]);
+  const connectedDeviceName = pap.state === "connected" ? pap.session?.mobileDeviceName : null;
 
   useEffect(() => {
     if (!pap.joinUrl) return;
@@ -89,23 +73,25 @@ export default function PAPDesktopClient() {
     }).then(setQrDataUrl);
   }, [pap.joinUrl]);
 
-  const attachMutation = useMutation({
-    mutationFn: async (file: PAPTransferFile) => {
-      if (!activeServiceId) throw new Error("Select a worship service first.");
-      const formData = new FormData();
-      formData.append("file", file.blob, file.fileName);
-      formData.append("type", AssetType.SCREENSHOT);
-      return apiFetch(`/api/services/${activeServiceId}/assets`, {
-        method: "POST",
-        body: formData,
-      });
-    },
-    onSuccess: async (_asset, file) => {
-      pap.removeFile(file.id);
-      showToast(`${file.fileName} saved to service assets.`, "success");
-      await queryClient.invalidateQueries({ queryKey: ["services"] });
-    },
-  });
+  useEffect(() => {
+    return () => {
+      if (sessionRefreshTimeoutRef.current) {
+        clearTimeout(sessionRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function showSessionRefresh() {
+    setIsSessionRefreshing(true);
+    setSessionRefreshKey((current) => current + 1);
+    if (sessionRefreshTimeoutRef.current) {
+      clearTimeout(sessionRefreshTimeoutRef.current);
+    }
+    sessionRefreshTimeoutRef.current = setTimeout(() => {
+      setIsSessionRefreshing(false);
+      sessionRefreshTimeoutRef.current = null;
+    }, 850);
+  }
 
   function downloadBatch(files: PAPTransferFile[]) {
     for (const file of files) {
@@ -115,20 +101,31 @@ export default function PAPDesktopClient() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-4 border-b border-[var(--color-brand-border)] pb-5 md:flex-row md:items-end">
-        <div>
-          <h1 className="text-2xl font-semibold">PAP screenshots</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
-            Send screenshots from a phone, retrieve them here in original quality, then download or save only the ones you need.
-            Temporary inbox items are kept on this desktop for {PAP_INBOX_TTL_HOURS} hours.
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <div className={embedded ? "space-y-5" : "space-y-6"}>
+      <header
+        className={`flex flex-col justify-between gap-4 md:flex-row md:items-end ${
+          hideHeader ? "" : `border-b border-[var(--color-brand-border)] ${embedded ? "pb-4" : "pb-5"}`
+        }`}
+      >
+        {hideHeader ? null : (
+          <div>
+            {embedded ? (
+              <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">Phone-to-PC Transfer</h2>
+            ) : (
+              <h1 className="text-2xl font-semibold">PAP screenshots</h1>
+            )}
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
+              Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.
+              Temporary inbox items are kept on this desktop for {PAP_INBOX_TTL_HOURS} hours.
+            </p>
+          </div>
+        )}
+        <div className={`flex gap-2 ${hideHeader ? "w-full justify-end" : ""}`}>
           <button
             type="button"
             onClick={() => {
               showToast("PAP receive mode restarted.");
+              showSessionRefresh();
               pap.restartSession();
             }}
             className="pressable inline-flex items-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-4 py-2 text-sm font-semibold"
@@ -140,9 +137,10 @@ export default function PAPDesktopClient() {
             type="button"
             onClick={() => {
               showToast("PAP session cleared.");
+              showSessionRefresh();
               pap.clearSession();
             }}
-            className="pressable inline-flex items-center gap-2 rounded-md bg-[var(--color-brand-ink)] px-4 py-2 text-sm font-semibold text-white"
+            className="pressable inline-flex items-center gap-2 rounded-md bg-[var(--color-focus)] px-4 py-2 text-sm font-semibold text-[#3f008e] shadow-[0_18px_36px_rgba(210,187,255,0.18)]"
           >
             <X className="h-4 w-4" />
             Clear Session
@@ -150,20 +148,35 @@ export default function PAPDesktopClient() {
         </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-        <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1 border-b border-[var(--color-brand-border)] p-4">
-              <h2 className="text-base font-semibold">Pair a phone</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Scan the QR code to open the mobile sender.</p>
-            </div>
-            <span className="inline-flex shrink-0 items-center gap-2 border-l border-b border-[var(--color-brand-border)] px-3 py-4 text-xs font-semibold">
-              <Wifi className="h-3.5 w-3.5" />
-              {statusLabel(pap.state)}
-            </span>
+      <div className="relative">
+        <div
+          key={sessionRefreshKey}
+          className={`grid gap-6 xl:grid-cols-[380px_1fr] ${
+            isSessionRefreshing ? "opacity-60 blur-[1px]" : "animate-fade-in opacity-100 blur-0"
+          }`}
+        >
+          <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--color-focus)_16%,transparent)]">
+          <div className="border-b border-[var(--color-brand-border)] p-4">
+            {connectedDeviceName ? (
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold">{connectedDeviceName}</h2>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Connected mobile device</p>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold">
+                  <Wifi className="h-3.5 w-3.5" />
+                  {connectedDeviceName}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-base font-semibold">Pair a phone</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Scan the QR code to open the mobile sender.</p>
+              </div>
+            )}
           </div>
 
-          <div className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3">
+          <div className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-center">
             <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Pairing code</p>
             <p className="mt-1 font-[var(--font-plex-mono)] text-3xl font-semibold tracking-[0.12em]">
               {pap.session?.pairingCode ?? "------"}
@@ -201,27 +214,16 @@ export default function PAPDesktopClient() {
           ) : null}
 
           {pap.error ? <p className="m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{pap.error}</p> : null}
-        </section>
+          </section>
 
-        <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
+          <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
           <div className="flex flex-col justify-between gap-3 border-b border-[var(--color-brand-border)] p-4 md:flex-row md:items-center">
             <div>
               <h2 className="text-lg font-semibold">PAP Inbox</h2>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Temporary screenshots survive refreshes here for {PAP_INBOX_TTL_HOURS} hours, unless attached or discarded.
+                Temporary screenshots survive refreshes here for {PAP_INBOX_TTL_HOURS} hours, unless downloaded or discarded.
               </p>
             </div>
-            <select
-              value={activeServiceId}
-              onChange={(event) => setSelectedServiceId(event.target.value)}
-              className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
-            >
-              {servicesQuery.data?.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.ministryName} / {new Date(service.serviceDate).toLocaleDateString()}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div>
@@ -237,7 +239,7 @@ export default function PAPDesktopClient() {
                   <button
                     type="button"
                     onClick={() => downloadBatch(batch.files)}
-                    className="pressable inline-flex items-center justify-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-4 py-2 text-sm font-semibold"
+                    className="pressable inline-flex items-center justify-center gap-2 rounded-md bg-[var(--color-focus)] px-4 py-2 text-sm font-bold text-[#3f008e] shadow-[0_12px_28px_rgba(210,187,255,0.18)]"
                   >
                     <Download className="h-4 w-4" />
                     Download All
@@ -246,7 +248,7 @@ export default function PAPDesktopClient() {
 
                 <div>
                   {batch.files.map((file) => (
-                    <article key={file.id} className="grid gap-3 border-t border-[var(--color-brand-border)] p-3 sm:grid-cols-[112px_minmax(0,1fr)] lg:grid-cols-[112px_minmax(0,1fr)_auto] lg:items-center">
+                    <article key={file.id} className="grid gap-3 border-t border-[var(--color-brand-border)] p-3 sm:grid-cols-[112px_minmax(0,1fr)] lg:grid-cols-[112px_minmax(0,1fr)_auto]">
                       <button
                         type="button"
                         onClick={() => {
@@ -272,29 +274,18 @@ export default function PAPDesktopClient() {
                           {formatBytes(file.size)} / {new Date(file.transferredAt).toLocaleTimeString()}
                         </p>
                       </div>
-                      <div className="grid gap-2 sm:col-span-2 sm:grid-cols-3 lg:col-span-1">
+                      <div className="flex items-start justify-end gap-1 pt-2 sm:col-span-2 lg:col-span-1">
                         <button
                           type="button"
                           onClick={() => {
                             triggerBrowserDownload(file.blob, file.fileName);
                             showToast(`${file.fileName} sent to downloads.`, "success");
                           }}
-                          className="pressable inline-flex items-center justify-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold"
+                          className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]"
+                          aria-label={`Download ${file.fileName}`}
+                          title="Download"
                         >
                           <Download className="h-4 w-4" />
-                          Download
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!selectedService || attachMutation.isPending}
-                          onClick={() => {
-                            showToast(`Saving ${file.fileName} to service assets.`);
-                            attachMutation.mutate(file);
-                          }}
-                          className="pressable inline-flex items-center justify-center gap-2 rounded-md bg-[var(--color-brand-accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        >
-                          <Save className="h-4 w-4" />
-                          Save
                         </button>
                         <button
                           type="button"
@@ -302,10 +293,11 @@ export default function PAPDesktopClient() {
                             pap.removeFile(file.id);
                             showToast(`${file.fileName} deleted.`);
                           }}
-                          className="pressable inline-flex items-center justify-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold"
+                          className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-danger)] hover:bg-[var(--color-brand-panel-strong)]"
+                          aria-label={`Delete ${file.fileName}`}
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
                         </button>
                       </div>
                     </article>
@@ -320,21 +312,21 @@ export default function PAPDesktopClient() {
               <Camera className="h-10 w-10 text-[var(--color-brand-accent)]" />
               <p className="mt-4 text-lg font-semibold">Waiting for screenshots</p>
               <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-text-secondary)]">
-                Scan the QR code with a phone, choose screenshots, then retrieve or save them here. Nothing is permanently stored until you save it.
+                Scan the QR code with a phone, choose screenshots, then retrieve or download them here. Items stay in this temporary inbox until they expire or are deleted.
               </p>
             </div>
           ) : null}
+          </section>
+        </div>
 
-          {attachMutation.error ? (
-            <p className="m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{attachMutation.error.message}</p>
-          ) : null}
-          {attachMutation.isSuccess ? (
-            <p className="m-4 inline-flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-              <CheckCircle2 className="h-4 w-4" />
-              Screenshot saved to service assets.
-            </p>
-          ) : null}
-        </section>
+        {isSessionRefreshing ? (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md bg-[var(--color-paper)]/44 backdrop-blur-[1px]">
+            <div className="inline-flex items-center gap-3 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-4 py-3 text-sm font-semibold text-[var(--color-brand-ink)] shadow-[0_12px_28px_rgba(0,0,0,0.2)]">
+              <RefreshCw className="h-4 w-4 animate-spin text-[var(--color-focus)]" />
+              Refreshing session
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {previewFile ? (

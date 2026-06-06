@@ -9,12 +9,15 @@ import { BlockType, JobStatus, JobType, ServiceStatus, ServiceVariant, SongRole 
 import {
   CloudUpload,
   Copy,
+  FileCog,
   FileText,
+  FileVideo2,
   History,
   ListMusic,
   Loader2,
   Play,
   Plus,
+  QrCode,
   RefreshCcw,
   Redo2,
   Save,
@@ -51,6 +54,7 @@ import {
 } from "@/lib/api-client";
 import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-data";
 import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from "@/lib/extractor-types";
+import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import {
   analyzeServiceText,
@@ -78,12 +82,31 @@ type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
 type SongWorkflowStep = "library" | "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
+export type MediaTool = "phone-transfer" | "qr-generator" | "converter";
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
   { id: "flow", label: "Flow Hub", description: "Assign people, songs, and details by block." },
   { id: "review", label: "Run of Service", description: "Scan the complete service in strict order." },
 ];
+
+const MEDIA_TOOLS: Array<{ id: MediaTool; href: string; label: string; description: string }> = [
+  {
+    id: "phone-transfer",
+    href: "/assets/phone-transfer",
+    label: "Phone Transfer",
+    description:
+      "Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.",
+  },
+  { id: "qr-generator", href: "/assets/qr-generator", label: "QR Generator", description: "Create a code for giving links, forms, or service resources." },
+  { id: "converter", href: "/assets/converter", label: "Media Converter", description: "Prepare media files for projection and archiving." },
+];
+
+const MEDIA_TOOLS_HOME_COPY = {
+  title: "Media Tools",
+  description:
+    "Prepare worship production media in one focused workspace. Move phone captures to the booth, generate QR codes, and convert service files for projection or archive handoff.",
+};
 
 type TaggedDraftSection = {
   tag: string | null;
@@ -329,9 +352,11 @@ function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upl
 
 export default function ServiceBuilderClient({
   module,
+  mediaTool,
   songStep,
 }: {
   module: WorkspaceModule;
+  mediaTool?: MediaTool;
   songStep?: SongWorkflowStep;
 }) {
   const queryClient = useQueryClient();
@@ -1062,10 +1087,14 @@ export default function ServiceBuilderClient({
   const pageBusy = servicesQuery.isLoading;
   const moduleCopy = MODULE_CONTENT[module];
   const showServiceSidebar = module === "services";
+  const activeMediaToolCopy = mediaTool ? MEDIA_TOOLS.find((tool) => tool.id === mediaTool) : null;
+  const mediaHeaderCopy = activeMediaToolCopy
+    ? { title: activeMediaToolCopy.label, description: activeMediaToolCopy.description }
+    : MEDIA_TOOLS_HOME_COPY;
 
   return (
     <div className="min-h-full space-y-5">
-      {module === "songs" ? null : module === "services" ? (
+      {module === "songs" || module === "assets" ? null : module === "services" ? (
         <section className="production-panel-strong px-4 py-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -1090,7 +1119,7 @@ export default function ServiceBuilderClient({
       ) : (
         <section className="production-panel-strong px-4 py-4">
           <div>
-            <p className="technical-label">{module === "assets" ? "PRODUCTION MEDIA TOOLS" : "LIVE CAPTIONS & OUTPUTS"}</p>
+            <p className="technical-label">LIVE CAPTIONS & OUTPUTS</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[var(--color-brand-ink)]">
               {moduleCopy.title}
             </h1>
@@ -2712,124 +2741,139 @@ export default function ServiceBuilderClient({
         ) : null}
 
         {module === "assets" ? (
-          <div className="relative space-y-6">
-            <header>
-              <h2 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--color-brand-ink)]">Media Tools</h2>
-              <p className="mt-1 text-base text-[var(--color-text-secondary)]">
-                Centralized utilities for worship production and technical ministry.
+          <div className="space-y-5">
+            <div className="mx-auto max-w-3xl py-3 text-center">
+              <h2 className="text-5xl font-bold leading-tight text-[var(--color-brand-ink)]">
+                {mediaHeaderCopy.title}
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-[var(--color-brand-ink)]">
+                {mediaHeaderCopy.description}
               </p>
-            </header>
+            </div>
 
-            <div className="grid grid-cols-12 gap-6">
-              <section className="col-span-12 flex min-h-[420px] flex-col rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:col-span-7">
-                <div className="mb-6 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Upload className="h-6 w-6 text-[var(--color-focus)]" />
-                    <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Phone-to-PC Transfer</h3>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-1 text-xs font-semibold text-[var(--color-secondary)]">
-                    <span className="status-pip status-pip-ready" />
-                    Awaiting Connection
-                  </div>
-                </div>
+            {!mediaTool ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                {MEDIA_TOOLS.map((tool) => (
+                  <Link
+                    key={tool.id}
+                    href={tool.href}
+                    className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 hover:border-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]"
+                  >
+                    <span className="block text-base font-semibold text-[var(--color-brand-ink)]">{tool.label}</span>
+                    <span className="mt-2 block text-sm leading-6 text-[var(--color-text-secondary)]">{tool.description}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
 
-                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[#060e20]/55 p-8 text-center">
-                  <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-text-secondary)]">
-                    <Upload className="h-9 w-9" />
-                  </div>
-                  <h4 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Ready for Transfer</h4>
-                  <p className="mt-3 max-w-md text-base leading-7 text-[var(--color-text-secondary)]">
-                    Open the <span className="font-bold text-[var(--color-focus)]">Tech Suite Mobile App</span> and scan the code on your screen to instantly push photos or videos to this workspace.
-                  </p>
-                  <div className="mt-8 flex items-center gap-4">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-white p-2 shadow-lg">
-                      <div className="flex h-full w-full items-center justify-center rounded bg-[#0b1326] text-[10px] font-bold text-white">QR</div>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-[var(--color-brand-ink)]">Direct Link ID</p>
-                      <code className="mt-1 inline-block rounded bg-[var(--color-brand-panel-elevated)] px-2 py-1 font-[var(--font-mono)] text-sm text-[var(--color-focus)]">PROD-7729-SYNC</code>
-                    </div>
-                  </div>
-                </div>
+            {mediaTool === "phone-transfer" ? (
+              <section className="production-panel p-5">
+                <PAPDesktopClient embedded hideHeader />
               </section>
+            ) : null}
 
-              <section className="col-span-12 flex flex-col rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:col-span-5">
-                <div className="mb-6 flex items-center gap-3">
-                  <span className="font-[var(--font-mono)] text-xl font-bold text-[var(--color-secondary)]">#</span>
-                  <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">QR Generator</h3>
+            {mediaTool === "qr-generator" ? (
+              <section className="production-panel p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <QrCode className="h-5 w-5 text-[var(--color-secondary)]" />
+                  <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">QR Generator</h2>
                 </div>
-                <div className="space-y-4">
-                  <label className="block">
-                    <span className="technical-label">Destination URL or Text</span>
-                    <input className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-4 py-3 text-sm text-[var(--color-brand-ink)]" placeholder="https://churchname.com/give" />
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="technical-label">Primary Color</p>
-                      <div className="mt-1 flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
-                        <span className="h-5 w-5 rounded bg-[var(--color-focus)]" />
-                        <span className="font-semibold">#7C3AED</span>
-                      </div>
-                    </div>
-                    <label>
-                      <span className="technical-label">Branding</span>
-                      <select className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2 text-sm">
-                        <option>Church Logo</option>
-                        <option>Tech Suite Icon</option>
-                        <option>None</option>
-                      </select>
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="space-y-4">
+                    <label className="block">
+                      <span className="technical-label">Destination URL or Text</span>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-4 py-3 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                        placeholder="https://churchname.com/give"
+                      />
                     </label>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="technical-label">Primary Color</p>
+                        <div className="mt-1 flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
+                          <span className="h-5 w-5 rounded bg-[var(--color-focus)]" />
+                          <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--color-brand-ink)]">#7C3AED</span>
+                        </div>
+                      </div>
+                      <label>
+                        <span className="technical-label">Branding</span>
+                        <select className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]">
+                          <option>Church Logo</option>
+                          <option>Tech Suite Icon</option>
+                          <option>None</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-3 border-t border-[var(--color-brand-border)] pt-4">
+                      <button className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]">
+                        <Save className="h-4 w-4" />
+                        Save SVG
+                      </button>
+                      <button className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--color-brand-ink)]">
+                        <Copy className="h-4 w-4" />
+                        Copy
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-[var(--color-brand-border)] bg-[#060e20] p-6">
-                    <div className="flex h-40 w-40 items-center justify-center rounded-xl bg-white p-3">
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-5">
+                    <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-white p-3">
                       <div className="grid h-full w-full grid-cols-5 gap-1 bg-[#7c3aed] p-2">
                         {Array.from({ length: 25 }).map((_, index) => (
                           <span key={index} className={index % 3 === 0 ? "bg-white" : "bg-[#3f008e]"} />
                         ))}
                       </div>
                     </div>
-                    <p className="mt-4 text-xs font-semibold text-[var(--color-text-secondary)]">Live Preview - SVG Format</p>
+                    <p className="mt-4 text-xs font-semibold text-[var(--color-text-secondary)]">Live preview - SVG format</p>
                   </div>
                 </div>
               </section>
+            ) : null}
 
-              <section className="col-span-12 rounded-xl border border-[var(--color-brand-border)] bg-[#14151d]/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            {mediaTool === "converter" ? (
+              <section className="production-panel p-5">
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl text-[var(--color-tertiary,#ffb2b7)]">?</span>
-                    <h3 className="text-2xl font-semibold text-[var(--color-brand-ink)]">Media Converter</h3>
+                    <FileCog className="h-5 w-5 text-[var(--color-clay)]" />
+                    <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">Media Converter</h2>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <span className="technical-label">Output Format:</span>
-                      <div className="flex rounded-lg bg-[var(--color-brand-panel-strong)] p-1">
-                        {['MP4', 'MOV', 'WAV'].map((format) => (
-                          <button key={format} className={`rounded-md px-3 py-1 text-xs font-bold ${format === 'MP4' ? 'bg-[var(--color-focus)] text-[#3f008e]' : 'text-[var(--color-text-secondary)]'}`}>
-                            {format}
-                          </button>
-                        ))}
-                      </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="technical-label">Output Format</span>
+                    <div className="flex rounded-lg bg-[var(--color-brand-panel-strong)] p-1">
+                      {["MP4", "MOV", "WAV"].map((format) => (
+                        <button
+                          key={format}
+                          className={`rounded-md px-3 py-1 text-xs font-bold ${
+                            format === "MP4" ? "bg-[var(--color-focus)] text-[#3f008e]" : "text-[var(--color-text-secondary)]"
+                          }`}
+                        >
+                          {format}
+                        </button>
+                      ))}
                     </div>
-                    <span className="technical-label">Conversion Settings</span>
                   </div>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-3">
-                  <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
-                    <Plus className="mb-3 h-10 w-10 text-[var(--color-clay)]" />
+                <div className="grid gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
+                  <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-6 text-center">
+                    <Plus className="mb-3 h-8 w-8 text-[var(--color-clay)]" />
                     <span className="font-bold text-[var(--color-brand-ink)]">Add Files</span>
                     <span className="mt-1 text-sm text-[var(--color-text-secondary)]">Drag and drop or browse</span>
                     <input name="file" type="file" className="sr-only" />
                   </label>
 
-                  <div className="space-y-3 md:col-span-2">
+                  <div className="space-y-3">
                     {[
-                      ['Sermon_Intro_V2_Draft.mov', '74%', 'movie'],
-                      ['Worship_Set_Recording.wav', 'Waiting...', 'audio'],
+                      ["Sermon_Intro_V2_Draft.mov", "74%"],
+                      ["Worship_Set_Recording.wav", "Waiting..."],
                     ].map(([name, status], index) => (
-                      <div key={name} className={`flex items-center gap-4 rounded-xl border border-[var(--color-brand-border)] bg-[#060e20] p-4 ${index === 1 ? 'opacity-60' : ''}`}>
-                        <div className="flex h-12 w-12 items-center justify-center rounded bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]">
-                          {index === 0 ? '?' : '?'}
+                      <div
+                        key={name}
+                        className={`flex items-center gap-4 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-4 ${
+                          index === 1 ? "opacity-60" : ""
+                        }`}
+                      >
+                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]">
+                          <FileVideo2 className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-end justify-between gap-3">
@@ -2837,30 +2881,28 @@ export default function ServiceBuilderClient({
                             <span className="text-xs font-semibold text-[var(--color-text-secondary)]">{status}</span>
                           </div>
                           <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-brand-panel-strong)]">
-                            <div className="h-full rounded-full bg-[var(--color-focus)]" style={{ width: index === 0 ? '74%' : '0%' }} />
+                            <div className="h-full rounded-full bg-[var(--color-focus)]" style={{ width: index === 0 ? "74%" : "0%" }} />
                           </div>
                         </div>
-                        <X className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                        <button className="pressable text-[var(--color-text-secondary)]" aria-label={`Remove ${name}`}>
+                          <X className="h-5 w-5" />
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center justify-between border-t border-[var(--color-brand-border)] pt-6">
+                <div className="mt-6 flex flex-col gap-4 border-t border-[var(--color-brand-border)] pt-5 md:flex-row md:items-center md:justify-between">
                   <div className="flex flex-wrap gap-4 text-xs font-semibold text-[var(--color-text-secondary)]">
-                    <span>Auto-sync to Media Library</span>
+                    <span>Auto-sync to media library</span>
                     <span>Hardware acceleration active</span>
                   </div>
-                  <button className="pressable rounded-lg bg-[var(--color-focus)] px-8 py-3 text-xl font-bold text-[#3f008e] shadow-[0_8px_22px_rgba(124,58,237,0.22)]">
+                  <button className="pressable inline-flex items-center justify-center rounded-lg bg-[var(--color-focus)] px-5 py-2.5 text-sm font-bold text-[#3f008e]">
                     Convert All
                   </button>
                 </div>
               </section>
-            </div>
-
-            <button className="fixed bottom-8 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-focus)] text-3xl font-light text-[#3f008e] shadow-2xl">
-              +
-            </button>
+            ) : null}
           </div>
         ) : null}
         {module === "automation" ? (

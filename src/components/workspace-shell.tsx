@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AudioLines,
   CalendarDays,
   Captions,
+  ChevronDown,
   Library,
   ListMusic,
   Sparkles,
@@ -23,6 +25,12 @@ const NAV_ITEMS = [
   { href: "/services#team", label: "Team", shortLabel: "Team", icon: Users },
 ] as const;
 
+const MEDIA_TOOL_NAV = [
+  { href: "/assets/phone-transfer", label: "Phone Transfer" },
+  { href: "/assets/qr-generator", label: "QR Generator" },
+  { href: "/assets/converter", label: "Media Converter" },
+] as const;
+
 function isActivePath(pathname: string, href: string) {
   if (href === "/songs/upload") {
     return pathname === "/songs" || pathname === "/songs/upload" || pathname === "/songs/format";
@@ -35,6 +43,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const formatterMode = pathname === "/songs/upload" || pathname === "/songs/format";
   const shellNavItems = NAV_ITEMS;
+  const [mediaToolsOpen, setMediaToolsOpen] = useState(() => pathname === "/assets" || pathname.startsWith("/assets/"));
 
   return (
     <div className="min-h-screen bg-[var(--color-brand-bg)] text-[var(--color-text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -56,20 +65,60 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
         <nav className="flex flex-1 flex-col gap-1" aria-label="Production workspace">
           {shellNavItems.map(({ href, label, icon: Icon }) => {
             const active = isActivePath(pathname, href);
+            const isMediaTools = href === "/assets";
+            const showMediaChildren = isMediaTools && mediaToolsOpen;
             return (
-              <Link
-                key={`${href}-${label}`}
-                href={href}
-                className={`pressable flex items-center gap-3 rounded-lg border-l-4 px-3 py-2.5 text-sm font-semibold ${
-                  active
-                    ? "border-l-[var(--color-focus)] border-y-transparent border-r-transparent bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
-                    : "border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
-                }`}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 truncate">{label}</span>
-              </Link>
+              <div key={`${href}-${label}`}>
+                <div
+                  className={`flex items-center rounded-lg border-l-4 ${
+                    active
+                      ? "border-l-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
+                      : "border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
+                  }`}
+                >
+                  <Link
+                    href={href}
+                    className="pressable flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm font-semibold"
+                    aria-current={active && !isMediaTools ? "page" : undefined}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{label}</span>
+                  </Link>
+                  {isMediaTools ? (
+                    <button
+                      type="button"
+                      onClick={() => setMediaToolsOpen((current) => !current)}
+                      className="pressable mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-[var(--color-brand-panel)]"
+                      aria-label={mediaToolsOpen ? "Collapse media tools" : "Expand media tools"}
+                      aria-expanded={mediaToolsOpen}
+                    >
+                      <ChevronDown className={`h-4 w-4 transition-transform ${mediaToolsOpen ? "rotate-180" : ""}`} />
+                    </button>
+                  ) : null}
+                </div>
+
+                {showMediaChildren ? (
+                  <div className="ml-7 mt-1 flex flex-col gap-1 border-l border-[var(--color-brand-border)] pl-3">
+                    {MEDIA_TOOL_NAV.map((item) => {
+                      const childActive = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`pressable rounded-md px-3 py-2 text-xs font-semibold ${
+                            childActive
+                              ? "bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
+                          }`}
+                          aria-current={childActive ? "page" : undefined}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </nav>
