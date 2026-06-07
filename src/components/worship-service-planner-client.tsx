@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BlockType, JobStatus } from "@prisma/client";
 import {
   Check,
   ClipboardList,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch, type ServiceRecord } from "@/lib/api-client";
 import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-data";
+import { JobStatus, type BlockType } from "@/lib/service-constants";
 
 function formatServiceDate(dateString: string) {
   return new Intl.DateTimeFormat("en-US", {

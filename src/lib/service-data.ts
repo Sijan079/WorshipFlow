@@ -1,6 +1,7 @@
-import { BlockType, Prisma, ServiceVariant } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { BlockType, ServiceVariant, type BlockType as BlockTypeValue, type ServiceVariant as ServiceVariantValue } from "@/lib/service-constants";
 
-export const STANDARD_BLOCK_ORDER: readonly BlockType[] = [
+export const STANDARD_BLOCK_ORDER: readonly BlockTypeValue[] = [
   BlockType.CALL_TO_WORSHIP,
   BlockType.PRAISE_AND_WORSHIP,
   BlockType.MC,
@@ -12,7 +13,7 @@ export const STANDARD_BLOCK_ORDER: readonly BlockType[] = [
   BlockType.FLOWERS_FOR_THE_LORD,
 ] as const;
 
-export const EXTENDED_BLOCK_ORDER: readonly BlockType[] = [
+export const EXTENDED_BLOCK_ORDER: readonly BlockTypeValue[] = [
   BlockType.CALL_TO_WORSHIP,
   BlockType.PRAISE_AND_WORSHIP,
   BlockType.MC,
@@ -28,11 +29,11 @@ export const EXTENDED_BLOCK_ORDER: readonly BlockType[] = [
 
 export const STRICT_BLOCK_ORDER = STANDARD_BLOCK_ORDER;
 
-export function getServiceBlockOrder(serviceVariant?: ServiceVariant | null) {
+export function getServiceBlockOrder(serviceVariant?: ServiceVariantValue | null) {
   return serviceVariant === ServiceVariant.EXTENDED ? EXTENDED_BLOCK_ORDER : STANDARD_BLOCK_ORDER;
 }
 
-export const BLOCK_LABELS: Record<BlockType, string> = {
+export const BLOCK_LABELS: Record<BlockTypeValue, string> = {
   [BlockType.CALL_TO_WORSHIP]: "Call to Worship",
   [BlockType.PRAISE_AND_WORSHIP]: "Praise & Worship",
   [BlockType.MC]: "Papuri At Pasasalamat",
@@ -47,7 +48,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   [BlockType.DETAILS]: "Details",
 };
 
-export const SONG_BLOCK_TYPES = new Set<BlockType>([
+export const SONG_BLOCK_TYPES = new Set<BlockTypeValue>([
   BlockType.PRAISE_AND_WORSHIP,
   BlockType.AWIT_NG_HIMNO,
   BlockType.AWIT_NG_PAKIKINIG,

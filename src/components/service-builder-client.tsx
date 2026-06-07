@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BlockType, JobStatus, JobType, ServiceStatus, ServiceVariant, SongRole } from "@prisma/client";
 import {
   CloudUpload,
   Copy,
@@ -53,6 +52,16 @@ import {
   triggerBrowserDownload,
 } from "@/lib/api-client";
 import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-data";
+import {
+  BlockType,
+  JobStatus,
+  JobType,
+  ServiceStatus,
+  ServiceStatusValues,
+  ServiceVariant,
+  ServiceVariantValues,
+  SongRole,
+} from "@/lib/service-constants";
 import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from "@/lib/extractor-types";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
@@ -67,14 +76,14 @@ const createServiceFormSchema = z.object({
   serviceDate: z.string().min(1, "Service date is required"),
   ministryName: z.string().min(1, "Ministry name is required"),
   theme: z.string().optional(),
-  serviceVariant: z.nativeEnum(ServiceVariant),
+  serviceVariant: z.enum(ServiceVariantValues),
 });
 
 const updateServiceFormSchema = z.object({
   serviceDate: z.string().min(1, "Service date is required"),
   ministryName: z.string().min(1, "Ministry name is required"),
   theme: z.string().optional(),
-  status: z.nativeEnum(ServiceStatus),
+  status: z.enum(ServiceStatusValues),
 });
 
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
