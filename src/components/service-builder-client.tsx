@@ -51,7 +51,7 @@ import {
   runUploadLyricsExtractor,
   triggerBrowserDownload,
 } from "@/lib/api-client";
-import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-data";
+import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-display";
 import {
   BlockType,
   JobStatus,

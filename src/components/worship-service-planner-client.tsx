@@ -11,7 +11,7 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { apiFetch, type ServiceRecord } from "@/lib/api-client";
-import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-data";
+import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-display";
 import { JobStatus, type BlockType } from "@/lib/service-constants";
 
 function formatServiceDate(dateString: string) {
