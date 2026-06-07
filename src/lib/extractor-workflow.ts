@@ -18,6 +18,8 @@ import type {
 import { getErrorMessage } from "@/lib/errors";
 import { runAiLyricsCleanup } from "@/lib/extractor-ai";
 
+const STANDALONE_FORMATTER_SCOPE = "standalone-song-formatter";
+
 export function sanitizeExtractorFileNameSegment(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "song";
 }
@@ -166,6 +168,85 @@ export async function processImmediateUploadExtractor(
   }
 }
 
+function toEditableResult(parserResult: {
+  parser: "docx" | "pdf" | "txt" | "paste";
+  text: string;
+  sectionCount: number;
+  normalizationApplied: boolean;
+  confidence: "high" | "medium" | "low";
+  warningCodes: LyricsExtractorSafeOutput["warningCodes"];
+}) {
+  const safeOutput: LyricsExtractorSafeOutput = {
+    parser: parserResult.parser,
+    extractedLineCount: parserResult.text.split("\n").filter((line) => line.trim().length > 0).length,
+    sectionCount: parserResult.sectionCount,
+    normalizationApplied: parserResult.normalizationApplied,
+    mode: "local",
+    confidence: parserResult.confidence,
+    warningCodes: parserResult.warningCodes,
+    resultAvailable: true,
+  };
+
+  return {
+    kind: "editable" as const,
+    text: parserResult.text,
+    outputJson: safeOutput,
+  };
+}
+
+export async function processStandalonePasteExtractor(input: LyricsExtractorJobInput) {
+  if (input.sourceMode !== "paste") {
+    throw new Error("Standalone paste extractor input is invalid.");
+  }
+
+  const parserResult = extractTextFromPasteInput(input.pastedText);
+  const result = toEditableResult(parserResult);
+  const retry =
+    parserResult.confidence === "low"
+      ? await storeTemporaryAiReview({
+          serviceId: STANDALONE_FORMATTER_SCOPE,
+          parser: parserResult.parser,
+          confidence: parserResult.confidence,
+          warningCodes: parserResult.warningCodes,
+          extractedText: parserResult.text,
+          songTitle: input.songTitle,
+        })
+      : undefined;
+
+  return { ...result, retry };
+}
+
+export async function processStandaloneUploadExtractor(file: File, songTitle?: string) {
+  const batch = await createTemporaryAutomationBatch(STANDALONE_FORMATTER_SCOPE, [file]);
+
+  try {
+    const storedFile = await readTemporaryAutomationFile(STANDALONE_FORMATTER_SCOPE, batch.id);
+    if (!storedFile) {
+      throw new Error("Temporary formatter upload is unavailable or expired.");
+    }
+
+    const parserResult = await extractTextFromTemporaryFile(storedFile.path, storedFile.mimeType);
+    const result = toEditableResult(parserResult);
+    const retry =
+      parserResult.confidence === "low"
+        ? await storeTemporaryAiReview({
+            serviceId: STANDALONE_FORMATTER_SCOPE,
+            parser: parserResult.parser,
+            confidence: parserResult.confidence,
+            warningCodes: parserResult.warningCodes,
+            extractedText: parserResult.text,
+            songTitle,
+          })
+        : undefined;
+
+    await consumeTemporaryAutomationBatch(STANDALONE_FORMATTER_SCOPE, batch.id);
+    return { ...result, retry };
+  } catch (error: unknown) {
+    await deleteTemporaryAutomationBatch(STANDALONE_FORMATTER_SCOPE, batch.id);
+    throw error;
+  }
+}
+
 export async function processAiRetry(serviceId: string, retryToken: string) {
   const review = await consumeTemporaryAiReview(serviceId, retryToken);
   if (!review) {
@@ -193,6 +274,10 @@ export async function processAiRetry(serviceId: string, retryToken: string) {
       resultAvailable: true,
     } satisfies LyricsExtractorSafeOutput,
   };
+}
+
+export async function processStandaloneAiRetry(retryToken: string) {
+  return processAiRetry(STANDALONE_FORMATTER_SCOPE, retryToken);
 }
 
 export async function processDirectAiCleanup(params: {

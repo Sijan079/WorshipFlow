@@ -85,7 +85,7 @@ async function executeExtractorRequest(path: string, options?: RequestInit): Pro
 }
 
 export async function runUploadLyricsExtractor(params: {
-  serviceId: string;
+  serviceId?: string;
   file: File;
   songTitle?: string;
 }) {
@@ -95,18 +95,20 @@ export async function runUploadLyricsExtractor(params: {
     formData.append("songTitle", params.songTitle.trim());
   }
 
-  return executeExtractorRequest(`/api/services/${params.serviceId}/extractor`, {
+  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor` : "/api/extractor";
+  return executeExtractorRequest(path, {
     method: "POST",
     body: formData,
   });
 }
 
 export async function runPasteLyricsExtractor(params: {
-  serviceId: string;
+  serviceId?: string;
   songTitle?: string;
   pastedText: string;
 }) {
-  return executeExtractorRequest(`/api/services/${params.serviceId}/extractor`, {
+  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor` : "/api/extractor";
+  return executeExtractorRequest(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -120,10 +122,11 @@ export async function runPasteLyricsExtractor(params: {
 }
 
 export async function runAiLyricsExtractorRetry(params: {
-  serviceId: string;
+  serviceId?: string;
   retryToken: LyricsExtractorAiRetryDescriptor["retryToken"];
 }) {
-  return executeExtractorRequest(`/api/services/${params.serviceId}/extractor/ai`, {
+  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/ai` : "/api/extractor/ai";
+  return executeExtractorRequest(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -133,11 +136,12 @@ export async function runAiLyricsExtractorRetry(params: {
 }
 
 export async function runAiLyricsReformat(params: {
-  serviceId: string;
+  serviceId?: string;
   text: string;
   songTitle?: string;
 }) {
-  return executeExtractorRequest(`/api/services/${params.serviceId}/extractor/ai`, {
+  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/ai` : "/api/extractor/ai";
+  return executeExtractorRequest(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -150,11 +154,12 @@ export async function runAiLyricsReformat(params: {
 }
 
 export async function generateLyricsDocx(params: {
-  serviceId: string;
+  serviceId?: string;
   songTitle?: string;
   text: string;
 }) {
-  return downloadBinaryResponse(`/api/services/${params.serviceId}/extractor/docx`, {
+  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/docx` : "/api/extractor/docx";
+  return downloadBinaryResponse(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

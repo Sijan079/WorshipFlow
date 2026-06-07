@@ -749,7 +749,7 @@ export default function ServiceBuilderClient({
       file,
       songTitle,
     }: {
-      serviceId: string;
+      serviceId?: string;
       file: File;
       songTitle?: string;
       useAi?: boolean;
@@ -765,7 +765,9 @@ export default function ServiceBuilderClient({
       }
     },
     onSuccess: async (result, variables) => {
-      await invalidateServices();
+      if (variables.serviceId) {
+        await invalidateServices();
+      }
       setFeedback(
         result.retry
           ? "Lyrics extracted with warnings. Review the draft or use AI cleanup before generating DOCX."
@@ -797,7 +799,7 @@ export default function ServiceBuilderClient({
       pastedText,
       songTitle,
     }: {
-      serviceId: string;
+      serviceId?: string;
       pastedText: string;
       songTitle?: string;
       useAi?: boolean;
@@ -805,7 +807,9 @@ export default function ServiceBuilderClient({
       return applyExtractorResult(await runPasteLyricsExtractor({ serviceId, pastedText, songTitle }));
     },
     onSuccess: async (result, variables) => {
-      await invalidateServices();
+      if (variables.serviceId) {
+        await invalidateServices();
+      }
       setFeedback(
         result.retry
           ? "Pasted lyrics were normalized with warnings. Review the draft before generating DOCX."
@@ -830,13 +834,15 @@ export default function ServiceBuilderClient({
   });
 
   const aiExtractorRetryMutation = useMutation({
-    mutationFn: async ({ serviceId, retryToken }: { serviceId: string; retryToken: string }) => {
+    mutationFn: async ({ serviceId, retryToken }: { serviceId?: string; retryToken: string }) => {
       return applyExtractorResult(await runAiLyricsExtractorRetry({ serviceId, retryToken }));
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       setExtractorAiRetry(null);
       setExtractorStatus("AI-cleaned lyrics are ready for review.");
-      await invalidateServices();
+      if (variables.serviceId) {
+        await invalidateServices();
+      }
       setFeedback("AI cleanup completed for this one-time extraction. Review before generating DOCX.");
       showToast("AI cleanup completed.", "success");
       router.push("/songs/format");
@@ -849,14 +855,16 @@ export default function ServiceBuilderClient({
   });
 
   const aiLyricsReformatMutation = useMutation({
-    mutationFn: async ({ serviceId, text, songTitle }: { serviceId: string; text: string; songTitle?: string }) => {
+    mutationFn: async ({ serviceId, text, songTitle }: { serviceId?: string; text: string; songTitle?: string }) => {
       return applyExtractorResult(await runAiLyricsReformat({ serviceId, text, songTitle }));
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       setDirectAiReformatUsed(true);
       setExtractorAiRetry(null);
       setExtractorStatus("AI reformat applied.");
-      await invalidateServices();
+      if (variables.serviceId) {
+        await invalidateServices();
+      }
       setFeedback("AI reformat completed for this draft.");
       showToast("AI reformat completed.", "success");
       router.push("/songs/format");
@@ -869,7 +877,7 @@ export default function ServiceBuilderClient({
   });
 
   const generateLyricsDocxMutation = useMutation({
-    mutationFn: async ({ serviceId, text, songTitle }: { serviceId: string; text: string; songTitle?: string }) => {
+    mutationFn: async ({ serviceId, text, songTitle }: { serviceId?: string; text: string; songTitle?: string }) => {
       const result = await generateLyricsDocx({ serviceId, text, songTitle });
       triggerBrowserDownload(result.blob, result.fileName);
       return result.fileName;
@@ -975,11 +983,6 @@ export default function ServiceBuilderClient({
       return;
     }
 
-    if (!selectedService) {
-      showToast("Select a service before processing lyrics.");
-      return;
-    }
-
     setFeedback(null);
     setExtractorAiRetry(null);
 
@@ -995,7 +998,7 @@ export default function ServiceBuilderClient({
       setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
       showToast(useAi ? "Processing pasted lyrics with AI assist." : "Processing pasted lyrics locally.");
       pasteExtractorMutation.mutate({
-        serviceId: selectedService.id,
+        serviceId: selectedService?.id,
         pastedText,
         songTitle: extractorSongTitle || undefined,
         useAi,
@@ -1013,7 +1016,7 @@ export default function ServiceBuilderClient({
     setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
     showToast(useAi ? "Processing selected file with AI assist." : "Processing selected file locally.");
     uploadExtractorMutation.mutate({
-      serviceId: selectedService.id,
+      serviceId: selectedService?.id,
       file: extractorSelectedFile,
       songTitle: extractorSongTitle || undefined,
       useAi,
@@ -1994,8 +1997,7 @@ export default function ServiceBuilderClient({
       <aside className={`${module === "services" ? "hidden" : "flex"} w-full flex-1 flex-col gap-4`}>
         {module === "songs" ? (
           <div className="space-y-5">
-            {selectedService ? (
-              <>
+            <>
                 {activeSongStep === "library" ? (
                   <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                     <div className="space-y-6">
@@ -2374,13 +2376,8 @@ export default function ServiceBuilderClient({
                           <button
                             type="button"
                             onClick={() => {
-                              if (!selectedService) {
-                                showToast("Select a service before running AI reformat.");
-                                return;
-                              }
-
                               if (extractorAiRetry) {
-                                aiExtractorRetryMutation.mutate({ serviceId: selectedService.id, retryToken: extractorAiRetry.retryToken });
+                                aiExtractorRetryMutation.mutate({ serviceId: selectedService?.id, retryToken: extractorAiRetry.retryToken });
                                 return;
                               }
 
@@ -2390,7 +2387,7 @@ export default function ServiceBuilderClient({
                               }
 
                               aiLyricsReformatMutation.mutate({
-                                serviceId: selectedService.id,
+                                serviceId: selectedService?.id,
                                 text: extractorDraftText,
                                 songTitle: extractorSongTitle || undefined,
                               });
@@ -2695,7 +2692,7 @@ export default function ServiceBuilderClient({
                             <button
                               type="button"
                               onClick={() => {
-                                if (!selectedService || !extractorDraftText.trim()) {
+                                if (!extractorDraftText.trim()) {
                                   setFeedback("Extract or enter lyrics before generating DOCX.");
                                   showToast("Extract or enter lyrics before generating DOCX.");
                                   return;
@@ -2704,7 +2701,7 @@ export default function ServiceBuilderClient({
                                 setExtractorStatus("Generating DOCX...");
                                 showToast("Generating DOCX...");
                                 generateLyricsDocxMutation.mutate({
-                                  serviceId: selectedService.id,
+                                  serviceId: selectedService?.id,
                                   text: extractorDraftText,
                                   songTitle: extractorSongTitle || undefined,
                                 });
@@ -2735,17 +2732,7 @@ export default function ServiceBuilderClient({
                   )
                 ) : null}
 
-              </>
-            ) : (
-              <section className="rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-8 text-center">
-                <p className="text-sm font-semibold text-[var(--color-brand-ink)]">
-                  No worship service selected
-                </p>
-                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                  Select or create a service from the Services page before using the secure lyrics formatter.
-                </p>
-              </section>
-            )}
+            </>
           </div>
         ) : null}
 
