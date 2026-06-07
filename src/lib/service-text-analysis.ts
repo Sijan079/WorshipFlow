@@ -1,14 +1,14 @@
-import { BlockType, ServiceStatus } from "@prisma/client";
+import { BlockType, ServiceStatus, type BlockType as BlockTypeValue, type ServiceStatus as ServiceStatusValue } from "@/lib/service-constants";
 
 export type AnalyzedServiceParticipant = {
-  blockType: BlockType;
+  blockType: BlockTypeValue;
   personName: string;
   personTitle?: string | null;
   order: number;
 };
 
 export type AnalyzedServiceDetail = {
-  blockType: BlockType;
+  blockType: BlockTypeValue;
   key: string;
   value: string;
 };
@@ -17,13 +17,13 @@ export type AnalyzedServiceDraft = {
   serviceDate?: string;
   ministryName?: string;
   theme?: string | null;
-  status: ServiceStatus;
+  status: ServiceStatusValue;
   participants: AnalyzedServiceParticipant[];
   details: AnalyzedServiceDetail[];
   warnings: string[];
 };
 
-const PARTICIPANT_BLOCKS: Record<string, BlockType> = {
+const PARTICIPANT_BLOCKS: Record<string, BlockTypeValue> = {
   "call to worship": BlockType.CALL_TO_WORSHIP,
   mc: BlockType.MC,
   pap: BlockType.MC,
@@ -37,7 +37,7 @@ const PARTICIPANT_BLOCKS: Record<string, BlockType> = {
   "flowers for the lord": BlockType.FLOWERS_FOR_THE_LORD,
 };
 
-const DETAIL_BLOCKS: Record<string, BlockType> = {
+const DETAIL_BLOCKS: Record<string, BlockTypeValue> = {
   "tawag ng pagsamba": BlockType.CALL_TO_WORSHIP,
   "awit ng himno": BlockType.AWIT_NG_HIMNO,
   "tipan/pahayag": BlockType.TIPAN_PAHAYAG,
