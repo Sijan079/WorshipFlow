@@ -14,7 +14,6 @@ import {
   Loader2,
   Play,
   Plus,
-  QrCode,
   RefreshCcw,
   Redo2,
   Save,
@@ -65,6 +64,7 @@ import {
 import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from "@/lib/extractor-types";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
+import QRGeneratorTool from "@/components/qr-generator-tool";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -2085,10 +2085,10 @@ export default function ServiceBuilderClient({
                         </div>
                         <div className="divide-y divide-[var(--color-brand-border)]">
                           {(songs.length ? songs : [
-                            { id: "gratitude", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
-                            { id: "living-hope", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
-                            { id: "thousand", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
-                            { id: "house", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
+                            { id: "gratitude", workspaceId: "fallback", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
+                            { id: "living-hope", workspaceId: "fallback", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
+                            { id: "thousand", workspaceId: "fallback", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
+                            { id: "house", workspaceId: "fallback", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
                           ] as SongRecord[]).slice(0, 8).map((song, index) => (
                             <div
                               key={song.id}
@@ -2945,60 +2945,7 @@ export default function ServiceBuilderClient({
             ) : null}
 
             {mediaTool === "qr-generator" ? (
-              <section className="production-panel p-5">
-                <div className="mb-5 flex items-center gap-3">
-                  <QrCode className="h-5 w-5 text-[var(--color-secondary)]" />
-                  <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">QR Generator</h2>
-                </div>
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div className="space-y-4">
-                    <label className="block">
-                      <span className="technical-label">Destination URL or Text</span>
-                      <input
-                        className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-4 py-3 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
-                        placeholder="https://churchname.com/give"
-                      />
-                    </label>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <p className="technical-label">Primary Color</p>
-                        <div className="mt-1 flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
-                          <span className="h-5 w-5 rounded bg-[var(--color-focus)]" />
-                          <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--color-brand-ink)]">#7C3AED</span>
-                        </div>
-                      </div>
-                      <label>
-                        <span className="technical-label">Branding</span>
-                        <select className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]">
-                          <option>Church Logo</option>
-                          <option>Tech Suite Icon</option>
-                          <option>None</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap gap-3 border-t border-[var(--color-brand-border)] pt-4">
-                      <button className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]">
-                        <Save className="h-4 w-4" />
-                        Save SVG
-                      </button>
-                      <button className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--color-brand-ink)]">
-                        <Copy className="h-4 w-4" />
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-5">
-                    <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-white p-3">
-                      <div className="grid h-full w-full grid-cols-5 gap-1 bg-[#7c3aed] p-2">
-                        {Array.from({ length: 25 }).map((_, index) => (
-                          <span key={index} className={index % 3 === 0 ? "bg-white" : "bg-[#3f008e]"} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="mt-4 text-xs font-semibold text-[var(--color-text-secondary)]">Live preview - SVG format</p>
-                  </div>
-                </div>
-              </section>
+              <QRGeneratorTool showToast={showToast} />
             ) : null}
 
           </div>
@@ -3100,9 +3047,7 @@ export default function ServiceBuilderClient({
                           {job.outputs.map((output) => (
                             <a
                               key={output.id}
-                              href={output.filePath}
-                              target="_blank"
-                              rel="noreferrer"
+                              href={`/api/services/${selectedService.id}/outputs/${output.id}/download`}
                               className="block rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-accent)]"
                             >
                               {output.type} output
