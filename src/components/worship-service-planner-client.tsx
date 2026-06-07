@@ -96,7 +96,6 @@ export default function WorshipServicePlannerClient() {
       totalBlocks: serviceBlockOrder.length,
       participants: countParticipants(selectedService),
       songs: countServiceSongs(selectedService),
-      assets: selectedService.assets.length,
       doneJobs,
     };
   }, [selectedService]);
@@ -169,12 +168,11 @@ export default function WorshipServicePlannerClient() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-brand-border)] md:grid-cols-5 md:divide-y-0">
+            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-brand-border)] md:grid-cols-4 md:divide-y-0">
               {[
                 ["Ready blocks", `${plannerStats.readyBlocks}/${plannerStats.totalBlocks}`],
                 ["People", plannerStats.participants],
                 ["Songs", plannerStats.songs],
-                ["Assets", plannerStats.assets],
                 ["Done jobs", plannerStats.doneJobs],
               ].map(([label, value]) => (
                 <div key={label} className="min-w-0 bg-[var(--color-brand-panel)]/60 px-4 py-3">

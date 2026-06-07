@@ -1,0 +1,56 @@
+import { z } from "zod";
+
+const optionalString = z.preprocess((value) => (value === "" ? undefined : value), z.string().optional());
+const optionalUrl = z.preprocess((value) => (value === "" ? undefined : value), z.string().url().optional());
+
+const ServerEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  APP_ACCESS_USER: optionalString,
+  APP_ACCESS_PASSWORD: optionalString,
+  NEXT_PUBLIC_API_URL: optionalUrl,
+  NEXT_PUBLIC_PAP_PUBLIC_URL: optionalUrl,
+  NEXT_PUBLIC_PAP_SIGNALING_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z
+      .string()
+      .regex(/^wss?:\/\//, "NEXT_PUBLIC_PAP_SIGNALING_URL must start with ws:// or wss://")
+      .optional()
+  ),
+  NEXT_PUBLIC_SUPABASE_URL: optionalUrl,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optionalString,
+  OPENAI_API_KEY: optionalString,
+  OPENAI_EXTRACTOR_MODEL: optionalString,
+  PAP_SIGNALING_PORT: z.coerce.number().int().positive().optional(),
+  VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+});
+
+export type ServerEnv = z.infer<typeof ServerEnvSchema>;
+
+export function getServerEnv(): ServerEnv {
+  const parsed = ServerEnvSchema.safeParse(process.env);
+
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => issue.message).join("; ");
+    throw new Error(`Invalid environment configuration: ${issues}`);
+  }
+
+  if (parsed.data.VERCEL_ENV === "production" && !parsed.data.APP_ACCESS_PASSWORD) {
+    throw new Error("APP_ACCESS_PASSWORD must be set for production deployments.");
+  }
+
+  return parsed.data;
+}
+
+export function getEnvironmentReport() {
+  const env = getServerEnv();
+
+  return {
+    database: Boolean(env.DATABASE_URL),
+    accessGate: Boolean(env.APP_ACCESS_PASSWORD),
+    aiExtractor: Boolean(env.OPENAI_API_KEY),
+    papPublicUrl: Boolean(env.NEXT_PUBLIC_PAP_PUBLIC_URL),
+    papSignalingUrl: Boolean(env.NEXT_PUBLIC_PAP_SIGNALING_URL),
+    supabaseRealtime: Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    vercelEnv: env.VERCEL_ENV ?? null,
+  };
+}

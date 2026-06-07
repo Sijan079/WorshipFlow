@@ -4,6 +4,12 @@ import { getErrorMessage } from "@/lib/errors";
 import { createExtractorJob, processExtractorJob, processImmediateUploadExtractor } from "@/lib/extractor-workflow";
 import { JobStatus } from "@prisma/client";
 import { LyricsExtractorJobInputSchema } from "@/lib/extractor-types";
+import {
+  EXTRACTOR_UPLOAD_TYPES,
+  UPLOAD_LIMITS,
+  validateUploadFile,
+} from "@/lib/upload-security";
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -11,6 +17,16 @@ type RouteParams = {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
+    const rateLimit = checkRateLimit({
+      key: getRateLimitKey(request, "extractor"),
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.resetAt);
+    }
+
     const { id: serviceId } = await params;
 
     const service = await prisma.worshipService.findUnique({
@@ -28,17 +44,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       const songTitle = String(formData.get("songTitle") ?? "").trim() || undefined;
 
       if (!(file instanceof File) || file.size === 0) {
-        return NextResponse.json({ error: "Choose one DOCX or PDF file." }, { status: 400 });
+        return NextResponse.json({ error: "Choose one DOCX, PDF, or TXT file." }, { status: 400 });
       }
 
-      const lowerType = file.type.toLowerCase();
-      const lowerName = file.name.toLowerCase();
-      const isDocx = lowerType.includes("wordprocessingml.document") || lowerName.endsWith(".docx");
-      const isPdf = lowerType.includes("pdf") || lowerName.endsWith(".pdf");
-      const isTxt = lowerType.includes("text/plain") || lowerName.endsWith(".txt");
+      const uploadError = validateUploadFile(file, {
+        allowedMimeTypes: EXTRACTOR_UPLOAD_TYPES,
+        allowedExtensions: [".docx", ".pdf", ".txt"],
+        maxBytes: UPLOAD_LIMITS.extractorBytes,
+      });
 
-      if (!isDocx && !isPdf && !isTxt) {
-        return NextResponse.json({ error: "Only DOCX, PDF, and TXT uploads are supported." }, { status: 400 });
+      if (uploadError) {
+        return NextResponse.json({ error: uploadError }, { status: 400 });
       }
 
       try {

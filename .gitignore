@@ -35,17 +35,25 @@
 # local agent artifacts
 /.agents/
 /.hallmark/
-/docs/superpowers/plans/
+/.sixth/
+/docs/superpowers/
+/docs/**/plans/
 /skills-lock.json
+
+# local helper scripts
+/dev-pap-test.bat
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+!.gitkeep
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

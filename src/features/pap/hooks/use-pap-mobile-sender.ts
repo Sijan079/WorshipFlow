@@ -101,7 +101,7 @@ export function usePAPMobileSender(pairingCode: string) {
       onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
       onError: () => {
         setState("failed");
-        setError("Could not reach the PAP desktop signaling server.");
+        setError("Could not reach the PAP signaling service.");
       },
       onMessage: (message) => {
         if (message.type === "session-joined") {

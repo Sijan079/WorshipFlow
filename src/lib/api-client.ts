@@ -1,5 +1,5 @@
 import type { ServiceDetailPayload, SongRepositoryItem } from "@/lib/service-data";
-import type { AssetType, BlockPerson, JobStatus, JobType, OutputType, ServiceAsset, ServiceStatus, ServiceVariant, SongRole, WorshipServiceDetail } from "@prisma/client";
+import type { BlockPerson, JobStatus, JobType, OutputType, ServiceStatus, ServiceVariant, SongRole, WorshipServiceDetail } from "@prisma/client";
 import type {
   LyricsExtractorAiRetryDescriptor,
   LyricsExtractorDocxRequest,
@@ -241,12 +241,6 @@ export type UpsertServiceDetailPayload = {
   blockId?: string | null;
 };
 
-export type CreateAssetMetadataPayload = {
-  type: AssetType;
-  fileName: string;
-  filePath: string;
-};
-
 export type CreateAutomationJobPayload = {
   jobType: JobType;
   inputJson?: unknown;
@@ -273,6 +267,5 @@ export type GeneratedOutputRecord = {
   createdAt: string;
 };
 
-export type ServiceAssetRecord = ServiceAsset;
 export type ServiceDetailRecord = WorshipServiceDetail;
 export type ParticipantRecord = BlockPerson;

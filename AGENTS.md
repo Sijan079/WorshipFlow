@@ -25,7 +25,7 @@ Agents working in this repository should prioritize these phase 1 capabilities:
 - Participant assignment
 - Song repository management
 - Adding songs to worship services
-- Service asset persistence and upload workflows
+- Temporary media bridge workflows for phone-to-booth handoff
 - Automation job persistence
 - Generated output persistence
 

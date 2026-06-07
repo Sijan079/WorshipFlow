@@ -80,11 +80,6 @@ export const serviceDetailInclude = Prisma.validator<Prisma.WorshipServiceInclud
       },
     },
   },
-  assets: {
-    orderBy: {
-      createdAt: "desc",
-    },
-  },
   details: {
     orderBy: {
       key: "asc",

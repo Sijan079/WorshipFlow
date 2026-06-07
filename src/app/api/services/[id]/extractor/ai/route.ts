@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { LyricsExtractorAiRequestSchema } from "@/lib/extractor-types";
 import { processAiRetry, processDirectAiCleanup } from "@/lib/extractor-workflow";
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -10,6 +11,16 @@ type RouteParams = {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
+    const rateLimit = checkRateLimit({
+      key: getRateLimitKey(request, "extractor-ai"),
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.resetAt);
+    }
+
     const { id: serviceId } = await params;
     const service = await prisma.worshipService.findUnique({
       where: { id: serviceId },

@@ -176,7 +176,7 @@ export function usePAPDesktopSession() {
       onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
       onError: () => {
         setState("failed");
-        setError("Could not connect to the PAP signaling server on port 3001.");
+        setError("Could not connect to the PAP signaling service.");
       },
       onMessage: (message) => {
         if (message.type === "session-created") {

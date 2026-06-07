@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { createTemporaryAutomationBatch } from "@/lib/temporary-automation-store";
+import {
+  EXTRACTOR_UPLOAD_TYPES,
+  UPLOAD_LIMITS,
+  validateUploadFile,
+  validateUploadTotal,
+} from "@/lib/upload-security";
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -9,6 +16,16 @@ type RouteParams = {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
+    const rateLimit = checkRateLimit({
+      key: getRateLimitKey(request, "automation-batches"),
+      limit: 12,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.resetAt);
+    }
+
     const { id: serviceId } = await params;
 
     const service = await prisma.worshipService.findUnique({
@@ -27,17 +44,21 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "At least one upload file is required" }, { status: 400 });
     }
 
-    for (const file of files) {
-      const lowerType = file.type.toLowerCase();
-      const lowerName = file.name.toLowerCase();
-      const isDocx = lowerType.includes("wordprocessingml.document") || lowerName.endsWith(".docx");
-      const isPdf = lowerType.includes("pdf") || lowerName.endsWith(".pdf");
+    const batchError = validateUploadTotal(files, UPLOAD_LIMITS.automationBatchTotalBytes);
 
-      if (!isDocx && !isPdf) {
-        return NextResponse.json(
-          { error: "Only DOCX and PDF uploads are supported for transpose automation" },
-          { status: 400 }
-        );
+    if (batchError) {
+      return NextResponse.json({ error: batchError }, { status: 400 });
+    }
+
+    for (const file of files) {
+      const uploadError = validateUploadFile(file, {
+        allowedMimeTypes: EXTRACTOR_UPLOAD_TYPES,
+        allowedExtensions: [".docx", ".pdf"],
+        maxBytes: UPLOAD_LIMITS.automationBatchFileBytes,
+      });
+
+      if (uploadError) {
+        return NextResponse.json({ error: uploadError }, { status: 400 });
       }
     }
 

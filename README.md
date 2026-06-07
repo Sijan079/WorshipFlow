@@ -32,3 +32,13 @@ WorshipFlow is designed less like a generic admin dashboard and more like a tech
 WorshipFlow is not a church management system.
 
 It is a worship preparation OS for the people arranging, formatting, assigning, exporting, and operating the service.
+
+## Documentation
+
+Project documentation lives under `docs/`:
+
+- `docs/specs/` - version-controlled feature specs.
+- `docs/specs/media-tools/` - individual specs for Phone Transfer, QR Generator, and Media Converter.
+- `docs/deployment/` - deployment notes, including Vercel planning.
+- `docs/development/` - local development workflows.
+- `docs/product/` and `docs/design/` - product and design support notes.

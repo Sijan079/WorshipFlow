@@ -4,6 +4,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { LyricsExtractorDocxRequestSchema } from "@/lib/extractor-types";
 import { sanitizeExtractorFileNameSegment } from "@/lib/extractor-workflow";
 import { createLyricsDocx } from "@/lib/lyrics-docx";
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -11,6 +12,16 @@ type RouteParams = {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
+    const rateLimit = checkRateLimit({
+      key: getRateLimitKey(request, "extractor-docx"),
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.resetAt);
+    }
+
     const { id: serviceId } = await params;
     const service = await prisma.worshipService.findUnique({
       where: { id: serviceId },
