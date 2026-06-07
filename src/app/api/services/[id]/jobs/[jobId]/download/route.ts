@@ -1,4 +1,6 @@
 import { getErrorMessage } from "@/lib/errors";
+import prisma from "@/lib/prisma";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 import { consumeTemporaryDownload } from "@/lib/temporary-automation-store";
 
 type RouteParams = {
@@ -8,6 +10,15 @@ type RouteParams = {
 export async function GET(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, jobId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    const job = await prisma.automationJob.findFirst({
+      where: { id: jobId, serviceId, service: { workspaceId } },
+    });
+
+    if (!job) {
+      return Response.json({ error: "Automation job not found" }, { status: 404 });
+    }
+
     const result = await consumeTemporaryDownload(serviceId, jobId);
 
     if (!result) {

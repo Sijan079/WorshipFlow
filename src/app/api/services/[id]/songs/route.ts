@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { ServiceSongSchema } from "@/lib/validation";
+import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -10,6 +11,7 @@ type RouteParams = {
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = ServiceSongSchema.safeParse(body);
 
@@ -21,7 +23,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Verify service exists
     const service = await prisma.worshipService.findUnique({
-      where: { id: serviceId },
+      where: serviceWorkspaceWhere(serviceId, workspaceId),
     });
     if (!service) {
       return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
@@ -37,7 +39,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Verify song exists
     const song = await prisma.song.findUnique({
-      where: { id: songId },
+      where: { id: songId, workspaceId },
     });
     if (!song) {
       return NextResponse.json({ error: "Song not found in repository" }, { status: 404 });

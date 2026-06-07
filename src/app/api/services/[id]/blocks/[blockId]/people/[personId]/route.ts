@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { BlockPersonSchema } from "@/lib/validation";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string; blockId: string; personId: string }>;
@@ -10,6 +11,7 @@ type RouteParams = {
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, blockId, personId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = BlockPersonSchema.partial().safeParse(body);
 
@@ -23,6 +25,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         blockId,
         block: {
           serviceId,
+          service: { workspaceId },
         },
       },
     });
@@ -46,6 +49,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, blockId, personId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
 
     const person = await prisma.blockPerson.findFirst({
       where: {
@@ -53,6 +57,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         blockId,
         block: {
           serviceId,
+          service: { workspaceId },
         },
       },
     });

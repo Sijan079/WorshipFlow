@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { BlockPersonSchema } from "@/lib/validation";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string; blockId: string }>;
@@ -10,6 +11,7 @@ type RouteParams = {
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, blockId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = BlockPersonSchema.safeParse(body);
 
@@ -21,7 +23,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Verify block exists
     const block = await prisma.worshipServiceBlock.findFirst({
-      where: { id: blockId, serviceId },
+      where: { id: blockId, serviceId, service: { workspaceId } },
     });
 
     if (!block) {

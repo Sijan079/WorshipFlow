@@ -3,6 +3,7 @@ import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
+import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -13,9 +14,10 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     serviceId = id;
     const service = await prisma.worshipService.findUnique({
-      where: { id },
+      where: serviceWorkspaceWhere(id, workspaceId),
       include: serviceDetailInclude,
     });
 
@@ -35,6 +37,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     serviceId = id;
     const body = await request.json();
     const result = UpdateWorshipServiceSchema.safeParse(body);
@@ -44,7 +47,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const service = await prisma.worshipService.findUnique({
-      where: { id },
+      where: serviceWorkspaceWhere(id, workspaceId),
     });
 
     if (!service) {
@@ -52,7 +55,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const updatedService = await prisma.worshipService.update({
-      where: { id },
+      where: serviceWorkspaceWhere(id, workspaceId),
       data: result.data,
       include: serviceDetailInclude,
     });
@@ -69,10 +72,11 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     serviceId = id;
 
     const service = await prisma.worshipService.findUnique({
-      where: { id },
+      where: serviceWorkspaceWhere(id, workspaceId),
     });
 
     if (!service) {
@@ -80,7 +84,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     await prisma.worshipService.delete({
-      where: { id },
+      where: serviceWorkspaceWhere(id, workspaceId),
     });
 
     return NextResponse.json({ message: "Worship service deleted successfully" });

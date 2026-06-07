@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { SongTagPresetSchema } from "@/lib/validation";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 const DEFAULT_SONG_TAG_PRESETS = [
   { label: "Title", token: "Title", color: "#DDECCB", order: 0, isDefault: true },
@@ -14,15 +15,17 @@ const DEFAULT_SONG_TAG_PRESETS = [
 
 export async function GET() {
   try {
-    const tagCount = await prisma.songTagPreset.count();
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    const tagCount = await prisma.songTagPreset.count({ where: { workspaceId } });
     if (tagCount === 0) {
       await prisma.songTagPreset.createMany({
-        data: DEFAULT_SONG_TAG_PRESETS,
+        data: DEFAULT_SONG_TAG_PRESETS.map((preset) => ({ ...preset, workspaceId })),
         skipDuplicates: true,
       });
     }
 
     const tags = await prisma.songTagPreset.findMany({
+      where: { workspaceId },
       orderBy: [{ order: "asc" }, { label: "asc" }],
     });
 
@@ -38,6 +41,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const parsed = SongTagPresetSchema.safeParse(body);
 
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     const tag = await prisma.songTagPreset.create({
       data: {
         ...parsed.data,
+        workspaceId,
         isDefault: false,
       },
     });

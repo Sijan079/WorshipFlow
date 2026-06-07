@@ -6,6 +6,10 @@ const PUBLIC_PATH_PREFIXES = ["/_next", "/favicon.ico", "/pap/join/"];
 export function proxy(request: NextRequest) {
   const accessPassword = process.env.APP_ACCESS_PASSWORD;
 
+  if (!accessPassword && process.env.VERCEL_ENV === "production") {
+    return new NextResponse("Production access gate is not configured.", { status: 503 });
+  }
+
   if (!accessPassword || isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.next();
   }

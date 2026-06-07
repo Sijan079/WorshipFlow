@@ -3,10 +3,13 @@ import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
 import { getServiceBlockOrder, serviceDetailInclude } from "@/lib/service-data";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export async function GET() {
   try {
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const services = await prisma.worshipService.findMany({
+      where: { workspaceId },
       orderBy: {
         serviceDate: "desc",
       },
@@ -21,6 +24,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = WorshipServiceSchema.safeParse(body);
 
@@ -33,6 +37,7 @@ export async function POST(request: Request) {
     const newService = await prisma.$transaction(async (tx) => {
       const service = await tx.worshipService.create({
         data: {
+          workspaceId,
           serviceDate,
           ministryName,
           theme,
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
     });
 
     const completeService = await prisma.worshipService.findUnique({
-      where: { id: newService.id },
+      where: { id: newService.id, workspaceId },
       include: serviceDetailInclude,
     });
 

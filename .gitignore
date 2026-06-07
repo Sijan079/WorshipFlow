@@ -27,6 +27,7 @@
 
 # local/generated app data
 /public/uploads/
+/.worship-flow-private/
 
 # local design/reference exports
 /stitch_exports/

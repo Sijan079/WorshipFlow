@@ -24,11 +24,12 @@ async function main() {
   await prisma.song.deleteMany();
 
   console.log("Seeding song editor tag presets...");
-  await upsertDefaultSongTagPresets(prisma);
+  const workspace = await upsertDefaultSongTagPresets(prisma);
 
   console.log("Seeding songs repository...");
   const song1 = await prisma.song.create({
     data: {
+      workspaceId: workspace.id,
       title: "Sa Mga Pangako'y Umaasa",
       author: "Traditional",
       defaultKey: "G",
@@ -40,6 +41,7 @@ async function main() {
 
   const song2 = await prisma.song.create({
     data: {
+      workspaceId: workspace.id,
       title: "Tunay Kang Matapat",
       author: "Traditional",
       defaultKey: "D",
@@ -51,6 +53,7 @@ async function main() {
 
   const song3 = await prisma.song.create({
     data: {
+      workspaceId: workspace.id,
       title: "Amazing Grace",
       author: "John Newton",
       defaultKey: "F",
@@ -63,6 +66,7 @@ async function main() {
   console.log("Seeding worship service (Ladies Ministry)...");
   const service = await prisma.worshipService.create({
     data: {
+      workspaceId: workspace.id,
       serviceDate: new Date("2026-05-24T09:00:00.000Z"),
       ministryName: "Ladies Ministry",
       theme: "Serving God with Faithful Hearts",

@@ -9,6 +9,7 @@ import {
   validateUploadTotal,
 } from "@/lib/upload-security";
 import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
+import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -27,9 +28,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const { id: serviceId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
 
     const service = await prisma.worshipService.findUnique({
-      where: { id: serviceId },
+      where: serviceWorkspaceWhere(serviceId, workspaceId),
     });
     if (!service) {
       return NextResponse.json({ error: "Worship service not found" }, { status: 404 });

@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --experimental-strip-types src/security-tests.ts",
     "pap:signal": "tsx src/features/pap/server/pap-signaling-server.ts",
     "seed:song-tags": "tsx prisma/seed-song-tags.ts"
   },

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { getErrorMessage } from "@/lib/errors";
-import { savePublicFile } from "@/lib/file-storage";
+import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 import { AutomationJobSchema, TransposeAutomationJobSchema } from "@/lib/validation";
 import { JobStatus, OutputType } from "@prisma/client";
 import { createExtractorJob, processExtractorJob } from "@/lib/extractor-workflow";
+import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -17,8 +18,9 @@ type JobInputPayload = Prisma.InputJsonObject;
 export async function GET(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const jobs = await prisma.automationJob.findMany({
-      where: { serviceId },
+      where: { serviceId, service: { workspaceId } },
       include: {
         outputs: true,
       },
@@ -34,6 +36,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = AutomationJobSchema.safeParse(body);
 
@@ -48,7 +51,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         : {};
 
     const service = await prisma.worshipService.findUnique({
-      where: { id: serviceId },
+      where: serviceWorkspaceWhere(serviceId, workspaceId),
     });
     if (!service) {
       return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
@@ -139,7 +142,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           };
         }
 
-        const savedFile = await savePublicFile(
+        const savedFile = await savePrivateOutputFile(
           "outputs",
           mockFileName,
           new TextEncoder().encode(JSON.stringify(outputJson, null, 2))
@@ -160,7 +163,7 @@ export async function POST(request: Request, { params }: RouteParams) {
               serviceId,
               jobId: job.id,
               type: outputType,
-              filePath: savedFile.publicPath,
+              filePath: savedFile.relativePath,
             },
           });
         });

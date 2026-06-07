@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { SongSchema } from "@/lib/validation";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export async function GET() {
   try {
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const songs = await prisma.song.findMany({
+      where: { workspaceId },
       orderBy: {
         title: "asc",
       },
@@ -22,6 +25,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const result = SongSchema.safeParse(body);
 
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const newSong = await prisma.song.create({
-      data: result.data,
+      data: { ...result.data, workspaceId },
     });
 
     return NextResponse.json(newSong, { status: 201 });

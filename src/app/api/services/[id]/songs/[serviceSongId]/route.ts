@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string; serviceSongId: string }>;
@@ -9,9 +10,10 @@ type RouteParams = {
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, serviceSongId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
 
     const serviceSong = await prisma.worshipServiceSong.findFirst({
-      where: { id: serviceSongId, serviceId },
+      where: { id: serviceSongId, serviceId, service: { workspaceId } },
     });
 
     if (!serviceSong) {

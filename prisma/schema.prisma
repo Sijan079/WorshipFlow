@@ -72,8 +72,22 @@ enum OutputType {
   ZIP
 }
 
+model Workspace {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services  WorshipService[]
+  songs     Song[]
+  tagPresets SongTagPreset[]
+}
+
 model WorshipService {
   id            String         @id @default(uuid())
+  workspaceId   String
   serviceDate   DateTime
   ministryName  String
   theme         String?
@@ -83,12 +97,15 @@ model WorshipService {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   blocks        WorshipServiceBlock[]
   songs         WorshipServiceSong[]
   details       WorshipServiceDetail[]
   assets        ServiceAsset[]
   jobs          AutomationJob[]
   outputs       GeneratedOutput[]
+
+  @@index([workspaceId, serviceDate])
 }
 
 model WorshipServiceBlock {
@@ -120,6 +137,7 @@ model BlockPerson {
 
 model Song {
   id           String   @id @default(uuid())
+  workspaceId  String
   title        String
   author       String?
   defaultKey   String?
@@ -129,8 +147,11 @@ model Song {
 
   createdAt    DateTime @default(now())
 
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   files        SongFile[]
   serviceSongs WorshipServiceSong[]
+
+  @@index([workspaceId, title])
 }
 
 model SongFile {
@@ -148,8 +169,9 @@ model SongFile {
 
 model SongTagPreset {
   id        String   @id @default(uuid())
+  workspaceId String
   label     String
-  token     String   @unique
+  token     String
   color     String
   order     Int      @default(0)
   isDefault Boolean  @default(false)
@@ -157,7 +179,11 @@ model SongTagPreset {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, token])
   @@index([order])
+  @@index([workspaceId, order])
 }
 
 model WorshipServiceSong {

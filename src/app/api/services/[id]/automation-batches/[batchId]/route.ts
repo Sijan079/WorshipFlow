@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import { deleteTemporaryAutomationBatch } from "@/lib/temporary-automation-store";
+import prisma from "@/lib/prisma";
+import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string; batchId: string }>;
@@ -9,6 +11,15 @@ type RouteParams = {
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id: serviceId, batchId } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    const service = await prisma.worshipService.findUnique({
+      where: serviceWorkspaceWhere(serviceId, workspaceId),
+    });
+
+    if (!service) {
+      return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
+    }
+
     const removed = await deleteTemporaryAutomationBatch(serviceId, batchId);
 
     if (!removed) {

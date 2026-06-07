@@ -8,6 +8,7 @@ import * as extractorAiRoute from "../extractor/ai/route";
 import * as extractorDocxRoute from "../extractor/docx/route";
 import * as jobsRoute from "../jobs/route";
 import * as jobDownloadRoute from "../jobs/[jobId]/download/route";
+import * as outputDownloadRoute from "../outputs/[outputId]/download/route";
 import * as serviceSongsRoute from "../songs/route";
 import * as serviceSongRoute from "../songs/[serviceSongId]/route";
 
@@ -55,6 +56,10 @@ async function resolveRoute(context: CatchAllParams): Promise<ResolvedRoute | nu
 
   if (first === "jobs" && second && third === "download" && !fourth) {
     return { module: jobDownloadRoute, params: { id, jobId: second } };
+  }
+
+  if (first === "outputs" && second && third === "download" && !fourth) {
+    return { module: outputDownloadRoute, params: { id, outputId: second } };
   }
 
   if (first === "automation-batches" && !second) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { UpdateSongTagPresetSchema } from "@/lib/validation";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -10,6 +11,7 @@ type RouteParams = {
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const parsed = UpdateSongTagPresetSchema.safeParse(body);
 
@@ -18,7 +20,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const tag = await prisma.songTagPreset.update({
-      where: { id },
+      where: { id, workspaceId },
       data: parsed.data,
     });
 
@@ -35,8 +37,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const workspaceId = await getActiveWorkspaceId(prisma);
     const tag = await prisma.songTagPreset.findUnique({
-      where: { id },
+      where: { id, workspaceId },
     });
 
     if (!tag) {
@@ -48,7 +51,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     }
 
     await prisma.songTagPreset.delete({
-      where: { id },
+      where: { id, workspaceId },
     });
 
     return NextResponse.json({ success: true });

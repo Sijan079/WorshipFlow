@@ -92,6 +92,10 @@ type WorkspaceModule = "services" | "songs" | "assets" | "automation";
 type SongWorkflowStep = "library" | "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
 export type MediaTool = "phone-transfer" | "qr-generator";
+type SongDisplayRecord = Pick<
+  SongRecord,
+  "id" | "title" | "author" | "defaultKey" | "bpm" | "language" | "isOriginal" | "createdAt" | "files"
+>;
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
@@ -2084,12 +2088,12 @@ export default function ServiceBuilderClient({
                           <span>Last Used</span>
                         </div>
                         <div className="divide-y divide-[var(--color-brand-border)]">
-                          {(songs.length ? songs : [
-                            { id: "gratitude", workspaceId: "fallback", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
-                            { id: "living-hope", workspaceId: "fallback", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
-                            { id: "thousand", workspaceId: "fallback", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
-                            { id: "house", workspaceId: "fallback", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
-                          ] as SongRecord[]).slice(0, 8).map((song, index) => (
+                          {((songs.length ? songs : [
+                            { id: "gratitude", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
+                            { id: "living-hope", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
+                            { id: "thousand", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
+                            { id: "house", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
+                          ]) as SongDisplayRecord[]).slice(0, 8).map((song, index) => (
                             <div
                               key={song.id}
                               className={`grid grid-cols-[minmax(220px,1fr)_90px_90px_minmax(160px,220px)_120px] items-center px-5 py-4 ${
