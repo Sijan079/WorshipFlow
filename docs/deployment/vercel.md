@@ -33,15 +33,21 @@ the Vercel project dashboard.
 Required variables:
 
 - `DATABASE_URL`
+- `DIRECT_DATABASE_URL`
 
 For Supabase Postgres, use the Supabase pooled connection string for
 serverless/Vercel deployments. Prisma continues to read the database through
 `DATABASE_URL`; no ORM change is required.
 
+Use `DIRECT_DATABASE_URL` for Prisma migrations. Supabase's transaction pooler
+can fail migration commands with prepared-statement collisions, so migrations
+should use the direct database host instead.
+
 Supabase setup:
 
 - Create a Supabase project.
 - Copy the pooled Postgres connection string into `DATABASE_URL`.
+- Copy the direct Postgres connection string into `DIRECT_DATABASE_URL`.
 - Use the Supabase project URL for `NEXT_PUBLIC_SUPABASE_URL`.
 - Use the Supabase publishable/anon key for
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.

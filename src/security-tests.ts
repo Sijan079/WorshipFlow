@@ -5,8 +5,8 @@ import packageJson from "../package.json" with { type: "json" };
 runSecurityContextTests();
 runPrivateOutputStorageTests();
 
-if (packageJson.scripts["vercel-build"] !== "prisma migrate deploy && prisma generate && next build") {
-  throw new Error("vercel-build must apply Prisma migrations before building for deployment");
+if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
+  throw new Error("vercel-build must run the deployment build script");
 }
 
 console.log("security tests passed");
