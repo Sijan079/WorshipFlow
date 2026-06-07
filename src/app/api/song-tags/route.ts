@@ -3,8 +3,25 @@ import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { SongTagPresetSchema } from "@/lib/validation";
 
+const DEFAULT_SONG_TAG_PRESETS = [
+  { label: "Title", token: "Title", color: "#DDECCB", order: 0, isDefault: true },
+  { label: "Verse", token: "Verse", color: "#F7E7B2", order: 1, isDefault: true },
+  { label: "Chorus", token: "Chorus", color: "#FFDCC8", order: 2, isDefault: true },
+  { label: "Bridge", token: "Bridge", color: "#CFE8F6", order: 3, isDefault: true },
+  { label: "Pre-Chorus", token: "Pre-Chorus", color: "#E8D7F1", order: 4, isDefault: true },
+  { label: "Outro", token: "Outro", color: "#F7D7DF", order: 5, isDefault: true },
+];
+
 export async function GET() {
   try {
+    const tagCount = await prisma.songTagPreset.count();
+    if (tagCount === 0) {
+      await prisma.songTagPreset.createMany({
+        data: DEFAULT_SONG_TAG_PRESETS,
+        skipDuplicates: true,
+      });
+    }
+
     const tags = await prisma.songTagPreset.findMany({
       orderBy: [{ order: "asc" }, { label: "asc" }],
     });

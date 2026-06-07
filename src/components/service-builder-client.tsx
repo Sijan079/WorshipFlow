@@ -34,6 +34,7 @@ import {
   apiFetch,
   type CreateAutomationJobPayload,
   type CreateParticipantPayload,
+  type CreateSongTagPresetPayload,
   type CreateServicePayload,
   type CreateServiceSongPayload,
   type CreateSongPayload,
@@ -43,6 +44,7 @@ import {
   type SongTagPresetRecord,
   type UpdateParticipantPayload,
   type UpdateServicePayload,
+  type UpdateSongTagPresetPayload,
   type UpsertServiceDetailPayload,
   generateLyricsDocx,
   runAiLyricsExtractorRetry,
@@ -398,6 +400,13 @@ export default function ServiceBuilderClient({
   const [sectionFormatTag, setSectionFormatTag] = useState("Verse");
   const [sectionLineGroupSize, setSectionLineGroupSize] = useState<2 | 3>(2);
   const [editorControlsWidth, setEditorControlsWidth] = useState(360);
+  const [tagSettingsOpen, setTagSettingsOpen] = useState(false);
+  const [tagForm, setTagForm] = useState<CreateSongTagPresetPayload>({
+    label: "",
+    token: "",
+    color: "#CFE8F6",
+    order: 10,
+  });
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
@@ -420,6 +429,52 @@ export default function ServiceBuilderClient({
   const services = servicesQuery.data ?? [];
   const songTags = songTagsQuery.data ?? [];
   const songs = songsQuery.data ?? [];
+
+  const createSongTagMutation = useMutation({
+    mutationFn: (payload: CreateSongTagPresetPayload) =>
+      apiFetch<SongTagPresetRecord>("/api/song-tags", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async (tag) => {
+      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
+      setSectionFormatTag(tag.token);
+      setTagForm({ label: "", token: "", color: "#CFE8F6", order: tag.order + 1 });
+      showToast(`${tag.label} tag added.`, "success");
+    },
+    onError: (error: Error) => {
+      showToast(error.message);
+    },
+  });
+
+  const updateSongTagMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateSongTagPresetPayload }) =>
+      apiFetch<SongTagPresetRecord>(`/api/song-tags/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async (tag) => {
+      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
+      showToast(`${tag.label} tag updated.`, "success");
+    },
+    onError: (error: Error) => {
+      showToast(error.message);
+    },
+  });
+
+  const deleteSongTagMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ success: boolean }>(`/api/song-tags/${id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
+      showToast("Tag deleted.");
+    },
+    onError: (error: Error) => {
+      showToast(error.message);
+    },
+  });
 
   useEffect(() => {
     const interval = window.setInterval(() => setEditorClock(Date.now()), 30000);
@@ -2518,12 +2573,136 @@ export default function ServiceBuilderClient({
                             </div>
                             <button
                               type="button"
-                              onClick={() => showToast("Tag preset editing will be restored in the song library workflow.")}
+                              onClick={() => setTagSettingsOpen((current) => !current)}
                               className="pressable mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)]"
                             >
                               <Settings2 className="h-4 w-4" />
                               Tag Settings
                             </button>
+                            {tagSettingsOpen ? (
+                              <div className="mt-3 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-3">
+                                <form
+                                  className="grid gap-2"
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    const label = tagForm.label.trim();
+                                    const token = (tagForm.token || tagForm.label).trim();
+                                    if (!label || !token) {
+                                      showToast("Add a tag label first.");
+                                      return;
+                                    }
+
+                                    createSongTagMutation.mutate({
+                                      ...tagForm,
+                                      label,
+                                      token,
+                                      order: Number(tagForm.order) || songTags.length + 1,
+                                    });
+                                  }}
+                                >
+                                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                                    <input
+                                      value={tagForm.label}
+                                      onChange={(event) => {
+                                        const label = event.target.value;
+                                        setTagForm((current) => ({
+                                          ...current,
+                                          label,
+                                          token: current.token || label.replace(/\s+/g, "-"),
+                                        }));
+                                      }}
+                                      placeholder="Tag label"
+                                      className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                    />
+                                    <input
+                                      type="color"
+                                      value={tagForm.color}
+                                      onChange={(event) => setTagForm((current) => ({ ...current, color: event.target.value }))}
+                                      className="h-9 w-10 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] p-1"
+                                      aria-label="Tag color"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-[1fr_72px] gap-2">
+                                    <input
+                                      value={tagForm.token}
+                                      onChange={(event) => setTagForm((current) => ({ ...current, token: event.target.value }))}
+                                      placeholder="Token"
+                                      className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                    />
+                                    <input
+                                      type="number"
+                                      value={tagForm.order}
+                                      onChange={(event) => setTagForm((current) => ({ ...current, order: Number(event.target.value) }))}
+                                      className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                      aria-label="Tag order"
+                                    />
+                                  </div>
+                                  <button
+                                    type="submit"
+                                    disabled={createSongTagMutation.isPending}
+                                    className="pressable h-9 rounded-md bg-[var(--color-brand-accent)] px-3 text-xs font-bold text-[var(--color-accent-ink)] disabled:opacity-60"
+                                  >
+                                    {createSongTagMutation.isPending ? "Adding..." : "Add Tag"}
+                                  </button>
+                                </form>
+
+                                <div className="mt-4 space-y-2">
+                                  {songTags.map((tag) => (
+                                    <div key={tag.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md bg-[var(--color-brand-bg)] p-2">
+                                      <input
+                                        type="color"
+                                        value={tag.color}
+                                        onChange={(event) =>
+                                          updateSongTagMutation.mutate({
+                                            id: tag.id,
+                                            payload: { color: event.target.value },
+                                          })
+                                        }
+                                        className="h-8 w-8 rounded border border-[var(--color-brand-border)] bg-transparent p-1"
+                                        aria-label={`${tag.label} color`}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setSectionFormatTag(tag.token)}
+                                        className="min-w-0 text-left text-xs font-semibold text-[var(--color-brand-ink)]"
+                                      >
+                                        <span className="block truncate">{tag.label}</span>
+                                        <span className="block truncate text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+                                          {tag.token}
+                                        </span>
+                                      </button>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const nextLabel = window.prompt("Rename tag", tag.label)?.trim();
+                                            if (!nextLabel) return;
+                                            updateSongTagMutation.mutate({
+                                              id: tag.id,
+                                              payload: { label: nextLabel, token: nextLabel.replace(/\s+/g, "-") },
+                                            });
+                                          }}
+                                          className="rounded p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]"
+                                          aria-label={`Rename ${tag.label}`}
+                                        >
+                                          <Settings2 className="h-3.5 w-3.5" />
+                                        </button>
+                                        {!tag.isDefault ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteSongTagMutation.mutate(tag.id)}
+                                            className="rounded p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
+                                            aria-label={`Delete ${tag.label}`}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                           </section>
 
                         </aside>
