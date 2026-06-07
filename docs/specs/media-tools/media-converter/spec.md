@@ -1,19 +1,17 @@
 # Media Converter Spec
 
-## Purpose
+## Status
 
-Media Converter prepares media files for projection, playback, and archive
-handoff.
+Disabled for the deployed web app.
 
-## Scope
+## Reason
 
-- Add files.
-- Select target output format.
-- Show conversion queue and progress.
-- Convert all queued files.
+The web app should not ship a generic media converter that could imply
+downloading, extracting, or transforming media from third-party services in ways
+that may conflict with their terms.
 
-## Notes
+## Future Direction
 
-This tool is currently UI-first. Real conversion should be implemented behind an
-adapter so future Tauri/Rust or local-first processing can replace web-only
-behavior.
+Any future converter should be local-first, rights-aware, and explicitly scoped
+to files the church is allowed to process. A future Tauri/Rust desktop adapter
+is a better fit than a hosted web workflow.

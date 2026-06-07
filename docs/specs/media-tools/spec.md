@@ -12,7 +12,6 @@ or existing local folder structure.
 
 - Phone Transfer
 - QR Generator
-- Media Converter
 
 Each tool has its own spec folder under `docs/specs/media-tools/`.
 
@@ -23,7 +22,6 @@ The Media Tools sidebar item owns a subgroup for individual tool URLs:
 - `/assets`
 - `/assets/phone-transfer`
 - `/assets/qr-generator`
-- `/assets/converter`
 
 The `/assets` route acts as the tool selector page.
 
@@ -32,3 +30,9 @@ The `/assets` route acts as the tool selector page.
 Persistent service asset uploads are intentionally deprecated. PAP should bridge
 phone captures into the booth; users then download or move files into the
 church's existing desktop storage.
+
+Media conversion is disabled in the web app. The project should not ship a web
+converter that could imply downloading, extracting, or transforming media from
+third-party services in ways that may conflict with their terms. Any future
+conversion work should be local-first, rights-aware, and explicitly scoped to
+files the church is allowed to process.

@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function MediaConverterPage() {
-  return <ServiceBuilderClient module="assets" mediaTool="converter" />;
+  redirect("/assets");
 }

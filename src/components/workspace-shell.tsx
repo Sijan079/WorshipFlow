@@ -28,7 +28,6 @@ const NAV_ITEMS = [
 const MEDIA_TOOL_NAV = [
   { href: "/assets/phone-transfer", label: "Phone Transfer" },
   { href: "/assets/qr-generator", label: "QR Generator" },
-  { href: "/assets/converter", label: "Media Converter" },
 ] as const;
 
 function isActivePath(pathname: string, href: string) {

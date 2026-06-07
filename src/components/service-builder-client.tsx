@@ -8,9 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   CloudUpload,
   Copy,
-  FileCog,
   FileText,
-  FileVideo2,
   History,
   ListMusic,
   Loader2,
@@ -93,7 +91,7 @@ type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
 type SongWorkflowStep = "library" | "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
-export type MediaTool = "phone-transfer" | "qr-generator" | "converter";
+export type MediaTool = "phone-transfer" | "qr-generator";
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
@@ -110,13 +108,12 @@ const MEDIA_TOOLS: Array<{ id: MediaTool; href: string; label: string; descripti
       "Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.",
   },
   { id: "qr-generator", href: "/assets/qr-generator", label: "QR Generator", description: "Create a code for giving links, forms, or service resources." },
-  { id: "converter", href: "/assets/converter", label: "Media Converter", description: "Prepare media files for projection and archiving." },
 ];
 
 const MEDIA_TOOLS_HOME_COPY = {
   title: "Media Tools",
   description:
-    "Prepare worship production media in one focused workspace. Move phone captures to the booth, generate QR codes, and convert service files for projection or archive handoff.",
+    "Prepare worship production media in one focused workspace. Move phone captures to the booth and generate QR codes for service resources.",
 };
 
 type TaggedDraftSection = {
@@ -3004,80 +3001,6 @@ export default function ServiceBuilderClient({
               </section>
             ) : null}
 
-            {mediaTool === "converter" ? (
-              <section className="production-panel p-5">
-                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileCog className="h-5 w-5 text-[var(--color-clay)]" />
-                    <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">Media Converter</h2>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="technical-label">Output Format</span>
-                    <div className="flex rounded-lg bg-[var(--color-brand-panel-strong)] p-1">
-                      {["MP4", "MOV", "WAV"].map((format) => (
-                        <button
-                          key={format}
-                          className={`rounded-md px-3 py-1 text-xs font-bold ${
-                            format === "MP4" ? "bg-[var(--color-focus)] text-[#3f008e]" : "text-[var(--color-text-secondary)]"
-                          }`}
-                        >
-                          {format}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
-                  <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-6 text-center">
-                    <Plus className="mb-3 h-8 w-8 text-[var(--color-clay)]" />
-                    <span className="font-bold text-[var(--color-brand-ink)]">Add Files</span>
-                    <span className="mt-1 text-sm text-[var(--color-text-secondary)]">Drag and drop or browse</span>
-                    <input name="file" type="file" className="sr-only" />
-                  </label>
-
-                  <div className="space-y-3">
-                    {[
-                      ["Sermon_Intro_V2_Draft.mov", "74%"],
-                      ["Worship_Set_Recording.wav", "Waiting..."],
-                    ].map(([name, status], index) => (
-                      <div
-                        key={name}
-                        className={`flex items-center gap-4 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-4 ${
-                          index === 1 ? "opacity-60" : ""
-                        }`}
-                      >
-                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]">
-                          <FileVideo2 className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex items-end justify-between gap-3">
-                            <span className="truncate text-sm font-semibold text-[var(--color-brand-ink)]">{name}</span>
-                            <span className="text-xs font-semibold text-[var(--color-text-secondary)]">{status}</span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-brand-panel-strong)]">
-                            <div className="h-full rounded-full bg-[var(--color-focus)]" style={{ width: index === 0 ? "74%" : "0%" }} />
-                          </div>
-                        </div>
-                        <button className="pressable text-[var(--color-text-secondary)]" aria-label={`Remove ${name}`}>
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-4 border-t border-[var(--color-brand-border)] pt-5 md:flex-row md:items-center md:justify-between">
-                  <div className="flex flex-wrap gap-4 text-xs font-semibold text-[var(--color-text-secondary)]">
-                    <span>Auto-sync to media library</span>
-                    <span>Hardware acceleration active</span>
-                  </div>
-                  <button className="pressable inline-flex items-center justify-center rounded-lg bg-[var(--color-focus)] px-5 py-2.5 text-sm font-bold text-[#3f008e]">
-                    Convert All
-                  </button>
-                </div>
-              </section>
-            ) : null}
           </div>
         ) : null}
         {module === "automation" ? (

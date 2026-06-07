@@ -38,7 +38,7 @@ It is a worship preparation OS for the people arranging, formatting, assigning, 
 Project documentation lives under `docs/`:
 
 - `docs/specs/` - version-controlled feature specs.
-- `docs/specs/media-tools/` - individual specs for Phone Transfer, QR Generator, and Media Converter.
+- `docs/specs/media-tools/` - individual specs for Phone Transfer and QR Generator.
 - `docs/deployment/` - deployment notes, including Vercel planning.
 - `docs/development/` - local development workflows.
 - `docs/product/` and `docs/design/` - product and design support notes.
