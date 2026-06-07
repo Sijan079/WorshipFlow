@@ -1,56 +1,4 @@
-import { execFile } from "child_process";
-import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-import { randomUUID } from "crypto";
-import { promisify } from "util";
-
-const execFileAsync = promisify(execFile);
-
-const PYTHON_CANDIDATES = [
-  process.env.WORSHIP_FLOW_PYTHON_PATH,
-  "C:\\Users\\Sijan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-  "python",
-].filter(Boolean) as string[];
-
-function getPythonCommand() {
-  return PYTHON_CANDIDATES[0];
-}
-
-const PYTHON_DOCX_SCRIPT = `
-import json
-import sys
-from pathlib import Path
-from docx import Document
-from docx.shared import Pt
-
-input_path = Path(sys.argv[1])
-output_path = Path(sys.argv[2])
-
-with input_path.open("r", encoding="utf-8") as handle:
-    payload = json.load(handle)
-
-lines = payload.get("lines") or []
-
-document = Document()
-normal_style = document.styles["Normal"]
-normal_style.font.name = "Arial"
-normal_style.font.size = Pt(11)
-
-for line in lines:
-    if not isinstance(line, str):
-        continue
-    if line == "":
-        document.add_paragraph("")
-        continue
-
-    paragraph = document.add_paragraph()
-    run = paragraph.add_run(line)
-    if line.startswith("[") and line.endswith("]"):
-        run.bold = True
-
-document.save(str(output_path))
-`;
+import JSZip from "jszip";
 
 function normalizeTitleBlock(lines: string[]) {
   const output: string[] = [];
@@ -104,34 +52,76 @@ function normalizeTitleBlock(lines: string[]) {
 }
 
 export async function createLyricsDocx(text: string) {
-  const workDir = await mkdtemp(join(tmpdir(), "worship-flow-docx-"));
-  const scriptPath = join(workDir, `${randomUUID()}.py`);
-  const inputPath = join(workDir, `${randomUUID()}.json`);
-  const outputPath = join(workDir, `${randomUUID()}.docx`);
+  const lines = normalizeTitleBlock(text.split("\n"));
+  const zip = new JSZip();
 
-  try {
-    const lines = normalizeTitleBlock(text.split("\n"));
-    await writeFile(scriptPath, PYTHON_DOCX_SCRIPT, "utf8");
-    await writeFile(
-      inputPath,
-      JSON.stringify({
-        lines,
-      }),
-      "utf8"
-    );
+  zip.file("[Content_Types].xml", CONTENT_TYPES_XML);
+  zip.folder("_rels")?.file(".rels", ROOT_RELS_XML);
+  zip.folder("word")?.file("document.xml", createDocumentXml(lines));
+  zip.folder("word")?.file("styles.xml", STYLES_XML);
+  zip.folder("word")?.folder("_rels")?.file("document.xml.rels", DOCUMENT_RELS_XML);
 
-    const { stderr } = await execFileAsync(getPythonCommand(), [scriptPath, inputPath, outputPath], {
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 10,
-    });
-
-    if (stderr?.trim()) {
-      throw new Error(stderr.trim());
-    }
-
-    const bytes = await readFile(outputPath);
-    return new Uint8Array(bytes);
-  } finally {
-    await rm(workDir, { recursive: true, force: true });
-  }
+  return zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+  });
 }
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function createDocumentXml(lines: string[]) {
+  const paragraphs = lines
+    .map((line) => {
+      if (!line) {
+        return "<w:p/>";
+      }
+
+      const bold = line.startsWith("[") && line.endsWith("]");
+      return `<w:p><w:r>${bold ? "<w:rPr><w:b/></w:rPr>" : ""}<w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r></w:p>`;
+    })
+    .join("");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphs}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+}
+
+const CONTENT_TYPES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+const ROOT_RELS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+const DOCUMENT_RELS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
+
+const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:sz w:val="22"/>
+    </w:rPr>
+  </w:style>
+</w:styles>`;

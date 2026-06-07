@@ -1,97 +1,6 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { readFile, writeFile, rm, mkdtemp } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-import { randomUUID } from "crypto";
+import { readFile } from "fs/promises";
+import JSZip from "jszip";
 import type { ExtractorConfidenceLevel, ExtractorWarningCode } from "@/lib/extractor-types";
-
-const execFileAsync = promisify(execFile);
-
-const PYTHON_CANDIDATES = [
-  process.env.WORSHIP_FLOW_PYTHON_PATH,
-  "C:\\Users\\Sijan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-  "python",
-].filter(Boolean) as string[];
-
-function getPythonCommand() {
-  return PYTHON_CANDIDATES[0];
-}
-
-const PYTHON_EXTRACT_SCRIPT = `
-import json
-import sys
-from pathlib import Path
-from zipfile import ZipFile
-import xml.etree.ElementTree as ET
-
-NS = {
-    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-}
-
-def extract_docx(path: Path) -> str:
-    from docx import Document
-    doc = Document(str(path))
-    chunks = []
-
-    for paragraph in doc.paragraphs:
-        if paragraph.text is not None:
-            chunks.append(paragraph.text)
-
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for paragraph in cell.paragraphs:
-                    if paragraph.text is not None:
-                        chunks.append(paragraph.text)
-
-    for section in doc.sections:
-        for paragraph in section.header.paragraphs:
-            if paragraph.text is not None:
-                chunks.append(paragraph.text)
-        for paragraph in section.footer.paragraphs:
-            if paragraph.text is not None:
-                chunks.append(paragraph.text)
-
-    direct_text = "\\n".join(chunks)
-
-    with ZipFile(path) as archive:
-        xml_chunks = []
-        for name in archive.namelist():
-            if not name.startswith("word/") or not name.endswith(".xml"):
-                continue
-            try:
-                root = ET.fromstring(archive.read(name))
-            except ET.ParseError:
-                continue
-            xml_chunks.extend(
-                text.text
-                for text in root.findall(".//w:t", NS)
-                if text.text is not None
-            )
-
-    xml_text = "\\n".join(xml_chunks)
-    return xml_text if len(xml_text.strip()) > len(direct_text.strip()) else direct_text
-
-def extract_pdf(path: Path) -> str:
-    from pypdf import PdfReader
-    reader = PdfReader(str(path))
-    chunks = []
-    for page in reader.pages:
-        chunks.append(page.extract_text() or "")
-    return "\\n".join(chunks)
-
-path = Path(sys.argv[1])
-kind = sys.argv[2]
-if kind == "docx":
-    text = extract_docx(path)
-elif kind == "pdf":
-    text = extract_pdf(path)
-else:
-    raise RuntimeError(f"Unsupported parser kind: {kind}")
-
-print(json.dumps({"text": text}))
-`;
 
 function normalizeExtractedText(text: string) {
   return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
@@ -785,31 +694,52 @@ function trimRepeatedBlockSuffix(lines: string[]) {
   return rebuilt.filter((line, idx, array) => !(line === "" && array[idx - 1] === ""));
 }
 
-async function runPythonExtraction(path: string, kind: "docx" | "pdf") {
-  const scriptDir = await mkdtemp(join(tmpdir(), "worship-flow-parse-"));
-  const scriptPath = join(scriptDir, `${randomUUID()}.py`);
+function decodeXmlText(value: string) {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
 
-  try {
-    await writeFile(scriptPath, PYTHON_EXTRACT_SCRIPT, "utf8");
-    const { stdout, stderr } = await execFileAsync(getPythonCommand(), [scriptPath, path, kind], {
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 10,
-    });
+function extractDocxParagraphs(xml: string) {
+  const paragraphs = xml.match(/<w:p[\s\S]*?<\/w:p>/g) ?? [];
+  const lines: string[] = [];
 
-    if (stderr?.trim()) {
-      throw new Error(stderr.trim());
+  for (const paragraph of paragraphs) {
+    const text = [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)]
+      .map((match) => decodeXmlText(match[1]))
+      .join("");
+
+    if (text.trim()) {
+      lines.push(text);
     }
-
-    const parsed = JSON.parse(stdout) as { text?: string };
-    const text = normalizeExtractedText(parsed.text ?? "");
-    if (!text) {
-      throw new Error(`No text could be extracted from the ${kind.toUpperCase()} file.`);
-    }
-
-    return text;
-  } finally {
-    await rm(scriptDir, { recursive: true, force: true });
   }
+
+  return lines.join("\n");
+}
+
+async function extractDocxText(path: string) {
+  const zip = await JSZip.loadAsync(await readFile(path));
+  const chunks: string[] = [];
+
+  for (const name of Object.keys(zip.files)) {
+    if (!name.startsWith("word/") || !name.endsWith(".xml")) continue;
+    const file = zip.file(name);
+    if (!file) continue;
+    const text = extractDocxParagraphs(await file.async("string"));
+    if (text.trim()) {
+      chunks.push(text);
+    }
+  }
+
+  const text = normalizeExtractedText(chunks.join("\n"));
+  if (!text) {
+    throw new Error("No text could be extracted from the DOCX file.");
+  }
+
+  return text;
 }
 
 export async function extractTextFromTemporaryFile(path: string, mimeType: string) {
@@ -821,15 +751,12 @@ export async function extractTextFromTemporaryFile(path: string, mimeType: strin
   ) {
     return {
       parser: "docx" as const,
-      ...normalizeLyricsText(await runPythonExtraction(path, "docx")),
+      ...normalizeLyricsText(await extractDocxText(path)),
     };
   }
 
   if (normalizedMimeType.includes("pdf")) {
-    return {
-      parser: "pdf" as const,
-      ...normalizeLyricsText(await runPythonExtraction(path, "pdf")),
-    };
+    throw new Error("PDF extraction is not available in the deployed web app yet. Upload DOCX/TXT or paste lyrics instead.");
   }
 
   if (normalizedMimeType.includes("text/plain")) {
