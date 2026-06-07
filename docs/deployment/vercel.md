@@ -6,6 +6,8 @@
 - Configure all required Vercel environment variables.
 - Set `APP_ACCESS_PASSWORD` for both Preview and Production.
 - Confirm `npm run build` passes locally.
+- Confirm production migrations are ready with `prisma migrate deploy` before
+  promoting a database-backed deploy.
 - Deploy from the repository root with the Next.js preset.
 - Visit `/api/health` after deploy and confirm `ok: true`.
 - Test service creation, Song Formatter, and Media Tools.
@@ -20,7 +22,7 @@ Required project settings:
 
 - Framework preset: Next.js
 - Install command: `npm install`
-- Build command: `npm run build`
+- Build command: `npm run vercel-build`
 - Output directory: Next.js default
 
 ## Environment Variables
@@ -44,7 +46,8 @@ Supabase setup:
 - Use the Supabase publishable/anon key for
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Do not expose the Supabase service-role key to the browser.
-- Run Prisma migrations against the Supabase database before production use.
+- The Vercel build command runs `prisma migrate deploy` before building, so the
+  deployed API and production database schema stay aligned.
 
 Recommended launch gate:
 
