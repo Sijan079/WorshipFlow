@@ -65,9 +65,10 @@ export function usePAPMobileSender(pairingCode: string) {
     async (currentSession: PAPSession, message: Extract<PAPServerMessage, { type: "signal" }>) => {
       if (message.payload.type !== "offer") return;
 
-      cleanup();
-      const peerConnection = createPAPPeerConnection();
-      peerConnectionRef.current = peerConnection;
+      try {
+        cleanup();
+        const peerConnection = createPAPPeerConnection();
+        peerConnectionRef.current = peerConnection;
 
       peerConnection.addEventListener("datachannel", (event) => {
         dataChannelRef.current = event.channel;
@@ -156,6 +157,20 @@ export function usePAPMobileSender(pairingCode: string) {
         fromPeerId: peerId,
         payload: { type: "answer", description: answer },
       });
+      } catch (error: unknown) {
+        reportPAPDiagnostic({
+          event: "webrtc-negotiation-error",
+          role: "mobile",
+          pairingCode,
+          sessionId: currentSession.id,
+          peerId,
+          state: peerConnectionRef.current?.connectionState,
+          message: error instanceof Error ? error.message : "Failed to process PAP WebRTC offer.",
+          detail: peerConnectionRef.current
+            ? getPeerConnectionDiagnosticDetail(peerConnectionRef.current, dataChannelRef.current)
+            : { error },
+        });
+      }
     },
     [cleanup, flushPendingIceCandidates, pairingCode, peerId]
   );

@@ -4,7 +4,15 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const PAPDiagnosticSchema = z.object({
-  event: z.enum(["signaling-error", "signaling-closed", "session-error", "webrtc-failed", "webrtc-disconnected", "webrtc-timeout"]),
+  event: z.enum([
+    "signaling-error",
+    "signaling-closed",
+    "session-error",
+    "webrtc-failed",
+    "webrtc-disconnected",
+    "webrtc-timeout",
+    "webrtc-negotiation-error",
+  ]),
   role: z.enum(["desktop", "mobile"]),
   pairingCode: z.string().optional(),
   sessionId: z.string().optional(),

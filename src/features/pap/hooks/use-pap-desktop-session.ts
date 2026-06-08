@@ -128,6 +128,7 @@ export function usePAPDesktopSession() {
     cleanupConnection();
     const peerConnection = createPAPPeerConnection();
     peerConnectionRef.current = peerConnection;
+    const channel = peerConnection.createDataChannel("pap-screenshots", { ordered: true });
 
     peerConnection.addEventListener("icecandidate", (event) => {
       if (event.candidate) {
@@ -181,7 +182,6 @@ export function usePAPDesktopSession() {
       }
     });
 
-    const channel = peerConnection.createDataChannel("pap-screenshots", { ordered: true });
     channel.addEventListener("open", () => {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
@@ -240,14 +240,33 @@ export function usePAPDesktopSession() {
     if (!peerConnection) return;
 
     if (message.payload.type === "answer") {
-      await peerConnection.setRemoteDescription(message.payload.description);
-      await flushPendingIceCandidates();
+      try {
+        await peerConnection.setRemoteDescription(message.payload.description);
+        await flushPendingIceCandidates();
+      } catch (error: unknown) {
+        reportPAPDiagnostic({
+          event: "webrtc-negotiation-error",
+          role: "desktop",
+          pairingCode: sessionRef.current?.pairingCode,
+          sessionId: message.sessionId,
+          peerId,
+          state: peerConnection.connectionState,
+          message: error instanceof Error ? error.message : "Failed to process PAP WebRTC answer.",
+          detail: {
+            iceConnectionState: peerConnection.iceConnectionState,
+            iceGatheringState: peerConnection.iceGatheringState,
+            signalingState: peerConnection.signalingState,
+            hasRemoteDescription: Boolean(peerConnection.remoteDescription),
+            hasLocalDescription: Boolean(peerConnection.localDescription),
+          },
+        });
+      }
     }
 
     if (message.payload.type === "ice-candidate") {
       await addIceCandidateWhenReady(message.payload.candidate);
     }
-  }, [addIceCandidateWhenReady, flushPendingIceCandidates]);
+  }, [addIceCandidateWhenReady, flushPendingIceCandidates, peerId]);
 
   const startSession = useCallback(() => {
     setError(null);
