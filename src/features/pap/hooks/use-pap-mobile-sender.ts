@@ -19,6 +19,7 @@ export function usePAPMobileSender(pairingCode: string) {
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const sessionRef = useRef<PAPSession | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const upsertProgress = useCallback((nextProgress: PAPSendProgress) => {
     setProgress((currentProgress) => {
@@ -29,6 +30,10 @@ export function usePAPMobileSender(pairingCode: string) {
   }, []);
 
   const cleanup = useCallback(() => {
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
     dataChannelRef.current?.close();
     dataChannelRef.current = null;
     peerConnectionRef.current?.close();
@@ -66,7 +71,13 @@ export function usePAPMobileSender(pairingCode: string) {
 
       peerConnection.addEventListener("datachannel", (event) => {
         dataChannelRef.current = event.channel;
-        event.channel.addEventListener("open", () => setState("connected"));
+        event.channel.addEventListener("open", () => {
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          setState("connected");
+        });
         event.channel.addEventListener("close", () => setState("disconnected"));
       });
       peerConnection.addEventListener("icecandidate", (event) => {
@@ -80,8 +91,18 @@ export function usePAPMobileSender(pairingCode: string) {
         }
       });
       peerConnection.addEventListener("connectionstatechange", () => {
-        if (peerConnection.connectionState === "connected") setState("connected");
+        if (peerConnection.connectionState === "connected") {
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          setState("connected");
+        }
         if (peerConnection.connectionState === "failed") {
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
           setState("failed");
           reportPAPDiagnostic({
             event: "webrtc-failed",
@@ -93,6 +114,10 @@ export function usePAPMobileSender(pairingCode: string) {
           });
         }
         if (peerConnection.connectionState === "disconnected") {
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
           setState("disconnected");
           reportPAPDiagnostic({
             event: "webrtc-disconnected",
@@ -104,6 +129,27 @@ export function usePAPMobileSender(pairingCode: string) {
           });
         }
       });
+
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (peerConnection.connectionState === "connected" || dataChannelRef.current?.readyState === "open") return;
+
+        reportPAPDiagnostic({
+          event: "webrtc-timeout",
+          role: "mobile",
+          pairingCode,
+          sessionId: currentSession.id,
+          peerId,
+          state: peerConnection.connectionState,
+          detail: {
+            iceConnectionState: peerConnection.iceConnectionState,
+            iceGatheringState: peerConnection.iceGatheringState,
+            signalingState: peerConnection.signalingState,
+            dataChannelState: dataChannelRef.current?.readyState ?? null,
+            hasRemoteDescription: Boolean(peerConnection.remoteDescription),
+            hasLocalDescription: Boolean(peerConnection.localDescription),
+          },
+        });
+      }, 15_000);
 
       await peerConnection.setRemoteDescription(message.payload.description);
       await flushPendingIceCandidates();

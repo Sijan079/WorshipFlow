@@ -6,7 +6,8 @@ type PAPDiagnosticEvent =
   | "signaling-closed"
   | "session-error"
   | "webrtc-failed"
-  | "webrtc-disconnected";
+  | "webrtc-disconnected"
+  | "webrtc-timeout";
 
 type PAPDiagnosticPayload = {
   event: PAPDiagnosticEvent;

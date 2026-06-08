@@ -37,6 +37,7 @@ export function usePAPDesktopSession() {
   const transfersRef = useRef(new Map<string, IncomingTransfer>());
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const sessionRef = useRef<PAPSession | null>(null);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const joinUrl = session ? `${getPAPJoinBaseUrl()}/pap/join/${session.pairingCode}` : "";
   const isLocalhostJoinUrl = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(joinUrl);
@@ -48,6 +49,10 @@ export function usePAPDesktopSession() {
   }, []);
 
   const cleanupConnection = useCallback(() => {
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     pendingIceCandidatesRef.current = [];
@@ -135,8 +140,18 @@ export function usePAPDesktopSession() {
       }
     });
     peerConnection.addEventListener("connectionstatechange", () => {
-      if (peerConnection.connectionState === "connected") setState("connected");
+      if (peerConnection.connectionState === "connected") {
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
+        setState("connected");
+      }
       if (peerConnection.connectionState === "failed") {
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
         setState("failed");
         reportPAPDiagnostic({
           event: "webrtc-failed",
@@ -148,6 +163,10 @@ export function usePAPDesktopSession() {
         });
       }
       if (peerConnection.connectionState === "disconnected") {
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
         setState("disconnected");
         reportPAPDiagnostic({
           event: "webrtc-disconnected",
@@ -161,7 +180,34 @@ export function usePAPDesktopSession() {
     });
 
     const channel = peerConnection.createDataChannel("pap-screenshots", { ordered: true });
+    channel.addEventListener("open", () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+    });
     setupDataChannel(channel);
+
+    connectionTimeoutRef.current = setTimeout(() => {
+      if (peerConnection.connectionState === "connected" || channel.readyState === "open") return;
+
+      reportPAPDiagnostic({
+        event: "webrtc-timeout",
+        role: "desktop",
+        pairingCode: currentSession.pairingCode,
+        sessionId: currentSession.id,
+        peerId,
+        state: peerConnection.connectionState,
+        detail: {
+          iceConnectionState: peerConnection.iceConnectionState,
+          iceGatheringState: peerConnection.iceGatheringState,
+          signalingState: peerConnection.signalingState,
+          dataChannelState: channel.readyState,
+          hasRemoteDescription: Boolean(peerConnection.remoteDescription),
+          hasLocalDescription: Boolean(peerConnection.localDescription),
+        },
+      });
+    }, 15_000);
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
