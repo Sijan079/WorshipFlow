@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATH_PREFIXES = ["/_next", "/favicon.ico", "/pap/join/"];
+const PUBLIC_PATH_PREFIXES = ["/_next", "/favicon.ico", "/pap/join/", "/api/pap/diagnostics"];
 
 export function proxy(request: NextRequest) {
   const accessPassword = process.env.APP_ACCESS_PASSWORD;
