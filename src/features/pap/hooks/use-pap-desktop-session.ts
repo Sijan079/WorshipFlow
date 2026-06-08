@@ -219,7 +219,7 @@ export function usePAPDesktopSession() {
         signaling.send({ type: "create-session", peerId, deviceName });
       },
       onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
-      onError: () => {
+      onError: (detail) => {
         const activeSession = sessionRef.current;
         setState("failed");
         setError("Could not connect to the PAP signaling service.");
@@ -230,6 +230,7 @@ export function usePAPDesktopSession() {
           sessionId: activeSession?.id,
           peerId,
           message: "Could not connect to the PAP signaling service.",
+          detail,
         });
       },
       onMessage: (message) => {

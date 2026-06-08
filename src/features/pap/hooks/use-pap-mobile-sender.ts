@@ -143,7 +143,7 @@ export function usePAPMobileSender(pairingCode: string) {
         signaling.send({ type: "join-session", pairingCode, peerId, deviceName });
       },
       onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
-      onError: () => {
+      onError: (detail) => {
         setState("failed");
         setError("Could not reach the PAP signaling service.");
         reportPAPDiagnostic({
@@ -153,6 +153,7 @@ export function usePAPMobileSender(pairingCode: string) {
           sessionId: sessionRef.current?.id,
           peerId,
           message: "Could not reach the PAP signaling service.",
+          detail,
         });
       },
       onMessage: (message) => {

@@ -50,14 +50,14 @@ type PAPSignalingParams = {
   onMessage: (message: PAPServerMessage) => void;
   onOpen?: () => void;
   onClose?: () => void;
-  onError?: () => void;
+  onError?: (detail?: unknown) => void;
 };
 
 export function connectPAPSignaling(params: {
   onMessage: (message: PAPServerMessage) => void;
   onOpen?: () => void;
   onClose?: () => void;
-  onError?: () => void;
+  onError?: (detail?: unknown) => void;
 }) {
   if (hasSupabaseRealtimeConfig()) {
     return connectSupabasePAPSignaling(params);
@@ -67,7 +67,7 @@ export function connectPAPSignaling(params: {
 
   socket.addEventListener("open", () => params.onOpen?.());
   socket.addEventListener("close", () => params.onClose?.());
-  socket.addEventListener("error", () => params.onError?.());
+  socket.addEventListener("error", (event) => params.onError?.({ transport: "websocket", type: event.type }));
   socket.addEventListener("message", (event) => {
     try {
       params.onMessage(JSON.parse(String(event.data)) as PAPServerMessage);
@@ -169,8 +169,21 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
           return;
         }
 
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          params.onError?.();
+        if (status === "CLOSED") {
+          subscribed = false;
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          subscribed = false;
+          params.onError?.({
+            transport: "supabase-realtime",
+            status,
+            channelName,
+            hasSession: Boolean(session),
+            sessionId: session?.id,
+            pairingCode: session?.pairingCode,
+          });
         }
       });
   }
