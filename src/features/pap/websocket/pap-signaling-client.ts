@@ -121,7 +121,8 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
   const supabase = getSupabaseBrowserClient();
   let channel = supabase.channel(`pap-staging-${createPAPPeerId("pending")}`, {
     config: {
-      broadcast: { ack: true },
+      broadcast: { ack: false, self: false },
+      private: false,
     },
   });
   let activeChannelName = "";
@@ -152,7 +153,8 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
     subscribed = false;
     channel = supabase.channel(channelName, {
       config: {
-        broadcast: { ack: true },
+        broadcast: { ack: false, self: false },
+        private: false,
       },
     });
 
@@ -162,7 +164,7 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
         if (!incoming) return;
         handleIncomingMessage(incoming);
       })
-      .subscribe((status) => {
+      .subscribe((status, error) => {
         if (status === "SUBSCRIBED") {
           subscribed = true;
           onSubscribed?.();
@@ -183,6 +185,7 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
             hasSession: Boolean(session),
             sessionId: session?.id,
             pairingCode: session?.pairingCode,
+            error: serializeSupabaseRealtimeError(error),
           });
         }
       });
@@ -284,4 +287,18 @@ function createPairingCode() {
 
 function getPAPChannelName(pairingCode: string) {
   return `pap:${pairingCode}`;
+}
+
+function serializeSupabaseRealtimeError(error: unknown) {
+  if (!error) return undefined;
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      cause: error.cause,
+    };
+  }
+
+  return error;
 }
