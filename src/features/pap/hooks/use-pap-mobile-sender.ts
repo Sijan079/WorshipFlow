@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { reportPAPDiagnostic } from "../diagnostics/pap-diagnostics";
 import { createPAPPeerConnection, sendPAPFiles } from "../rtc/pap-rtc";
 import type { PAPConnectionState, PAPSendProgress, PAPServerMessage, PAPSession } from "../types";
 import { connectPAPSignaling, createPAPPeerId, getPAPDeviceName } from "../websocket/pap-signaling-client";
@@ -80,8 +81,28 @@ export function usePAPMobileSender(pairingCode: string) {
       });
       peerConnection.addEventListener("connectionstatechange", () => {
         if (peerConnection.connectionState === "connected") setState("connected");
-        if (peerConnection.connectionState === "failed") setState("failed");
-        if (peerConnection.connectionState === "disconnected") setState("disconnected");
+        if (peerConnection.connectionState === "failed") {
+          setState("failed");
+          reportPAPDiagnostic({
+            event: "webrtc-failed",
+            role: "mobile",
+            pairingCode,
+            sessionId: currentSession.id,
+            peerId,
+            state: peerConnection.connectionState,
+          });
+        }
+        if (peerConnection.connectionState === "disconnected") {
+          setState("disconnected");
+          reportPAPDiagnostic({
+            event: "webrtc-disconnected",
+            role: "mobile",
+            pairingCode,
+            sessionId: currentSession.id,
+            peerId,
+            state: peerConnection.connectionState,
+          });
+        }
       });
 
       await peerConnection.setRemoteDescription(message.payload.description);
@@ -95,7 +116,7 @@ export function usePAPMobileSender(pairingCode: string) {
         payload: { type: "answer", description: answer },
       });
     },
-    [cleanup, flushPendingIceCandidates, peerId]
+    [cleanup, flushPendingIceCandidates, pairingCode, peerId]
   );
 
   const sendFiles = useCallback(
@@ -125,6 +146,14 @@ export function usePAPMobileSender(pairingCode: string) {
       onError: () => {
         setState("failed");
         setError("Could not reach the PAP signaling service.");
+        reportPAPDiagnostic({
+          event: "signaling-error",
+          role: "mobile",
+          pairingCode,
+          sessionId: sessionRef.current?.id,
+          peerId,
+          message: "Could not reach the PAP signaling service.",
+        });
       },
       onMessage: (message) => {
         if (message.type === "session-joined") {
@@ -156,6 +185,14 @@ export function usePAPMobileSender(pairingCode: string) {
         if (message.type === "error") {
           setError(message.message);
           setState("failed");
+          reportPAPDiagnostic({
+            event: "session-error",
+            role: "mobile",
+            pairingCode,
+            sessionId: sessionRef.current?.id,
+            peerId,
+            message: message.message,
+          });
         }
       },
     });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPAPPeerConnection, createTransferFile, parsePAPDataChannelMessage } from "../rtc/pap-rtc";
+import { reportPAPDiagnostic } from "../diagnostics/pap-diagnostics";
 import {
   cachePAPInboxFile,
   clearPAPInboxCache,
@@ -35,6 +36,7 @@ export function usePAPDesktopSession() {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const transfersRef = useRef(new Map<string, IncomingTransfer>());
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const sessionRef = useRef<PAPSession | null>(null);
 
   const joinUrl = session ? `${getPAPJoinBaseUrl()}/pap/join/${session.pairingCode}` : "";
   const isLocalhostJoinUrl = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(joinUrl);
@@ -134,8 +136,28 @@ export function usePAPDesktopSession() {
     });
     peerConnection.addEventListener("connectionstatechange", () => {
       if (peerConnection.connectionState === "connected") setState("connected");
-      if (peerConnection.connectionState === "failed") setState("failed");
-      if (peerConnection.connectionState === "disconnected") setState("disconnected");
+      if (peerConnection.connectionState === "failed") {
+        setState("failed");
+        reportPAPDiagnostic({
+          event: "webrtc-failed",
+          role: "desktop",
+          pairingCode: currentSession.pairingCode,
+          sessionId: currentSession.id,
+          peerId,
+          state: peerConnection.connectionState,
+        });
+      }
+      if (peerConnection.connectionState === "disconnected") {
+        setState("disconnected");
+        reportPAPDiagnostic({
+          event: "webrtc-disconnected",
+          role: "desktop",
+          pairingCode: currentSession.pairingCode,
+          sessionId: currentSession.id,
+          peerId,
+          state: peerConnection.connectionState,
+        });
+      }
     });
 
     const channel = peerConnection.createDataChannel("pap-screenshots", { ordered: true });
@@ -198,16 +220,27 @@ export function usePAPDesktopSession() {
       },
       onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
       onError: () => {
+        const activeSession = sessionRef.current;
         setState("failed");
         setError("Could not connect to the PAP signaling service.");
+        reportPAPDiagnostic({
+          event: "signaling-error",
+          role: "desktop",
+          pairingCode: activeSession?.pairingCode,
+          sessionId: activeSession?.id,
+          peerId,
+          message: "Could not connect to the PAP signaling service.",
+        });
       },
       onMessage: (message) => {
         if (message.type === "session-created") {
+          sessionRef.current = message.session;
           setSession(message.session);
           setState(message.session.status === "connected" ? "connected" : "waiting");
           return;
         }
         if (message.type === "peer-joined") {
+          sessionRef.current = message.session;
           setSession(message.session);
           setState("connecting");
           void createOffer(message.session);
@@ -220,13 +253,23 @@ export function usePAPDesktopSession() {
         }
         if (message.type === "session-expired") {
           setState("expired");
+          sessionRef.current = null;
           setSession(null);
           cleanupConnection();
           return;
         }
         if (message.type === "error") {
+          const activeSession = sessionRef.current;
           setError(message.message);
           setState("failed");
+          reportPAPDiagnostic({
+            event: "session-error",
+            role: "desktop",
+            pairingCode: activeSession?.pairingCode,
+            sessionId: activeSession?.id,
+            peerId,
+            message: message.message,
+          });
           return;
         }
         void handleSignal(message);
@@ -242,6 +285,7 @@ export function usePAPDesktopSession() {
     }
     cleanupConnection();
     clearFiles();
+    sessionRef.current = null;
     setSession(null);
     setState("idle");
   }, [cleanupConnection, clearFiles, peerId, session]);
