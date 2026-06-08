@@ -286,7 +286,7 @@ function createPairingCode() {
 }
 
 function getPAPChannelName(pairingCode: string) {
-  return `pap:${pairingCode}`;
+  return `pap-${pairingCode}`;
 }
 
 function serializeSupabaseRealtimeError(error: unknown) {
