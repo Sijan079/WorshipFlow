@@ -111,6 +111,7 @@ export function usePAPMobileSender(pairingCode: string) {
             sessionId: currentSession.id,
             peerId,
             state: peerConnection.connectionState,
+            detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
           });
         }
         if (peerConnection.connectionState === "disconnected") {
@@ -126,6 +127,7 @@ export function usePAPMobileSender(pairingCode: string) {
             sessionId: currentSession.id,
             peerId,
             state: peerConnection.connectionState,
+            detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
           });
         }
       });
@@ -140,14 +142,7 @@ export function usePAPMobileSender(pairingCode: string) {
           sessionId: currentSession.id,
           peerId,
           state: peerConnection.connectionState,
-          detail: {
-            iceConnectionState: peerConnection.iceConnectionState,
-            iceGatheringState: peerConnection.iceGatheringState,
-            signalingState: peerConnection.signalingState,
-            dataChannelState: dataChannelRef.current?.readyState ?? null,
-            hasRemoteDescription: Boolean(peerConnection.remoteDescription),
-            hasLocalDescription: Boolean(peerConnection.localDescription),
-          },
+          detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
         });
       }, 15_000);
 
@@ -259,5 +254,16 @@ export function usePAPMobileSender(pairingCode: string) {
     sendFiles,
     session,
     state,
+  };
+}
+
+function getPeerConnectionDiagnosticDetail(peerConnection: RTCPeerConnection, dataChannel?: RTCDataChannel | null) {
+  return {
+    iceConnectionState: peerConnection.iceConnectionState,
+    iceGatheringState: peerConnection.iceGatheringState,
+    signalingState: peerConnection.signalingState,
+    dataChannelState: dataChannel?.readyState ?? null,
+    hasRemoteDescription: Boolean(peerConnection.remoteDescription),
+    hasLocalDescription: Boolean(peerConnection.localDescription),
   };
 }

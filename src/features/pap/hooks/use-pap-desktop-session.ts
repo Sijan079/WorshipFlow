@@ -160,6 +160,7 @@ export function usePAPDesktopSession() {
           sessionId: currentSession.id,
           peerId,
           state: peerConnection.connectionState,
+          detail: getPeerConnectionDiagnosticDetail(peerConnection, channel),
         });
       }
       if (peerConnection.connectionState === "disconnected") {
@@ -175,6 +176,7 @@ export function usePAPDesktopSession() {
           sessionId: currentSession.id,
           peerId,
           state: peerConnection.connectionState,
+          detail: getPeerConnectionDiagnosticDetail(peerConnection, channel),
         });
       }
     });
@@ -198,14 +200,7 @@ export function usePAPDesktopSession() {
         sessionId: currentSession.id,
         peerId,
         state: peerConnection.connectionState,
-        detail: {
-          iceConnectionState: peerConnection.iceConnectionState,
-          iceGatheringState: peerConnection.iceGatheringState,
-          signalingState: peerConnection.signalingState,
-          dataChannelState: channel.readyState,
-          hasRemoteDescription: Boolean(peerConnection.remoteDescription),
-          hasLocalDescription: Boolean(peerConnection.localDescription),
-        },
+        detail: getPeerConnectionDiagnosticDetail(peerConnection, channel),
       });
     }, 15_000);
 
@@ -381,5 +376,16 @@ export function usePAPDesktopSession() {
     restartSession: startSession,
     session,
     state,
+  };
+}
+
+function getPeerConnectionDiagnosticDetail(peerConnection: RTCPeerConnection, dataChannel: RTCDataChannel) {
+  return {
+    iceConnectionState: peerConnection.iceConnectionState,
+    iceGatheringState: peerConnection.iceGatheringState,
+    signalingState: peerConnection.signalingState,
+    dataChannelState: dataChannel.readyState,
+    hasRemoteDescription: Boolean(peerConnection.remoteDescription),
+    hasLocalDescription: Boolean(peerConnection.localDescription),
   };
 }

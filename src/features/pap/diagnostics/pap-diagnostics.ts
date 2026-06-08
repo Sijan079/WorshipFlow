@@ -57,6 +57,7 @@ export function reportPAPDiagnostic(payload: PAPDiagnosticPayload) {
     hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     hasSupabasePublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
     hasPAPSignalingUrl: Boolean(process.env.NEXT_PUBLIC_PAP_SIGNALING_URL),
+    hasPAPTurnUrls: Boolean(process.env.NEXT_PUBLIC_PAP_TURN_URLS),
     occurredAt: new Date().toISOString(),
   });
 

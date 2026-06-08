@@ -12,8 +12,31 @@ export const PAP_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:global.stun.twilio.com:3478" },
 ];
 
+function getConfiguredTURNServer(): RTCIceServer | null {
+  const urls = process.env.NEXT_PUBLIC_PAP_TURN_URLS;
+  if (!urls) return null;
+
+  const turnUrls = urls
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  if (turnUrls.length === 0) return null;
+
+  return {
+    urls: turnUrls,
+    username: process.env.NEXT_PUBLIC_PAP_TURN_USERNAME,
+    credential: process.env.NEXT_PUBLIC_PAP_TURN_CREDENTIAL,
+  };
+}
+
+export function getPAPICEServers() {
+  const turnServer = getConfiguredTURNServer();
+  return turnServer ? [...PAP_ICE_SERVERS, turnServer] : PAP_ICE_SERVERS;
+}
+
 export function createPAPPeerConnection() {
-  return new RTCPeerConnection({ iceServers: PAP_ICE_SERVERS });
+  return new RTCPeerConnection({ iceServers: getPAPICEServers() });
 }
 
 export function parsePAPDataChannelMessage(data: unknown): PAPDataChannelMessage | null {
