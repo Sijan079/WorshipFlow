@@ -34,6 +34,7 @@ export function usePAPDesktopSession() {
   const signalingRef = useRef<ReturnType<typeof connectPAPSignaling> | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const transfersRef = useRef(new Map<string, IncomingTransfer>());
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   const joinUrl = session ? `${getPAPJoinBaseUrl()}/pap/join/${session.pairingCode}` : "";
   const isLocalhostJoinUrl = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(joinUrl);
@@ -47,6 +48,7 @@ export function usePAPDesktopSession() {
   const cleanupConnection = useCallback(() => {
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
+    pendingIceCandidatesRef.current = [];
     transfersRef.current.clear();
   }, []);
 
@@ -149,6 +151,26 @@ export function usePAPDesktopSession() {
     });
   }, [cleanupConnection, peerId, setupDataChannel]);
 
+  const addIceCandidateWhenReady = useCallback(async (candidate: RTCIceCandidateInit) => {
+    const peerConnection = peerConnectionRef.current;
+    if (!peerConnection || !peerConnection.remoteDescription) {
+      pendingIceCandidatesRef.current.push(candidate);
+      return;
+    }
+
+    await peerConnection.addIceCandidate(candidate);
+  }, []);
+
+  const flushPendingIceCandidates = useCallback(async () => {
+    const peerConnection = peerConnectionRef.current;
+    if (!peerConnection || !peerConnection.remoteDescription) return;
+
+    const pendingCandidates = pendingIceCandidatesRef.current.splice(0);
+    for (const candidate of pendingCandidates) {
+      await peerConnection.addIceCandidate(candidate);
+    }
+  }, []);
+
   const handleSignal = useCallback(async (message: PAPServerMessage) => {
     if (message.type !== "signal") return;
     const peerConnection = peerConnectionRef.current;
@@ -156,12 +178,13 @@ export function usePAPDesktopSession() {
 
     if (message.payload.type === "answer") {
       await peerConnection.setRemoteDescription(message.payload.description);
+      await flushPendingIceCandidates();
     }
 
     if (message.payload.type === "ice-candidate") {
-      await peerConnection.addIceCandidate(message.payload.candidate);
+      await addIceCandidateWhenReady(message.payload.candidate);
     }
-  }, []);
+  }, [addIceCandidateWhenReady, flushPendingIceCandidates]);
 
   const startSession = useCallback(() => {
     setError(null);

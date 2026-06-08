@@ -17,6 +17,7 @@ export function usePAPMobileSender(pairingCode: string) {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const sessionRef = useRef<PAPSession | null>(null);
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   const upsertProgress = useCallback((nextProgress: PAPSendProgress) => {
     setProgress((currentProgress) => {
@@ -31,6 +32,27 @@ export function usePAPMobileSender(pairingCode: string) {
     dataChannelRef.current = null;
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
+    pendingIceCandidatesRef.current = [];
+  }, []);
+
+  const addIceCandidateWhenReady = useCallback(async (candidate: RTCIceCandidateInit) => {
+    const peerConnection = peerConnectionRef.current;
+    if (!peerConnection || !peerConnection.remoteDescription) {
+      pendingIceCandidatesRef.current.push(candidate);
+      return;
+    }
+
+    await peerConnection.addIceCandidate(candidate);
+  }, []);
+
+  const flushPendingIceCandidates = useCallback(async () => {
+    const peerConnection = peerConnectionRef.current;
+    if (!peerConnection || !peerConnection.remoteDescription) return;
+
+    const pendingCandidates = pendingIceCandidatesRef.current.splice(0);
+    for (const candidate of pendingCandidates) {
+      await peerConnection.addIceCandidate(candidate);
+    }
   }, []);
 
   const setupPeerConnection = useCallback(
@@ -63,6 +85,7 @@ export function usePAPMobileSender(pairingCode: string) {
       });
 
       await peerConnection.setRemoteDescription(message.payload.description);
+      await flushPendingIceCandidates();
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       signalingRef.current?.send({
@@ -72,7 +95,7 @@ export function usePAPMobileSender(pairingCode: string) {
         payload: { type: "answer", description: answer },
       });
     },
-    [cleanup, peerId]
+    [cleanup, flushPendingIceCandidates, peerId]
   );
 
   const sendFiles = useCallback(
@@ -114,7 +137,7 @@ export function usePAPMobileSender(pairingCode: string) {
           if (message.payload.type === "offer" && sessionRef.current) {
             void setupPeerConnection(sessionRef.current, message);
           } else if (message.payload.type === "ice-candidate") {
-            void peerConnectionRef.current?.addIceCandidate(message.payload.candidate);
+            void addIceCandidateWhenReady(message.payload.candidate);
           }
           return;
         }
@@ -143,7 +166,7 @@ export function usePAPMobileSender(pairingCode: string) {
       signaling.close();
       cleanup();
     };
-  }, [cleanup, deviceName, pairingCode, peerId, setupPeerConnection]);
+  }, [addIceCandidateWhenReady, cleanup, deviceName, pairingCode, peerId, setupPeerConnection]);
 
   return {
     deviceName,
