@@ -20,8 +20,12 @@ type PAPDiagnosticPayload = {
 };
 
 function getPAPSignalingMode() {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  if (process.env.NEXT_PUBLIC_PAP_SIGNALING_TRANSPORT === "supabase-realtime") {
     return "supabase-realtime";
+  }
+
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return "api-polling";
   }
 
   return "websocket";
@@ -30,6 +34,10 @@ function getPAPSignalingMode() {
 function getPAPSignalingTarget() {
   if (getPAPSignalingMode() === "supabase-realtime") {
     return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+  }
+
+  if (getPAPSignalingMode() === "api-polling") {
+    return "/api/pap/signaling/[pairingCode]";
   }
 
   return process.env.NEXT_PUBLIC_PAP_SIGNALING_URL ?? null;

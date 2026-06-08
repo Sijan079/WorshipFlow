@@ -59,8 +59,12 @@ export function connectPAPSignaling(params: {
   onClose?: () => void;
   onError?: (detail?: unknown) => void;
 }) {
-  if (hasSupabaseRealtimeConfig()) {
+  if (hasSupabaseRealtimeConfig() && process.env.NEXT_PUBLIC_PAP_SIGNALING_TRANSPORT === "supabase-realtime") {
     return connectSupabasePAPSignaling(params);
+  }
+
+  if (hasSupabaseRealtimeConfig()) {
+    return connectAPIPAPSignaling(params);
   }
 
   const socket = new WebSocket(getPAPSignalingUrl());
@@ -261,6 +265,192 @@ function connectSupabasePAPSignaling(params: PAPSignalingParams) {
     close() {
       subscribed = false;
       void supabase.removeChannel(channel);
+      params.onClose?.();
+    },
+  };
+}
+
+type APISignalingResponse = {
+  cursor: string;
+  messages: Array<{
+    id: string;
+    message: PAPClientMessage | PAPServerMessage;
+  }>;
+};
+
+function connectAPIPAPSignaling(params: PAPSignalingParams) {
+  let session: PAPSession | null = null;
+  let ownPeerId = "";
+  let activePairingCode = "";
+  let cursor = "0";
+  let closed = false;
+  let pollTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function getEndpoint(pairingCode: string) {
+    return `/api/pap/signaling/${encodeURIComponent(pairingCode)}`;
+  }
+
+  function schedulePoll(delayMs = 0) {
+    if (closed || !activePairingCode || !ownPeerId) return;
+    if (pollTimeout) {
+      clearTimeout(pollTimeout);
+    }
+
+    pollTimeout = setTimeout(() => {
+      void poll();
+    }, delayMs);
+  }
+
+  async function poll() {
+    if (closed || !activePairingCode || !ownPeerId) return;
+
+    try {
+      const response = await fetch(`${getEndpoint(activePairingCode)}?peerId=${encodeURIComponent(ownPeerId)}&cursor=${encodeURIComponent(cursor)}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        params.onError?.({
+          transport: "api-polling",
+          status: response.status,
+          pairingCode: activePairingCode,
+          sessionId: session?.id,
+        });
+        schedulePoll(1_500);
+        return;
+      }
+
+      const result = (await response.json()) as APISignalingResponse;
+      cursor = result.cursor;
+      for (const item of result.messages) {
+        handleIncomingMessage(item.message);
+      }
+      schedulePoll(650);
+    } catch (error: unknown) {
+      params.onError?.({
+        transport: "api-polling",
+        pairingCode: activePairingCode,
+        sessionId: session?.id,
+        error: serializeSupabaseRealtimeError(error),
+      });
+      schedulePoll(1_500);
+    }
+  }
+
+  async function publish(message: PAPClientMessage | PAPServerMessage) {
+    if (closed || !activePairingCode || !ownPeerId) return;
+
+    try {
+      const response = await fetch(getEndpoint(activePairingCode), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          peerId: ownPeerId,
+          message,
+        }),
+        keepalive: message.type === "leave-session",
+      });
+
+      if (!response.ok) {
+        params.onError?.({
+          transport: "api-polling",
+          status: response.status,
+          pairingCode: activePairingCode,
+          sessionId: session?.id,
+        });
+      }
+    } catch (error: unknown) {
+      params.onError?.({
+        transport: "api-polling",
+        pairingCode: activePairingCode,
+        sessionId: session?.id,
+        error: serializeSupabaseRealtimeError(error),
+      });
+    }
+  }
+
+  function handleIncomingMessage(message: PAPClientMessage | PAPServerMessage) {
+    if (message.type === "join-session") {
+      if (!session || message.pairingCode !== session.pairingCode || message.peerId === ownPeerId) return;
+
+      session = {
+        ...session,
+        mobilePeerId: message.peerId,
+        mobileDeviceName: message.deviceName,
+        status: "connected",
+      };
+
+      params.onMessage({
+        type: "peer-joined",
+        session,
+        peerId: message.peerId,
+        deviceName: message.deviceName,
+      });
+      void publish({ type: "session-joined", session });
+      return;
+    }
+
+    if (message.type === "leave-session") {
+      if (!session || message.sessionId !== session.id || message.peerId === ownPeerId) return;
+      params.onMessage({ type: "peer-left", sessionId: message.sessionId, peerId: message.peerId });
+      return;
+    }
+
+    if (message.type === "signal") {
+      if (!session || message.sessionId !== session.id || message.fromPeerId === ownPeerId) return;
+      params.onMessage(message);
+      return;
+    }
+
+    if (message.type === "session-joined") {
+      if (message.session.pairingCode !== activePairingCode) return;
+      session = message.session;
+      params.onMessage(message);
+      return;
+    }
+
+    if (
+      message.type === "peer-joined" ||
+      message.type === "peer-left" ||
+      message.type === "session-expired" ||
+      message.type === "error"
+    ) {
+      params.onMessage(message);
+    }
+  }
+
+  queueMicrotask(() => params.onOpen?.());
+
+  return {
+    send(message: PAPClientMessage) {
+      if (message.type === "create-session") {
+        ownPeerId = message.peerId;
+        session = createLocalPAPSession(message.peerId, message.deviceName);
+        activePairingCode = session.pairingCode;
+        cursor = "0";
+        params.onMessage({ type: "session-created", session });
+        schedulePoll();
+        return;
+      }
+
+      if (message.type === "join-session") {
+        ownPeerId = message.peerId;
+        activePairingCode = message.pairingCode;
+        cursor = "0";
+        schedulePoll();
+        void publish(message);
+        return;
+      }
+
+      void publish(message);
+    },
+    close() {
+      closed = true;
+      if (pollTimeout) {
+        clearTimeout(pollTimeout);
+      }
       params.onClose?.();
     },
   };
