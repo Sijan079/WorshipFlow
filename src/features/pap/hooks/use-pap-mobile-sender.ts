@@ -70,17 +70,20 @@ export function usePAPMobileSender(pairingCode: string) {
         const peerConnection = createPAPPeerConnection();
         peerConnectionRef.current = peerConnection;
 
-      peerConnection.addEventListener("datachannel", (event) => {
-        dataChannelRef.current = event.channel;
-        event.channel.addEventListener("open", () => {
+        const channel = peerConnection.createDataChannel("pap-screenshots", {
+          id: 0,
+          negotiated: true,
+          ordered: true,
+        });
+        dataChannelRef.current = channel;
+        channel.addEventListener("open", () => {
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
           }
           setState("connected");
         });
-        event.channel.addEventListener("close", () => setState("disconnected"));
-      });
+        channel.addEventListener("close", () => setState("disconnected"));
       peerConnection.addEventListener("icecandidate", (event) => {
         if (event.candidate) {
           signalingRef.current?.send({

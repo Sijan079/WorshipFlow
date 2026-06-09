@@ -128,7 +128,11 @@ export function usePAPDesktopSession() {
     cleanupConnection();
     const peerConnection = createPAPPeerConnection();
     peerConnectionRef.current = peerConnection;
-    const channel = peerConnection.createDataChannel("pap-screenshots", { ordered: true });
+    const channel = peerConnection.createDataChannel("pap-screenshots", {
+      id: 0,
+      negotiated: true,
+      ordered: true,
+    });
 
     peerConnection.addEventListener("icecandidate", (event) => {
       if (event.candidate) {
