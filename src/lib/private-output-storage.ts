@@ -59,7 +59,10 @@ export function getPrivateOutputPathParts(directoryName: string, fileName: strin
 export async function savePrivateOutputFile(
   directoryName: string,
   fileName: string,
-  data: Uint8Array
+  data: Uint8Array,
+  options?: {
+    contentType?: string;
+  }
 ) {
   const pathParts = getPrivateOutputPathParts(directoryName, fileName);
   const storage = createSupabaseStorageClient();
@@ -70,7 +73,7 @@ export async function savePrivateOutputFile(
       .from(storage.bucket)
       .upload(storagePath, data, {
         cacheControl: "0",
-        contentType: "application/octet-stream",
+        contentType: options?.contentType || "application/octet-stream",
         upsert: false,
       });
 

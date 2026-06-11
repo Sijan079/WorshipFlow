@@ -140,7 +140,10 @@ export async function POST(request: Request, context: RouteContext) {
       const batchIndex = index + 1;
       const fileName = sanitizePAPFileName(createPAPBatchFileName({ file, batchCreatedAt, batchIndex }));
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const savedFile = await savePrivateOutputFile(`pap-${room.id}`, fileName, bytes);
+      const mimeType = file.type || "application/octet-stream";
+      const savedFile = await savePrivateOutputFile(`pap-${room.id}`, fileName, bytes, {
+        contentType: mimeType,
+      });
       const [screenshot] = await prisma.$queryRaw<PAPScreenshotRow[]>`
         INSERT INTO "PAPScreenshot" (
           "id", "roomId", "batchId", "batchIndex", "batchTotal",
@@ -148,7 +151,7 @@ export async function POST(request: Request, context: RouteContext) {
         )
         VALUES (
           ${randomUUID()}, ${room.id}, ${batchId}, ${batchIndex}, ${files.length},
-          ${fileName}, ${savedFile.relativePath}, ${file.type || "application/octet-stream"}, ${file.size}, ${note}, ${deviceName}
+          ${fileName}, ${savedFile.relativePath}, ${mimeType}, ${file.size}, ${note}, ${deviceName}
         )
         RETURNING "id", "roomId", "batchId", "batchIndex", "batchTotal", "fileName", "filePath", "mimeType", "size", "note", "deviceName", "createdAt"
       `;

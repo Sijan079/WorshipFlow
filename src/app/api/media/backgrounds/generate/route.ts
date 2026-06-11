@@ -88,7 +88,9 @@ export async function POST(request: Request) {
       estimate,
     });
     const directory = generationRequest.mediaType === "video" ? "background-videos" : "background-images";
-    const savedFile = await savePrivateOutputFile(directory, result.fileName, result.bytes);
+    const savedFile = await savePrivateOutputFile(directory, result.fileName, result.bytes, {
+      contentType: result.mimeType,
+    });
     const outputType =
       generationRequest.mediaType === "video" ? OutputType.BACKGROUND_VIDEO : OutputType.BACKGROUND_IMAGE;
 

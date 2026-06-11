@@ -145,7 +145,10 @@ export async function POST(request: Request, { params }: RouteParams) {
         const savedFile = await savePrivateOutputFile(
           "outputs",
           mockFileName,
-          new TextEncoder().encode(JSON.stringify(outputJson, null, 2))
+          new TextEncoder().encode(JSON.stringify(outputJson, null, 2)),
+          {
+            contentType: "application/json; charset=utf-8",
+          }
         );
 
         await prisma.$transaction(async (tx) => {
