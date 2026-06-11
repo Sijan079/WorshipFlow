@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { spawnSync } from "node:child_process";
 
 function run(command, args, options = {}) {
@@ -12,19 +13,21 @@ function run(command, args, options = {}) {
   }
 }
 
-const migrationDatabaseUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
-
-if (!migrationDatabaseUrl) {
-  console.error("DIRECT_DATABASE_URL or DATABASE_URL is required for Prisma migrations.");
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is required for the Vercel build.");
   process.exit(1);
 }
 
-run("npx", ["prisma", "migrate", "deploy"], {
-  env: {
-    ...process.env,
-    DATABASE_URL: migrationDatabaseUrl,
-  },
-});
+if (process.env.DIRECT_DATABASE_URL) {
+  run("npx", ["prisma", "migrate", "deploy"], {
+    env: {
+      ...process.env,
+      DATABASE_URL: process.env.DIRECT_DATABASE_URL,
+    },
+  });
+} else {
+  console.log("DIRECT_DATABASE_URL is not set; skipping prisma migrate deploy.");
+}
 
 run("npx", ["prisma", "generate"]);
 run("npx", ["next", "build"]);
