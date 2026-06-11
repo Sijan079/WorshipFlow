@@ -1,6 +1,7 @@
 export const PAP_SESSION_TTL_MS = 5 * 60 * 1000;
 export const PAP_CHUNK_SIZE = 64 * 1024;
 export const PAP_INBOX_TTL_MS = 8 * 60 * 60 * 1000;
+export const PAP_SERVER_INBOX_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type PAPSessionStatus = "waiting" | "connected" | "expired";
 export type PAPPeerRole = "desktop" | "mobile";
@@ -42,6 +43,25 @@ export type PAPTransferFile = {
     height: number;
   };
   blob: Blob;
+};
+
+export type PAPServerRoom = {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type PAPServerScreenshot = {
+  id: string;
+  batchId: string;
+  batchIndex: number;
+  batchTotal: number;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  note: string | null;
+  deviceName: string | null;
+  createdAt: string;
 };
 
 export type PAPFileMeta = {

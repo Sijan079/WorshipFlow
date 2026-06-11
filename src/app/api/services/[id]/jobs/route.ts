@@ -134,11 +134,11 @@ export async function POST(request: Request, { params }: RouteParams) {
             captionsCount: 12,
             resolutions: ["1920x1080"],
           };
-        } else if (jobType === "TRANSPOSE") {
-          outputType = OutputType.PDF;
-          mockFileName = `lyrics-extractor-disabled-${job.id}.txt`;
+        } else if (jobType === "BACKGROUND_IMAGE_GENERATE" || jobType === "BACKGROUND_VIDEO_GENERATE") {
+          outputType = jobType === "BACKGROUND_VIDEO_GENERATE" ? OutputType.BACKGROUND_VIDEO : OutputType.BACKGROUND_IMAGE;
+          mockFileName = `background-generation-disabled-${job.id}.txt`;
           outputJson = {
-            note: "Use the dedicated songs page workflow.",
+            note: "Use the dedicated Media Tools background generator workflow.",
           };
         }
 

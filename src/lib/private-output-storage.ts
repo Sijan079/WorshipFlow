@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 
 export function getPrivateOutputPathParts(directoryName: string, fileName: string) {
@@ -34,4 +34,12 @@ export async function readPrivateOutputFile(relativePath: string) {
   }
 
   return readFile(join(process.cwd(), ".worship-flow-private", relativePath));
+}
+
+export async function deletePrivateOutputFile(relativePath: string) {
+  if (relativePath.includes("..")) {
+    throw new Error("Invalid output path.");
+  }
+
+  await rm(join(process.cwd(), ".worship-flow-private", relativePath), { force: true });
 }

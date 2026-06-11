@@ -1,287 +1,132 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { reportPAPDiagnostic } from "../diagnostics/pap-diagnostics";
-import { createPAPPeerConnection, sendPAPFiles } from "../rtc/pap-rtc";
-import type { PAPConnectionState, PAPSendProgress, PAPServerMessage, PAPSession } from "../types";
-import { connectPAPSignaling, createPAPPeerId, getPAPDeviceName } from "../websocket/pap-signaling-client";
+import { useCallback, useEffect, useState } from "react";
+import { createPAPBatchFileName } from "../rtc/pap-file-names";
+import type { PAPConnectionState, PAPSendProgress, PAPServerRoom, PAPServerScreenshot } from "../types";
+import { getPAPDeviceName } from "../websocket/pap-signaling-client";
+
+type RoomResponse = {
+  room: PAPServerRoom;
+};
+
+type UploadResponse = {
+  screenshots: PAPServerScreenshot[];
+};
+
+async function parseJsonResponse<T>(response: Response) {
+  const body = (await response.json().catch(() => null)) as T | { error?: string } | null;
+  if (!response.ok) {
+    const message = body && typeof body === "object" && "error" in body ? body.error : null;
+    throw new Error(message || "PAP request failed.");
+  }
+  return body as T;
+}
 
 export function usePAPMobileSender(pairingCode: string) {
-  const [peerId] = useState(() => createPAPPeerId("mobile"));
   const [deviceName] = useState(() => getPAPDeviceName("mobile"));
-  const [session, setSession] = useState<PAPSession | null>(null);
+  const [session, setSession] = useState<PAPServerRoom | null>(null);
   const [state, setState] = useState<PAPConnectionState>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<PAPSendProgress[]>([]);
 
-  const signalingRef = useRef<ReturnType<typeof connectPAPSignaling> | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  const sessionRef = useRef<PAPSession | null>(null);
-  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
 
-  const upsertProgress = useCallback((nextProgress: PAPSendProgress) => {
-    setProgress((currentProgress) => {
-      const existing = currentProgress.find((item) => item.transferId === nextProgress.transferId);
-      if (!existing) return [nextProgress, ...currentProgress];
-      return currentProgress.map((item) => (item.transferId === nextProgress.transferId ? nextProgress : item));
-    });
-  }, []);
-
-  const cleanup = useCallback(() => {
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current);
-      connectionTimeoutRef.current = null;
-    }
-    dataChannelRef.current?.close();
-    dataChannelRef.current = null;
-    peerConnectionRef.current?.close();
-    peerConnectionRef.current = null;
-    pendingIceCandidatesRef.current = [];
-  }, []);
-
-  const addIceCandidateWhenReady = useCallback(async (candidate: RTCIceCandidateInit) => {
-    const peerConnection = peerConnectionRef.current;
-    if (!peerConnection || !peerConnection.remoteDescription) {
-      pendingIceCandidatesRef.current.push(candidate);
-      return;
-    }
-
-    await peerConnection.addIceCandidate(candidate);
-  }, []);
-
-  const flushPendingIceCandidates = useCallback(async () => {
-    const peerConnection = peerConnectionRef.current;
-    if (!peerConnection || !peerConnection.remoteDescription) return;
-
-    const pendingCandidates = pendingIceCandidatesRef.current.splice(0);
-    for (const candidate of pendingCandidates) {
-      await peerConnection.addIceCandidate(candidate);
-    }
-  }, []);
-
-  const setupPeerConnection = useCallback(
-    async (currentSession: PAPSession, message: Extract<PAPServerMessage, { type: "signal" }>) => {
-      if (message.payload.type !== "offer") return;
-
+    async function loadRoom() {
       try {
-        cleanup();
-        const peerConnection = createPAPPeerConnection();
-        peerConnectionRef.current = peerConnection;
-
-        const channel = peerConnection.createDataChannel("pap-screenshots", {
-          id: 0,
-          negotiated: true,
-          ordered: true,
+        const response = await fetch(`/api/pap/rooms/${encodeURIComponent(pairingCode)}`, {
+          cache: "no-store",
         });
-        dataChannelRef.current = channel;
-        channel.addEventListener("open", () => {
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-          }
-          setState("connected");
-        });
-        channel.addEventListener("close", () => setState("disconnected"));
-      peerConnection.addEventListener("icecandidate", (event) => {
-        if (event.candidate) {
-          signalingRef.current?.send({
-            type: "signal",
-            sessionId: currentSession.id,
-            fromPeerId: peerId,
-            payload: { type: "ice-candidate", candidate: event.candidate.toJSON() },
-          });
-        }
-      });
-      peerConnection.addEventListener("connectionstatechange", () => {
-        if (peerConnection.connectionState === "connected") {
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-          }
-          setState("connected");
-        }
-        if (peerConnection.connectionState === "failed") {
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-          }
-          setState("failed");
-          reportPAPDiagnostic({
-            event: "webrtc-failed",
-            role: "mobile",
-            pairingCode,
-            sessionId: currentSession.id,
-            peerId,
-            state: peerConnection.connectionState,
-            detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
-          });
-        }
-        if (peerConnection.connectionState === "disconnected") {
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-          }
-          setState("disconnected");
-          reportPAPDiagnostic({
-            event: "webrtc-disconnected",
-            role: "mobile",
-            pairingCode,
-            sessionId: currentSession.id,
-            peerId,
-            state: peerConnection.connectionState,
-            detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
-          });
-        }
-      });
-
-      connectionTimeoutRef.current = setTimeout(() => {
-        if (peerConnection.connectionState === "connected" || dataChannelRef.current?.readyState === "open") return;
-
-        reportPAPDiagnostic({
-          event: "webrtc-timeout",
-          role: "mobile",
-          pairingCode,
-          sessionId: currentSession.id,
-          peerId,
-          state: peerConnection.connectionState,
-          detail: getPeerConnectionDiagnosticDetail(peerConnection, dataChannelRef.current),
-        });
-      }, 15_000);
-
-      await peerConnection.setRemoteDescription(message.payload.description);
-      await flushPendingIceCandidates();
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      signalingRef.current?.send({
-        type: "signal",
-        sessionId: currentSession.id,
-        fromPeerId: peerId,
-        payload: { type: "answer", description: answer },
-      });
-      } catch (error: unknown) {
-        reportPAPDiagnostic({
-          event: "webrtc-negotiation-error",
-          role: "mobile",
-          pairingCode,
-          sessionId: currentSession.id,
-          peerId,
-          state: peerConnectionRef.current?.connectionState,
-          message: error instanceof Error ? error.message : "Failed to process PAP WebRTC offer.",
-          detail: peerConnectionRef.current
-            ? getPeerConnectionDiagnosticDetail(peerConnectionRef.current, dataChannelRef.current)
-            : { error },
-        });
+        const result = await parseJsonResponse<RoomResponse>(response);
+        if (cancelled) return;
+        setSession(result.room);
+        setState("connected");
+        setError(null);
+      } catch (loadError) {
+        if (cancelled) return;
+        setState("failed");
+        setError(loadError instanceof Error ? loadError.message : "This PAP room is unavailable.");
       }
-    },
-    [cleanup, flushPendingIceCandidates, pairingCode, peerId]
-  );
+    }
+
+    void loadRoom();
+    return () => {
+      cancelled = true;
+    };
+  }, [pairingCode]);
 
   const sendFiles = useCallback(
-    async (files: File[]) => {
-      const channel = dataChannelRef.current;
-      if (!channel || channel.readyState !== "open") {
-        setError("The PAP connection is not ready yet.");
+    async (files: File[], note = "") => {
+      if (state !== "connected") {
+        setError("The PAP room is not ready yet.");
         return;
       }
 
-      setError(null);
-      await sendPAPFiles({
-        channel,
-        files,
-        onProgress: upsertProgress,
-      });
-    },
-    [upsertProgress]
-  );
+      const batchCreatedAt = new Date();
+      const batchId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const formData = new FormData();
+      formData.set("deviceName", deviceName);
+      formData.set("note", note);
 
-  useEffect(() => {
-    const signaling = connectPAPSignaling({
-      onOpen: () => {
-        signaling.send({ type: "join-session", pairingCode, peerId, deviceName });
-      },
-      onClose: () => setState((current) => (current === "expired" ? current : "disconnected")),
-      onError: (detail) => {
-        setState("failed");
-        setError("Could not reach the PAP signaling service.");
-        reportPAPDiagnostic({
-          event: "signaling-error",
-          role: "mobile",
-          pairingCode,
-          sessionId: sessionRef.current?.id,
-          peerId,
-          message: "Could not reach the PAP signaling service.",
-          detail,
+      const initialProgress = files.map((file, index) => ({
+        transferId:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}-${index}`,
+        batchId,
+        batchIndex: index + 1,
+        batchTotal: files.length,
+        fileName: createPAPBatchFileName({ file, batchCreatedAt, batchIndex: index + 1 }),
+        sentBytes: 0,
+        totalBytes: file.size,
+        done: false,
+      }));
+
+      setProgress((currentProgress) => [...initialProgress, ...currentProgress]);
+      for (const file of files) {
+        formData.append("files", file);
+      }
+
+      try {
+        setError(null);
+        const response = await fetch(`/api/pap/rooms/${encodeURIComponent(pairingCode)}/screenshots`, {
+          method: "POST",
+          body: formData,
+          cache: "no-store",
         });
-      },
-      onMessage: (message) => {
-        if (message.type === "session-joined") {
-          sessionRef.current = message.session;
-          setSession(message.session);
-          setState("connecting");
-          return;
-        }
-        if (message.type === "signal") {
-          if (message.payload.type === "offer" && sessionRef.current) {
-            void setupPeerConnection(sessionRef.current, message);
-          } else if (message.payload.type === "ice-candidate") {
-            void addIceCandidateWhenReady(message.payload.candidate);
-          }
-          return;
-        }
-        if (message.type === "session-expired") {
-          setState("expired");
-          setError("This PAP session expired. Ask the desktop to create a new code.");
-          sessionRef.current = null;
-          cleanup();
-          return;
-        }
-        if (message.type === "peer-left") {
-          setState("disconnected");
-          cleanup();
-          return;
-        }
-        if (message.type === "error") {
-          setError(message.message);
-          setState("failed");
-          reportPAPDiagnostic({
-            event: "session-error",
-            role: "mobile",
-            pairingCode,
-            sessionId: sessionRef.current?.id,
-            peerId,
-            message: message.message,
-          });
-        }
-      },
-    });
-
-    signalingRef.current = signaling;
-
-    return () => {
-      signaling.close();
-      cleanup();
-    };
-  }, [addIceCandidateWhenReady, cleanup, deviceName, pairingCode, peerId, setupPeerConnection]);
+        await parseJsonResponse<UploadResponse>(response);
+        setProgress((currentProgress) =>
+          currentProgress.map((item) =>
+            item.batchId === batchId ? { ...item, sentBytes: item.totalBytes, done: true } : item
+          )
+        );
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "Failed to upload screenshots.");
+        setProgress((currentProgress) => currentProgress.filter((item) => item.batchId !== batchId));
+      }
+    },
+    [deviceName, pairingCode, state]
+  );
 
   return {
     deviceName,
     error,
     progress,
     sendFiles,
-    session,
+    session: session
+      ? {
+          id: session.id,
+          pairingCode,
+          createdAt: session.createdAt,
+          expiresAt: session.expiresAt,
+          desktopPeerId: "server-room",
+          desktopDeviceName: "Secure shared PAP room",
+          status: "connected" as const,
+        }
+      : null,
     state,
-  };
-}
-
-function getPeerConnectionDiagnosticDetail(peerConnection: RTCPeerConnection, dataChannel?: RTCDataChannel | null) {
-  return {
-    iceConnectionState: peerConnection.iceConnectionState,
-    iceGatheringState: peerConnection.iceGatheringState,
-    signalingState: peerConnection.signalingState,
-    dataChannelState: dataChannel?.readyState ?? null,
-    hasRemoteDescription: Boolean(peerConnection.remoteDescription),
-    hasLocalDescription: Boolean(peerConnection.localDescription),
   };
 }

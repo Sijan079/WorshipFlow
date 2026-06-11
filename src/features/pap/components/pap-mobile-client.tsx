@@ -14,6 +14,7 @@ export default function PAPMobileClient({ pairingCode }: { pairingCode: string }
   const pap = usePAPMobileSender(pairingCode);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [note, setNote] = useState("");
   const { dismissToast, showToast, toasts } = usePAPToasts();
 
   const handleFiles = useCallback(
@@ -21,10 +22,10 @@ export default function PAPMobileClient({ pairingCode }: { pairingCode: string }
       const files = Array.from(fileList ?? []).filter((file) => file.type.startsWith("image/"));
       if (files.length > 0) {
         showToast(`${files.length} screenshot${files.length === 1 ? "" : "s"} selected.`, "success");
-        void pap.sendFiles(files);
+        void pap.sendFiles(files, note).then(() => setNote(""));
       }
     },
-    [pap, showToast]
+    [note, pap, showToast]
   );
 
   const connected = pap.state === "connected";
@@ -37,13 +38,13 @@ export default function PAPMobileClient({ pairingCode }: { pairingCode: string }
         <header className="border-b border-[var(--color-brand-border)] pb-4">
           <h1 className="text-2xl font-semibold">Send screenshots</h1>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-            Choose images from this phone. They go straight to the Worship Flow desktop inbox.
+            Choose images from this phone. They upload to the secure Worship Flow room.
           </p>
         </header>
 
         <section className="mt-5 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="font-[var(--font-plex-mono)] text-sm font-semibold">Code {pairingCode}</span>
+            <span className="font-[var(--font-plex-mono)] text-sm font-semibold">Secure room</span>
             <span className="inline-flex items-center gap-2 text-xs font-semibold">
               {connected ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> : <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {connected ? "Ready" : pap.state}
@@ -74,6 +75,14 @@ export default function PAPMobileClient({ pairingCode }: { pairingCode: string }
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
             Select one or more images. Files will be named PAP_YYYYMMDD_X automatically.
           </p>
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={2}
+            maxLength={180}
+            placeholder="Optional note for this batch"
+            className="mt-5 w-full resize-none rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm"
+          />
           <input
             ref={inputRef}
             type="file"

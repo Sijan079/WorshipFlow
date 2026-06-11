@@ -8,13 +8,11 @@ import {
   Maximize2,
   RefreshCw,
   Trash2,
-  Wifi,
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { triggerBrowserDownload } from "@/lib/api-client";
-import { PAP_INBOX_TTL_MS, type PAPTransferFile } from "../types";
+import { PAP_SERVER_INBOX_TTL_MS, type PAPServerScreenshot } from "../types";
 import { usePAPDesktopSessionContext } from "./pap-desktop-session-provider";
 import { PAPToastViewport, usePAPToasts } from "./pap-toasts";
 
@@ -24,7 +22,7 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const PAP_INBOX_TTL_HOURS = Math.round(PAP_INBOX_TTL_MS / 60 / 60 / 1000);
+const PAP_INBOX_TTL_HOURS = Math.round(PAP_SERVER_INBOX_TTL_MS / 60 / 60 / 1000);
 
 export default function PAPDesktopClient({
   embedded = false,
@@ -35,14 +33,14 @@ export default function PAPDesktopClient({
 }) {
   const pap = usePAPDesktopSessionContext();
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [previewFile, setPreviewFile] = useState<PAPTransferFile | null>(null);
+  const [previewFile, setPreviewFile] = useState<PAPServerScreenshot | null>(null);
   const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false);
   const sessionRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { dismissToast, showToast, toasts } = usePAPToasts();
 
   const groupedBatches = useMemo(() => {
-    const batches = new Map<string, PAPTransferFile[]>();
+    const batches = new Map<string, PAPServerScreenshot[]>();
     for (const file of pap.files) {
       const batchFiles = batches.get(file.batchId) ?? [];
       batchFiles.push(file);
@@ -53,11 +51,10 @@ export default function PAPDesktopClient({
       .map(([batchId, files]) => ({
         batchId,
         files: [...files].sort((a, b) => a.batchIndex - b.batchIndex),
-        createdAt: files[0]?.batchCreatedAt ?? files[0]?.transferredAt ?? new Date().toISOString(),
+        createdAt: files[0]?.createdAt ?? new Date().toISOString(),
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [pap.files]);
-  const connectedDeviceName = pap.state === "connected" ? pap.session?.mobileDeviceName : null;
 
   useEffect(() => {
     if (!pap.joinUrl) return;
@@ -93,9 +90,9 @@ export default function PAPDesktopClient({
     }, 850);
   }
 
-  function downloadBatch(files: PAPTransferFile[]) {
+  function downloadBatch(files: PAPServerScreenshot[]) {
     for (const file of files) {
-      triggerBrowserDownload(file.blob, file.fileName);
+      void pap.downloadFile(file);
     }
     showToast(`${files.length} file${files.length === 1 ? "" : "s"} sent to downloads.`, "success");
   }
@@ -116,7 +113,7 @@ export default function PAPDesktopClient({
             )}
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
               Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.
-              Temporary inbox items are kept on this desktop for {PAP_INBOX_TTL_HOURS} hours.
+              Temporary inbox items are stored in this secure room for {PAP_INBOX_TTL_HOURS} hours.
             </p>
           </div>
         )}
@@ -131,19 +128,19 @@ export default function PAPDesktopClient({
             className="pressable inline-flex items-center gap-2 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-4 py-2 text-sm font-semibold"
           >
             <RefreshCw className="h-4 w-4" />
-            Restart
+            Rotate Room
           </button>
           <button
             type="button"
             onClick={() => {
-              showToast("PAP session cleared.");
+              showToast("PAP room revoked.");
               showSessionRefresh();
               pap.clearSession();
             }}
             className="pressable inline-flex items-center gap-2 rounded-md bg-[var(--color-focus)] px-4 py-2 text-sm font-semibold text-[#3f008e] shadow-[0_18px_36px_rgba(210,187,255,0.18)]"
           >
             <X className="h-4 w-4" />
-            Clear Session
+            Revoke Room
           </button>
         </div>
       </header>
@@ -157,29 +154,16 @@ export default function PAPDesktopClient({
         >
           <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--color-focus)_16%,transparent)]">
           <div className="border-b border-[var(--color-brand-border)] p-4">
-            {connectedDeviceName ? (
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h2 className="text-base font-semibold">{connectedDeviceName}</h2>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Connected mobile device</p>
-                </div>
-                <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold">
-                  <Wifi className="h-3.5 w-3.5" />
-                  {connectedDeviceName}
-                </span>
-              </div>
-            ) : (
-              <div>
-                <h2 className="text-base font-semibold">Pair a phone</h2>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Scan the QR code to open the mobile sender.</p>
-              </div>
-            )}
+            <div>
+              <h2 className="text-base font-semibold">Secure shared room</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Share this room link with trusted phones only.</p>
+            </div>
           </div>
 
           <div className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-center">
-            <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Pairing code</p>
-            <p className="mt-1 font-[var(--font-plex-mono)] text-3xl font-semibold tracking-[0.12em]">
-              {pap.session?.pairingCode ?? "------"}
+            <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Room expires</p>
+            <p className="mt-1 font-[var(--font-plex-mono)] text-sm font-semibold">
+              {pap.room ? new Date(pap.room.expiresAt).toLocaleString() : "Creating secure room"}
             </p>
           </div>
 
@@ -207,7 +191,7 @@ export default function PAPDesktopClient({
               </button>
               {pap.isLocalhostJoinUrl ? (
                 <p className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-card-yellow)] p-3 text-sm leading-5 text-[var(--color-text-secondary)]">
-                  This QR uses localhost. Set `NEXT_PUBLIC_PAP_PUBLIC_URL` to your desktop LAN address so phones can open it.
+                  This room link uses localhost. Set `NEXT_PUBLIC_PAP_PUBLIC_URL` to your desktop LAN address so phones can open it.
                 </p>
               ) : null}
             </div>
@@ -258,27 +242,25 @@ export default function PAPDesktopClient({
                         className="pressable group relative block aspect-[4/3] w-full overflow-hidden rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)]"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={file.previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
+                          <img src={pap.getPreviewUrl(file)} alt={file.fileName} className="h-full w-full object-contain" />
                         <span className="absolute right-1.5 top-1.5 rounded-sm bg-[var(--color-brand-ink)]/75 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100">
                           <Maximize2 className="h-4 w-4" />
                         </span>
                       </button>
                       <div className="min-w-0">
-                        <input
-                          value={file.fileName}
-                          onChange={(event) => pap.renameFile(file.id, event.target.value)}
-                          className="w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold"
-                        />
+                        <p className="truncate rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold">
+                          {file.fileName}
+                        </p>
                         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                          {file.dimensions ? `${file.dimensions.width} x ${file.dimensions.height} / ` : ""}
-                          {formatBytes(file.size)} / {new Date(file.transferredAt).toLocaleTimeString()}
+                          {formatBytes(file.size)} / {new Date(file.createdAt).toLocaleTimeString()}
+                          {file.note ? ` / ${file.note}` : ""}
                         </p>
                       </div>
                       <div className="flex items-start justify-end gap-1 pt-2 sm:col-span-2 lg:col-span-1">
                         <button
                           type="button"
                           onClick={() => {
-                            triggerBrowserDownload(file.blob, file.fileName);
+                            void pap.downloadFile(file);
                             showToast(`${file.fileName} sent to downloads.`, "success");
                           }}
                           className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]"
@@ -290,7 +272,7 @@ export default function PAPDesktopClient({
                         <button
                           type="button"
                           onClick={() => {
-                            pap.removeFile(file.id);
+                            void pap.removeFile(file.id);
                             showToast(`${file.fileName} deleted.`);
                           }}
                           className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-danger)] hover:bg-[var(--color-brand-panel-strong)]"
@@ -312,7 +294,7 @@ export default function PAPDesktopClient({
               <Camera className="h-10 w-10 text-[var(--color-brand-accent)]" />
               <p className="mt-4 text-lg font-semibold">Waiting for screenshots</p>
               <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-text-secondary)]">
-                Scan the QR code with a phone, choose screenshots, then retrieve or download them here. Items stay in this temporary inbox until they expire or are deleted.
+                Open the secure room on a phone, choose screenshots, then retrieve or download them here. Items stay in this temporary inbox until they expire or are deleted.
               </p>
             </div>
           ) : null}
@@ -344,7 +326,7 @@ export default function PAPDesktopClient({
               <X className="h-5 w-5" />
             </button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewFile.previewUrl} alt={previewFile.fileName} className="max-h-[82vh] max-w-full rounded-md bg-[var(--color-brand-panel)] object-contain" />
+            <img src={pap.getPreviewUrl(previewFile)} alt={previewFile.fileName} className="max-h-[82vh] max-w-full rounded-md bg-[var(--color-brand-panel)] object-contain" />
           </div>
         </div>
       ) : null}

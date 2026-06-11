@@ -11,8 +11,8 @@
 - Deploy from the repository root with the Next.js preset.
 - Visit `/api/health` after deploy and confirm `ok: true`.
 - Test service creation, Song Formatter, and Media Tools.
-- Do not consider PAP phone transfer production-ready until a public `wss://`
-  signaling service is configured.
+- Test PAP phone transfer by creating a room, uploading from a phone, downloading
+  from desktop, and revoking the room.
 
 ## Web App
 
@@ -33,15 +33,27 @@ the Vercel project dashboard.
 Required variables:
 
 - `DATABASE_URL`
+
+`DATABASE_URL` must be a PostgreSQL connection string reachable from Vercel.
+Supabase is supported, but it is not required; any managed Postgres provider is
+acceptable as long as the URL, credentials, SSL settings, and network access are
+valid for Vercel serverless functions.
+
+Optional database variables:
+
 - `DIRECT_DATABASE_URL`
 
-For Supabase Postgres, use the Supabase pooled connection string for
-serverless/Vercel deployments. Prisma continues to read the database through
-`DATABASE_URL`; no ORM change is required.
+Use `DIRECT_DATABASE_URL` for Prisma migrations when the main `DATABASE_URL`
+uses a pooler that does not support migration commands cleanly. If
+`DIRECT_DATABASE_URL` is not set, `scripts/vercel-build.mjs` falls back to
+`DATABASE_URL`.
 
-Use `DIRECT_DATABASE_URL` for Prisma migrations. Supabase's transaction pooler
-can fail migration commands with prepared-statement collisions, so migrations
-should use the direct database host instead.
+The project currently pins `prisma`, `@prisma/client`, and
+`@prisma/adapter-pg` to `6.19.0`. Prisma 7 CLI builds were blocked by Windows
+Security as `Trojan:JS/ShaiWorm.DBA!MTB` on the local Windows development
+machine even after a security definitions update. Prisma 6.19.0 generated
+successfully, passed local build verification, and keeps the classic
+`url = env("DATABASE_URL")` datasource contract in `prisma/schema.prisma`.
 
 Supabase setup:
 
@@ -108,34 +120,20 @@ Persistent service asset uploads are deprecated for phase 1. The app should not
 act as a long-term asset archive because the church production desktop remains
 the source of truth for stored media.
 
-PAP is a temporary bridge: receive files, rename if needed, download or batch
-download, then clear the inbox. Supabase Storage is not required for that flow.
+PAP is a temporary bridge: receive files into a token-gated server room, download
+or batch download from the desktop, then revoke or let the room expire. Production
+deployments need a durable private storage adapter for these temporary files.
 
 Generated automation outputs may still use local file output during development.
 Before relying on generated output persistence in production, either move those
 outputs to database-backed records or add a storage adapter.
 
-## Realtime / PAP Signaling Options
+## PAP Secure Rooms
 
-Vercel should host the web app. PAP signaling can use Supabase Realtime
-Broadcast when `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set.
+The current PAP phone-transfer workflow uses long random room tokens instead of
+short pairing codes or WebRTC signaling. Room creation remains behind the app
+access gate, while tokenized room upload, list, download, and delete routes are
+public only to the holder of the room URL.
 
-The local Node WebSocket signaling server remains available as a development
-fallback when Supabase Realtime variables are not configured.
-
-Supabase Realtime signaling is used only for pairing and WebRTC negotiation.
-PAP image bytes still transfer directly over WebRTC and remain temporary in the
-desktop browser inbox.
-
-## PAP Signaling
-
-The current PAP phone-transfer workflow can use Supabase Realtime Broadcast for
-the signaling step. The fallback local WebSocket server is still useful for LAN
-testing.
-
-## TURN
-
-For reliable WebRTC across mobile networks and strict NAT environments, add a
-TURN provider or self-hosted TURN server before relying on PAP transfer in
-production.
+Room tokens are hashed before persistence. Rotate or revoke a room if its link
+may have been exposed outside the trusted production team.

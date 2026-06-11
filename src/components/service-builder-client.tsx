@@ -12,7 +12,6 @@ import {
   History,
   ListMusic,
   Loader2,
-  Play,
   Plus,
   RefreshCcw,
   Redo2,
@@ -37,7 +36,6 @@ import {
   type CreateSongPayload,
   type LyricsExtractorEditableResponse,
   type ServiceRecord,
-  type SongRecord,
   type SongTagPresetRecord,
   type UpdateParticipantPayload,
   type UpdateServicePayload,
@@ -65,6 +63,7 @@ import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import QRGeneratorTool from "@/components/qr-generator-tool";
+import BackgroundGeneratorTool from "@/components/background-generator-tool";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -89,13 +88,9 @@ const updateServiceFormSchema = z.object({
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
-type SongWorkflowStep = "library" | "upload" | "extraction" | "format";
+type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
-export type MediaTool = "phone-transfer" | "qr-generator";
-type SongDisplayRecord = Pick<
-  SongRecord,
-  "id" | "title" | "author" | "defaultKey" | "bpm" | "language" | "isOriginal" | "createdAt" | "files"
->;
+export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator";
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
@@ -112,6 +107,12 @@ const MEDIA_TOOLS: Array<{ id: MediaTool; href: string; label: string; descripti
       "Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.",
   },
   { id: "qr-generator", href: "/assets/qr-generator", label: "QR Generator", description: "Create a code for giving links, forms, or service resources." },
+  {
+    id: "background-generator",
+    href: "/assets/background-generator",
+    label: "Background Generator",
+    description: "Generate projection-ready image backgrounds and 15-second 480p worship loops with cost validation.",
+  },
 ];
 
 const MEDIA_TOOLS_HOME_COPY = {
@@ -208,6 +209,8 @@ const JOB_DESCRIPTIONS: Record<JobType, string> = {
   TRANSPOSE: "Extract lyrics from a secure temporary chord-sheet input.",
   FREESHOW_GENERATE: "Generate a mock FreeShow export artifact.",
   CAPTION_GENERATE: "Generate a mock caption output package.",
+  BACKGROUND_IMAGE_GENERATE: "Generate a worship presentation image background.",
+  BACKGROUND_VIDEO_GENERATE: "Generate a 15-second 480p worship background loop.",
 };
 
 const MODULE_CONTENT: Record<
@@ -355,7 +358,7 @@ function replaceDraftDetail(draft: AnalyzedServiceDraft, index: number, detail: 
 
 function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upload") {
   const segment = pathname.split("/").filter(Boolean).at(-1);
-  if (segment === "library" || segment === "upload" || segment === "extraction" || segment === "format") {
+  if (segment === "upload" || segment === "extraction" || segment === "format") {
     return segment;
   }
 
@@ -422,14 +425,8 @@ export default function ServiceBuilderClient({
     queryFn: () => apiFetch<SongTagPresetRecord[]>("/api/song-tags"),
   });
 
-  const songsQuery = useQuery({
-    queryKey: ["songs"],
-    queryFn: () => apiFetch<SongRecord[]>("/api/songs"),
-  });
-
   const services = servicesQuery.data ?? [];
   const songTags = songTagsQuery.data ?? [];
-  const songs = songsQuery.data ?? [];
 
   const createSongTagMutation = useMutation({
     mutationFn: (payload: CreateSongTagPresetPayload) =>
@@ -2054,135 +2051,6 @@ export default function ServiceBuilderClient({
         {module === "songs" ? (
           <div className="space-y-5">
             <>
-                {activeSongStep === "library" ? (
-                  <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-                    <div className="space-y-6">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                        <div>
-                          <h2 className="text-3xl font-semibold tracking-[-0.01em] text-[var(--color-brand-ink)]">Song Library</h2>
-                          <p className="mt-1 text-base text-[var(--color-text-secondary)]">
-                            {songs.length} active worship songs available.
-                          </p>
-                        </div>
-                        <div className="flex gap-3">
-                          <button className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-                            <Settings2 className="h-4 w-4" />
-                            Filter
-                          </button>
-                          <Link
-                            href="/songs/upload"
-                            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-focus)] px-4 py-2 text-sm font-bold text-[#3f008e]"
-                          >
-                            <Plus className="h-4 w-4" />
-                            New Song
-                          </Link>
-                        </div>
-                      </div>
-
-                      <div className="overflow-hidden rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                        <div className="grid grid-cols-[minmax(220px,1fr)_90px_90px_minmax(160px,220px)_120px] border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-5 py-4 text-sm font-semibold text-[var(--color-text-secondary)]">
-                          <span>Title</span>
-                          <span>Key</span>
-                          <span>BPM</span>
-                          <span>Themes</span>
-                          <span>Last Used</span>
-                        </div>
-                        <div className="divide-y divide-[var(--color-brand-border)]">
-                          {((songs.length ? songs : [
-                            { id: "gratitude", title: "Gratitude", author: "Brandon Lake", defaultKey: "B", bpm: 74, language: "Praise", isOriginal: false, createdAt: "", files: [] },
-                            { id: "living-hope", title: "Living Hope", author: "Phil Wickham", defaultKey: "Eb", bpm: 72, language: "Gospel", isOriginal: false, createdAt: "", files: [] },
-                            { id: "thousand", title: "A Thousand Hallelujahs", author: "Brooke Ligertwood", defaultKey: "D", bpm: 68, language: "Worship", isOriginal: false, createdAt: "", files: [] },
-                            { id: "house", title: "House Of The Lord", author: "Phil Wickham", defaultKey: "Bb", bpm: 86, language: "Upbeat", isOriginal: false, createdAt: "", files: [] },
-                          ]) as SongDisplayRecord[]).slice(0, 8).map((song, index) => (
-                            <div
-                              key={song.id}
-                              className={`grid grid-cols-[minmax(220px,1fr)_90px_90px_minmax(160px,220px)_120px] items-center px-5 py-4 ${
-                                index === 0 ? "production-stripe bg-[var(--color-brand-panel)] pl-6" : "bg-[var(--color-brand-panel-alt)] hover:bg-[var(--color-brand-panel)]"
-                              }`}
-                            >
-                              <div>
-                                <p className="text-base font-bold text-[var(--color-brand-ink)]">{song.title}</p>
-                                <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">{song.author ?? "Unknown author"}</p>
-                              </div>
-                              <p className="font-semibold text-[var(--color-focus)]">{song.defaultKey ?? "-"}</p>
-                              <p className="font-[var(--font-mono)] text-sm text-[var(--color-brand-ink)]">{song.bpm ?? "-"}</p>
-                              <p>
-                                <span className="rounded-md bg-[var(--color-brand-panel-elevated)] px-2 py-1 text-[11px] font-bold uppercase text-[var(--color-text-secondary)]">
-                                  {song.language ?? "Worship"}
-                                </span>
-                              </p>
-                              <p className="text-sm text-[var(--color-text-secondary)]">{index === 0 ? "Selected" : index === 1 ? "Last Week" : "Never"}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-3">
-                        {[
-                          ["Planning Center Sync", "Automatically pull setlists and song metadata from PCO."],
-                          ["AI Lyrics Scan", "Detect chord changes and sections from simple text blocks."],
-                          ["Usage Analytics", "View which songs are trending in your congregation."],
-                        ].map(([title, description]) => (
-                          <div key={title} className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5">
-                            <p className="text-lg font-bold text-[var(--color-brand-ink)]">{title}</p>
-                            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <aside className="border-l border-[var(--color-brand-border)] pl-5">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="technical-label">SONG INSPECTOR</p>
-                          <h2 className="mt-2 text-2xl font-semibold text-[var(--color-brand-ink)]">
-                            {(songs[0]?.title ?? "Gratitude")}
-                          </h2>
-                        </div>
-                        <button className="text-[var(--color-text-secondary)]">
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-
-                      <section className="mt-8">
-                        <div className="flex items-center justify-between">
-                          <p className="technical-label">QUICK TRANSPOSE</p>
-                          <p className="text-sm font-bold text-[var(--color-focus)]">Key: {songs[0]?.defaultKey ?? "B"}</p>
-                        </div>
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          {["-1", "0", "+1"].map((step) => (
-                            <button key={step} className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-3 font-[var(--font-mono)] text-sm">
-                              {step}
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-
-                      <section className="mt-8">
-                        <div className="flex items-center justify-between">
-                          <p className="technical-label">LYRICS PREVIEW</p>
-                          <Link href="/songs/format" className="text-sm font-semibold text-[var(--color-focus)]">Edit Lyrics</Link>
-                        </div>
-                        <div className="mt-4 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] p-4 text-sm leading-7 text-[var(--color-brand-ink)]">
-                          <p className="font-bold text-[var(--color-focus)]">[Verse 1]</p>
-                          <p className="mt-3">All my words are few</p>
-                          <p>And they are all for You</p>
-                          <p>{"And I'm not sure what else to say"}</p>
-                          <p>{"But I'm in awe of You"}</p>
-                          <p className="mt-5 font-bold text-[var(--color-focus)]">[Chorus]</p>
-                          <p className="mt-3">So I throw up my hands</p>
-                          <p>And praise You again and again</p>
-                        </div>
-                      </section>
-
-                      <button className="pressable mt-8 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-ready)] px-4 py-3 text-sm font-bold text-[#001e2f]">
-                        <Play className="h-4 w-4" />
-                        Generate Slides
-                      </button>
-                    </aside>
-                  </section>
-                ) : null}
-
                 {activeSongStep === "upload" ? (
                   <section className="space-y-10 py-3 lg:px-2">
                     <div className="mx-auto max-w-3xl text-center">
@@ -2950,6 +2818,10 @@ export default function ServiceBuilderClient({
 
             {mediaTool === "qr-generator" ? (
               <QRGeneratorTool showToast={showToast} />
+            ) : null}
+
+            {mediaTool === "background-generator" ? (
+              <BackgroundGeneratorTool services={services} showToast={showToast} />
             ) : null}
 
           </div>

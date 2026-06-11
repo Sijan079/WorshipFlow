@@ -272,5 +272,77 @@ export type GeneratedOutputRecord = {
   createdAt: string;
 };
 
+export type BackgroundGenerationRequestPayload = {
+  mediaType: "image" | "video";
+  purpose: "lyrics" | "sermon" | "scripture" | "offering" | "announcements" | "general-worship";
+  mood: "reverent" | "joyful" | "reflective" | "hopeful" | "quiet" | "celebration";
+  visualStyle:
+    | "abstract-light"
+    | "soft-landscape"
+    | "stained-glass"
+    | "minimal-texture"
+    | "warm-stage-wash"
+    | "atmospheric-clouds";
+  textSafeArea: "center-clear" | "lower-third-clear" | "full-frame";
+  promptDetails?: string;
+  serviceId?: string;
+  durationSeconds?: 15;
+  videoQuality?: "480p";
+};
+
+export type BackgroundGenerationEstimateRecord = {
+  provider: "gemini";
+  model: string;
+  mediaType: "image" | "video";
+  format: "presentation-16:9";
+  providerResolution: string;
+  durationSeconds: number | null;
+  videoQuality: "480p" | null;
+  seamlessLoop: boolean;
+  estimatedInputTokens: number | null;
+  estimatedOutputTokens: number | null;
+  estimatedCostUsd: number;
+  pricingSnapshot: string;
+  freeTierNote: string;
+};
+
+export type BackgroundGenerationEstimateResponse = {
+  request: BackgroundGenerationRequestPayload & {
+    format: "presentation-16:9";
+    providerResolution: string;
+  };
+  estimate: BackgroundGenerationEstimateRecord;
+};
+
+export type BackgroundGenerationOutputRecord = GeneratedOutputRecord & {
+  job: AutomationJobRecord | null;
+  service: Pick<ServiceRecord, "id" | "ministryName" | "serviceDate">;
+};
+
+export function estimateBackgroundGeneration(payload: BackgroundGenerationRequestPayload) {
+  return apiFetch<BackgroundGenerationEstimateResponse>("/api/media/backgrounds/estimate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function generateBackground(payload: {
+  request: BackgroundGenerationRequestPayload;
+  acceptedEstimate: BackgroundGenerationEstimateRecord;
+}) {
+  return apiFetch<{ job: AutomationJobRecord; output: GeneratedOutputRecord }>("/api/media/backgrounds/generate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchGeneratedBackgrounds() {
+  return apiFetch<BackgroundGenerationOutputRecord[]>("/api/media/backgrounds");
+}
+
+export async function downloadGeneratedBackground(outputId: string) {
+  return downloadBinaryResponse(`/api/media/backgrounds/${outputId}/download`);
+}
+
 export type ServiceDetailRecord = WorshipServiceDetail;
 export type ParticipantRecord = BlockPerson;

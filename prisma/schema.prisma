@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum ServiceStatus {
@@ -55,6 +56,8 @@ enum JobType {
   TRANSPOSE
   FREESHOW_GENERATE
   CAPTION_GENERATE
+  BACKGROUND_IMAGE_GENERATE
+  BACKGROUND_VIDEO_GENERATE
 }
 
 enum JobStatus {
@@ -69,6 +72,8 @@ enum OutputType {
   DOCX
   PDF
   CAPTION_PACK
+  BACKGROUND_IMAGE
+  BACKGROUND_VIDEO
   ZIP
 }
 
@@ -83,6 +88,38 @@ model Workspace {
   services  WorshipService[]
   songs     Song[]
   tagPresets SongTagPreset[]
+}
+
+model PAPTransferRoom {
+  id          String   @id @default(uuid())
+  tokenHash   String   @unique
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  screenshots PAPScreenshot[]
+
+  @@index([expiresAt])
+}
+
+model PAPScreenshot {
+  id          String   @id @default(uuid())
+  roomId      String
+  batchId     String
+  batchIndex  Int
+  batchTotal  Int
+  fileName    String
+  filePath    String
+  mimeType    String
+  size        Int
+  note        String?
+  deviceName  String?
+  createdAt   DateTime @default(now())
+
+  room        PAPTransferRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([roomId, batchId])
 }
 
 model WorshipService {
