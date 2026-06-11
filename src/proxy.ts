@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { ACCESS_SESSION_COOKIE, verifyAccessSessionCookie } from "@/lib/access-auth";
 
 const PUBLIC_PATH_PREFIXES = [
   "/_next",
   "/favicon.ico",
+  "/login",
+  "/api/auth/login",
   "/api/pap/diagnostics",
   "/api/pap/signaling/",
 ];
@@ -19,17 +22,20 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authorization = request.headers.get("authorization");
-  if (hasValidBasicAuth(authorization, accessPassword, process.env.APP_ACCESS_USER)) {
+  if (verifyAccessSessionCookie(request.cookies.get(ACCESS_SESSION_COOKIE)?.value)) {
     return NextResponse.next();
   }
 
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="WorshipFlow", charset="UTF-8"',
-    },
-  });
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.search = "";
+  loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
@@ -38,25 +44,4 @@ export const config = {
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
-}
-
-function hasValidBasicAuth(
-  authorization: string | null,
-  expectedPassword: string,
-  expectedUser?: string
-) {
-  if (!authorization?.startsWith("Basic ")) {
-    return false;
-  }
-
-  try {
-    const decoded = atob(authorization.slice("Basic ".length));
-    const separatorIndex = decoded.indexOf(":");
-    const user = separatorIndex >= 0 ? decoded.slice(0, separatorIndex) : "";
-    const password = separatorIndex >= 0 ? decoded.slice(separatorIndex + 1) : decoded;
-
-    return password === expectedPassword && (!expectedUser || user === expectedUser);
-  } catch {
-    return false;
-  }
 }

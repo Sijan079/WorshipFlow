@@ -4,7 +4,8 @@
 
 - Create a production PostgreSQL database.
 - Configure all required Vercel environment variables.
-- Set `APP_ACCESS_PASSWORD` for both Preview and Production.
+- Set `APP_ACCESS_PASSWORD` and `APP_ACCESS_SESSION_SECRET` for both Preview
+  and Production.
 - Confirm `npm run build` passes locally.
 - Confirm production migrations are ready with `prisma migrate deploy` before
   promoting a database-backed deploy. Vercel runs migrations only when
@@ -76,6 +77,7 @@ Recommended launch gate:
 
 - `APP_ACCESS_USER`
 - `APP_ACCESS_PASSWORD`
+- `APP_ACCESS_SESSION_SECRET`
 
 Optional AI extractor variables:
 
@@ -94,10 +96,14 @@ real secrets.
 
 ## Launch Security
 
-When `APP_ACCESS_PASSWORD` is set, the app requires HTTP Basic Auth before
-rendering private workspace pages or API routes. Phone Transfer uses the same
-gate; any trusted device can upload to and view the shared inbox after signing
-in.
+When `APP_ACCESS_PASSWORD` is set, the app requires the `/login` page before
+rendering private workspace pages or API routes. Successful login sets a signed,
+HTTP-only session cookie. `APP_ACCESS_SESSION_SECRET` should be a long random
+secret used only for signing those cookies; if it is omitted, the app falls back
+to `APP_ACCESS_PASSWORD` for signing.
+
+Phone Transfer uses the same login gate; any trusted device can upload to and
+view the shared inbox after signing in.
 
 The app also sends baseline browser security headers from `next.config.ts` and
 validates upload file type and size at extractor and automation batch entry

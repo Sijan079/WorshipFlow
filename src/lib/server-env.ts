@@ -7,17 +7,14 @@ const ServerEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   APP_ACCESS_USER: optionalString,
   APP_ACCESS_PASSWORD: optionalString,
+  APP_ACCESS_SESSION_SECRET: optionalString,
   NEXT_PUBLIC_API_URL: optionalUrl,
   NEXT_PUBLIC_PAP_PUBLIC_URL: optionalUrl,
-  NEXT_PUBLIC_PAP_SIGNALING_URL: z.preprocess(
-    (value) => (value === "" ? undefined : value),
-    z
-      .string()
-      .regex(/^wss?:\/\//, "NEXT_PUBLIC_PAP_SIGNALING_URL must start with ws:// or wss://")
-      .optional()
-  ),
   NEXT_PUBLIC_SUPABASE_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optionalString,
+  SUPABASE_URL: optionalUrl,
+  SUPABASE_SECRET_KEY: optionalString,
+  SUPABASE_PRIVATE_BUCKET: optionalString,
   OPENAI_API_KEY: optionalString,
   OPENAI_EXTRACTOR_MODEL: optionalString,
   GEMINI_API_KEY: optionalString,
@@ -27,7 +24,6 @@ const ServerEnvSchema = z.object({
   MEDIA_GENERATION_IMAGE_DAILY_LIMIT: z.coerce.number().int().positive().optional(),
   MEDIA_GENERATION_VIDEO_HOURLY_LIMIT: z.coerce.number().int().positive().optional(),
   MEDIA_GENERATION_VIDEO_DAILY_LIMIT: z.coerce.number().int().positive().optional(),
-  PAP_SIGNALING_PORT: z.coerce.number().int().positive().optional(),
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
 });
 
@@ -57,8 +53,8 @@ export function getEnvironmentReport() {
     aiExtractor: Boolean(env.OPENAI_API_KEY),
     mediaGeneration: Boolean(env.GEMINI_API_KEY),
     papPublicUrl: Boolean(env.NEXT_PUBLIC_PAP_PUBLIC_URL),
-    papSignalingUrl: Boolean(env.NEXT_PUBLIC_PAP_SIGNALING_URL),
     supabaseRealtime: Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    supabasePrivateStorage: Boolean(env.SUPABASE_URL && env.SUPABASE_SECRET_KEY && env.SUPABASE_PRIVATE_BUCKET),
     vercelEnv: env.VERCEL_ENV ?? null,
   };
 }
