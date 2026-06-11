@@ -7,12 +7,13 @@
 - Set `APP_ACCESS_PASSWORD` for both Preview and Production.
 - Confirm `npm run build` passes locally.
 - Confirm production migrations are ready with `prisma migrate deploy` before
-  promoting a database-backed deploy.
+  promoting a database-backed deploy. Vercel runs migrations only when
+  `DIRECT_DATABASE_URL` is configured.
 - Deploy from the repository root with the Next.js preset.
 - Visit `/api/health` after deploy and confirm `ok: true`.
 - Test service creation, Song Formatter, and Media Tools.
-- Test PAP phone transfer by creating a room, uploading from a phone, downloading
-  from desktop, and revoking the room.
+- Test PAP phone transfer by uploading from phone, viewing from desktop, and
+  downloading or deleting from the shared inbox.
 
 ## Web App
 
@@ -43,10 +44,10 @@ Optional database variables:
 
 - `DIRECT_DATABASE_URL`
 
-Use `DIRECT_DATABASE_URL` for Prisma migrations when the main `DATABASE_URL`
-uses a pooler that does not support migration commands cleanly. If
-`DIRECT_DATABASE_URL` is not set, `scripts/vercel-build.mjs` falls back to
-`DATABASE_URL`.
+Use `DIRECT_DATABASE_URL` for Prisma migrations when a direct or migration-safe
+connection is reachable from the build environment. If `DIRECT_DATABASE_URL` is
+not set, `scripts/vercel-build.mjs` skips `prisma migrate deploy` and continues
+with client generation plus the Next.js build.
 
 The project currently pins `prisma`, `@prisma/client`, and
 `@prisma/adapter-pg` to `6.19.0`. Prisma 7 CLI builds were blocked by Windows
@@ -59,13 +60,17 @@ Supabase setup:
 
 - Create a Supabase project.
 - Copy the pooled Postgres connection string into `DATABASE_URL`.
-- Copy the direct Postgres connection string into `DIRECT_DATABASE_URL`.
+- Copy the direct or session-pooler Postgres connection string into
+  `DIRECT_DATABASE_URL` only when Vercel can reach it reliably.
 - Use the Supabase project URL for `NEXT_PUBLIC_SUPABASE_URL`.
 - Use the Supabase publishable/anon key for
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- Do not expose the Supabase service-role key to the browser.
-- The Vercel build command runs `prisma migrate deploy` before building, so the
-  deployed API and production database schema stay aligned.
+- Create a private Supabase Storage bucket for temporary PAP files.
+- Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SUPABASE_PRIVATE_BUCKET` for
+  server-side private storage. Do not expose the secret key to the browser.
+- When `DIRECT_DATABASE_URL` is configured, the Vercel build command runs
+  `prisma migrate deploy` before building so the deployed API and production
+  database schema stay aligned.
 
 Recommended launch gate:
 
@@ -80,12 +85,9 @@ Optional AI extractor variables:
 PAP production variables:
 
 - `NEXT_PUBLIC_PAP_PUBLIC_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-
-Local PAP WebSocket fallback:
-
-- `NEXT_PUBLIC_PAP_SIGNALING_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY`
+- `SUPABASE_PRIVATE_BUCKET`
 
 Use `.env.example` as the template for local and deployment values. Never commit
 real secrets.
@@ -93,8 +95,9 @@ real secrets.
 ## Launch Security
 
 When `APP_ACCESS_PASSWORD` is set, the app requires HTTP Basic Auth before
-rendering private workspace pages or API routes. The phone-transfer join page
-under `/pap/join/*` remains open so QR pairing still works from a mobile device.
+rendering private workspace pages or API routes. Phone Transfer uses the same
+gate; any trusted device can upload to and view the shared inbox after signing
+in.
 
 The app also sends baseline browser security headers from `next.config.ts` and
 validates upload file type and size at extractor and automation batch entry
@@ -120,20 +123,22 @@ Persistent service asset uploads are deprecated for phase 1. The app should not
 act as a long-term asset archive because the church production desktop remains
 the source of truth for stored media.
 
-PAP is a temporary bridge: receive files into a token-gated server room, download
-or batch download from the desktop, then revoke or let the room expire. Production
-deployments need a durable private storage adapter for these temporary files.
+PAP is a temporary bridge: receive files into a protected global inbox, download
+or batch download from any trusted device, then delete or let the uploads expire.
+Production deployments should use the Supabase Storage-backed private storage
+adapter for these temporary files.
 
 Generated automation outputs may still use local file output during development.
 Before relying on generated output persistence in production, either move those
 outputs to database-backed records or add a storage adapter.
 
-## PAP Secure Rooms
+## PAP Global Inbox
 
-The current PAP phone-transfer workflow uses long random room tokens instead of
-short pairing codes or WebRTC signaling. Room creation remains behind the app
-access gate, while tokenized room upload, list, download, and delete routes are
-public only to the holder of the room URL.
+The current PAP phone-transfer workflow uses one protected temporary inbox for
+the site instead of QR pairing, copied links, WebRTC signaling, or public room
+tokens. Upload, list, download, and delete actions require the normal app access
+gate.
 
-Room tokens are hashed before persistence. Rotate or revoke a room if its link
-may have been exposed outside the trusted production team.
+Uploads are stored as private files and metadata rows. Room-token tables remain
+available as implementation storage, but the active user flow is the global
+temporary inbox.

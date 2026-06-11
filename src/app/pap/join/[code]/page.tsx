@@ -5,6 +5,6 @@ type PageProps = {
 };
 
 export default async function PAPJoinPage({ params }: PageProps) {
-  const { code } = await params;
-  return <PAPMobileClient pairingCode={code} />;
+  await params;
+  return <PAPMobileClient />;
 }

@@ -4,9 +4,7 @@ import type { NextRequest } from "next/server";
 const PUBLIC_PATH_PREFIXES = [
   "/_next",
   "/favicon.ico",
-  "/pap/join/",
   "/api/pap/diagnostics",
-  "/api/pap/rooms/",
   "/api/pap/signaling/",
 ];
 

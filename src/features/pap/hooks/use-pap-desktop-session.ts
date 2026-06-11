@@ -1,16 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PAPConnectionState, PAPServerRoom, PAPServerScreenshot } from "../types";
+import { PAP_SERVER_INBOX_TTL_MS, type PAPConnectionState, type PAPServerScreenshot } from "../types";
 
-type CreateRoomResponse = {
-  room: PAPServerRoom;
-  token: string;
-  joinUrl: string;
-};
-
-type ScreenshotListResponse = {
-  room: PAPServerRoom;
+type UploadListResponse = {
+  expiresAfterMs?: number;
   screenshots: PAPServerScreenshot[];
 };
 
@@ -23,19 +17,16 @@ async function parseJsonResponse<T>(response: Response) {
   return body as T;
 }
 
-function getDownloadUrl(roomToken: string, screenshotId: string) {
-  return `/api/pap/rooms/${encodeURIComponent(roomToken)}/screenshots/${encodeURIComponent(screenshotId)}/download`;
+function getDownloadUrl(screenshotId: string) {
+  return `/api/pap/uploads/${encodeURIComponent(screenshotId)}/download`;
 }
 
 export function usePAPDesktopSession() {
-  const [room, setRoom] = useState<PAPServerRoom | null>(null);
-  const [roomToken, setRoomToken] = useState("");
-  const [joinUrl, setJoinUrl] = useState("");
-  const [state, setState] = useState<PAPConnectionState>("idle");
+  const [state, setState] = useState<PAPConnectionState>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<PAPServerScreenshot[]>([]);
+  const [expiresAfterMs, setExpiresAfterMs] = useState(PAP_SERVER_INBOX_TTL_MS);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const roomTokenRef = useRef("");
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -45,21 +36,18 @@ export function usePAPDesktopSession() {
   }, []);
 
   const loadScreenshots = useCallback(async () => {
-    const activeToken = roomTokenRef.current;
-    if (!activeToken) return;
-
     try {
-      const response = await fetch(`/api/pap/rooms/${encodeURIComponent(activeToken)}/screenshots`, {
+      const response = await fetch("/api/pap/uploads", {
         cache: "no-store",
       });
-      const result = await parseJsonResponse<ScreenshotListResponse>(response);
-      setRoom(result.room);
+      const result = await parseJsonResponse<UploadListResponse>(response);
+      setExpiresAfterMs(result.expiresAfterMs ?? PAP_SERVER_INBOX_TTL_MS);
       setFiles(result.screenshots);
       setState("connected");
       setError(null);
     } catch (loadError) {
       setState("failed");
-      setError(loadError instanceof Error ? loadError.message : "Failed to load PAP screenshots.");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load PAP uploads.");
     }
   }, []);
 
@@ -70,38 +58,17 @@ export function usePAPDesktopSession() {
     }, 3_000);
   }, [loadScreenshots, stopPolling]);
 
-  const startSession = useCallback(async () => {
-    stopPolling();
-    setError(null);
+  const restartSession = useCallback(() => {
     setState("connecting");
-    setFiles([]);
-
-    try {
-      const response = await fetch("/api/pap/rooms", {
-        method: "POST",
-        cache: "no-store",
-      });
-      const result = await parseJsonResponse<CreateRoomResponse>(response);
-      roomTokenRef.current = result.token;
-      setRoomToken(result.token);
-      setJoinUrl(result.joinUrl);
-      setRoom(result.room);
-      setState("connected");
-      await loadScreenshots();
-      schedulePolling();
-    } catch (createError) {
-      setState("failed");
-      setError(createError instanceof Error ? createError.message : "Could not create a secure PAP room.");
-    }
-  }, [loadScreenshots, schedulePolling, stopPolling]);
+    void loadScreenshots();
+    schedulePolling();
+  }, [loadScreenshots, schedulePolling]);
 
   const clearFiles = useCallback(async () => {
-    const activeToken = roomTokenRef.current;
-    if (!activeToken) return;
     const ids = files.map((file) => file.id);
     await Promise.all(
       ids.map((id) =>
-        fetch(`/api/pap/rooms/${encodeURIComponent(activeToken)}/screenshots/${encodeURIComponent(id)}`, {
+        fetch(`/api/pap/uploads/${encodeURIComponent(id)}`, {
           method: "DELETE",
           cache: "no-store",
         }).catch(() => undefined)
@@ -110,28 +77,8 @@ export function usePAPDesktopSession() {
     setFiles([]);
   }, [files]);
 
-  const clearSession = useCallback(async () => {
-    const activeToken = roomTokenRef.current;
-    stopPolling();
-    if (activeToken) {
-      await fetch(`/api/pap/rooms/${encodeURIComponent(activeToken)}`, {
-        method: "DELETE",
-        cache: "no-store",
-      }).catch(() => undefined);
-    }
-    roomTokenRef.current = "";
-    setRoomToken("");
-    setJoinUrl("");
-    setRoom(null);
-    setFiles([]);
-    setState("idle");
-  }, [stopPolling]);
-
   const removeFile = useCallback(async (fileId: string) => {
-    const activeToken = roomTokenRef.current;
-    if (!activeToken) return;
-
-    const response = await fetch(`/api/pap/rooms/${encodeURIComponent(activeToken)}/screenshots/${encodeURIComponent(fileId)}`, {
+    const response = await fetch(`/api/pap/uploads/${encodeURIComponent(fileId)}`, {
       method: "DELETE",
       cache: "no-store",
     });
@@ -140,10 +87,7 @@ export function usePAPDesktopSession() {
   }, []);
 
   const downloadFile = useCallback(async (file: PAPServerScreenshot) => {
-    const activeToken = roomTokenRef.current;
-    if (!activeToken) return;
-
-    const response = await fetch(getDownloadUrl(activeToken, file.id), {
+    const response = await fetch(getDownloadUrl(file.id), {
       cache: "no-store",
     });
     if (!response.ok) {
@@ -158,46 +102,35 @@ export function usePAPDesktopSession() {
     URL.revokeObjectURL(url);
   }, []);
 
-  const getPreviewUrl = useCallback(
-    (file: PAPServerScreenshot) => (roomToken ? getDownloadUrl(roomToken, file.id) : ""),
-    [roomToken]
-  );
+  const getPreviewUrl = useCallback((file: PAPServerScreenshot) => getDownloadUrl(file.id), []);
 
   useEffect(() => {
     queueMicrotask(() => {
-      void startSession();
+      void loadScreenshots();
     });
+    schedulePolling();
     return () => {
       stopPolling();
     };
-  }, [startSession, stopPolling]);
+  }, [loadScreenshots, schedulePolling, stopPolling]);
 
   return {
     clearFiles,
-    clearSession,
+    clearSession: clearFiles,
     downloadFile,
     error,
+    expiresAfterMs,
     files,
     getPreviewUrl,
-    isLocalhostJoinUrl: /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(joinUrl),
-    joinUrl,
-    peerId: roomToken,
+    isLocalhostJoinUrl: false,
+    joinUrl: "",
+    peerId: "global-inbox",
     refreshFiles: loadScreenshots,
     removeFile,
     renameFile: () => undefined,
-    restartSession: startSession,
-    room,
-    session: room
-      ? {
-          id: room.id,
-          pairingCode: "secure room",
-          createdAt: room.createdAt,
-          expiresAt: room.expiresAt,
-          desktopPeerId: roomToken,
-          desktopDeviceName: "Worship Flow Desktop",
-          status: "connected" as const,
-        }
-      : null,
+    restartSession,
+    room: null,
+    session: null,
     state,
   };
 }

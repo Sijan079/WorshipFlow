@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "crypto";
+import { Prisma } from "@prisma/client";
+import { deletePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 
 export const PAP_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
@@ -26,6 +28,11 @@ export type PAPRoomRow = {
   createdAt: Date;
   expiresAt: Date;
   revokedAt: Date | null;
+};
+
+type PAPScreenshotPathRow = {
+  id: string;
+  filePath: string;
 };
 
 export async function ensurePAPRoomTables() {
@@ -106,6 +113,51 @@ export async function cleanupExpiredPAPRooms(now = new Date()) {
     DELETE FROM "PAPTransferRoom"
     WHERE "expiresAt" <= ${now}
   `;
+}
+
+export async function getOrCreatePAPGlobalInboxRoom() {
+  await ensurePAPRoomTables();
+  const globalRoomId = "global-temporary-inbox";
+  const globalTokenHash = "global-temporary-inbox";
+  const expiresAt = new Date("2999-12-31T00:00:00.000Z");
+
+  const [room] = await prisma.$queryRaw<PAPRoomRow[]>`
+    INSERT INTO "PAPTransferRoom" ("id", "tokenHash", "expiresAt")
+    VALUES (${globalRoomId}, ${globalTokenHash}, ${expiresAt})
+    ON CONFLICT ("id") DO UPDATE
+    SET "expiresAt" = ${expiresAt},
+        "revokedAt" = NULL
+    RETURNING "id", "tokenHash", "createdAt", "expiresAt", "revokedAt"
+  `;
+
+  if (!room) {
+    throw new Error("PAP global inbox room was not created.");
+  }
+
+  return room;
+}
+
+export async function cleanupExpiredPAPGlobalInboxUploads(now = new Date()) {
+  await ensurePAPRoomTables();
+  const room = await getOrCreatePAPGlobalInboxRoom();
+  const expiresBefore = new Date(now.getTime() - PAP_ROOM_TTL_MS);
+  const expired = await prisma.$queryRaw<PAPScreenshotPathRow[]>`
+    SELECT "id", "filePath"
+    FROM "PAPScreenshot"
+    WHERE "roomId" = ${room.id}
+      AND "createdAt" <= ${expiresBefore}
+  `;
+
+  if (expired.length === 0) {
+    return;
+  }
+
+  await prisma.$executeRaw`
+    DELETE FROM "PAPScreenshot"
+    WHERE "id" IN (${Prisma.join(expired.map((file) => file.id))})
+  `;
+
+  await Promise.all(expired.map((file) => deletePrivateOutputFile(file.filePath).catch(() => undefined)));
 }
 
 export async function getActivePAPRoomByToken(token: string) {

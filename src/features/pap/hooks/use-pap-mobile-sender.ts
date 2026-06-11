@@ -1,13 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { createPAPBatchFileName } from "../rtc/pap-file-names";
-import type { PAPConnectionState, PAPSendProgress, PAPServerRoom, PAPServerScreenshot } from "../types";
+import type { PAPConnectionState, PAPSendProgress, PAPServerScreenshot } from "../types";
 import { getPAPDeviceName } from "../websocket/pap-signaling-client";
-
-type RoomResponse = {
-  room: PAPServerRoom;
-};
 
 type UploadResponse = {
   screenshots: PAPServerScreenshot[];
@@ -22,38 +18,11 @@ async function parseJsonResponse<T>(response: Response) {
   return body as T;
 }
 
-export function usePAPMobileSender(pairingCode: string) {
+export function usePAPMobileSender() {
   const [deviceName] = useState(() => getPAPDeviceName("mobile"));
-  const [session, setSession] = useState<PAPServerRoom | null>(null);
-  const [state, setState] = useState<PAPConnectionState>("connecting");
+  const state: PAPConnectionState = "connected";
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<PAPSendProgress[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadRoom() {
-      try {
-        const response = await fetch(`/api/pap/rooms/${encodeURIComponent(pairingCode)}`, {
-          cache: "no-store",
-        });
-        const result = await parseJsonResponse<RoomResponse>(response);
-        if (cancelled) return;
-        setSession(result.room);
-        setState("connected");
-        setError(null);
-      } catch (loadError) {
-        if (cancelled) return;
-        setState("failed");
-        setError(loadError instanceof Error ? loadError.message : "This PAP room is unavailable.");
-      }
-    }
-
-    void loadRoom();
-    return () => {
-      cancelled = true;
-    };
-  }, [pairingCode]);
 
   const sendFiles = useCallback(
     async (files: File[], note = "") => {
@@ -92,7 +61,7 @@ export function usePAPMobileSender(pairingCode: string) {
 
       try {
         setError(null);
-        const response = await fetch(`/api/pap/rooms/${encodeURIComponent(pairingCode)}/screenshots`, {
+        const response = await fetch("/api/pap/uploads", {
           method: "POST",
           body: formData,
           cache: "no-store",
@@ -108,7 +77,7 @@ export function usePAPMobileSender(pairingCode: string) {
         setProgress((currentProgress) => currentProgress.filter((item) => item.batchId !== batchId));
       }
     },
-    [deviceName, pairingCode, state]
+    [deviceName, state]
   );
 
   return {
@@ -116,17 +85,7 @@ export function usePAPMobileSender(pairingCode: string) {
     error,
     progress,
     sendFiles,
-    session: session
-      ? {
-          id: session.id,
-          pairingCode,
-          createdAt: session.createdAt,
-          expiresAt: session.expiresAt,
-          desktopPeerId: "server-room",
-          desktopDeviceName: "Secure shared PAP room",
-          status: "connected" as const,
-        }
-      : null,
+    session: null,
     state,
   };
 }
