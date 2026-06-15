@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -414,6 +414,8 @@ export default function ServiceBuilderClient({
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
+  const editorSectionTextareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const pendingEditorSelectionRef = useRef<{ sectionIndex: number; selectionStart: number } | null>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -968,8 +970,64 @@ export default function ServiceBuilderClient({
     uploadExtractorMutation.isPending || pasteExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
   const editorSections = parseTaggedDraft(extractorDraftText);
 
+  useEffect(() => {
+    const pendingSelection = pendingEditorSelectionRef.current;
+    if (!pendingSelection) {
+      return;
+    }
+
+    pendingEditorSelectionRef.current = null;
+    const textarea = editorSectionTextareaRefs.current[pendingSelection.sectionIndex];
+    if (!textarea) {
+      return;
+    }
+
+    textarea.focus();
+    textarea.setSelectionRange(pendingSelection.selectionStart, pendingSelection.selectionStart);
+  }, [extractorDraftText]);
+
   const updateEditorSection = (sectionIndex: number, section: TaggedDraftSection) => {
     const nextSections = editorSections.map((item, index) => (index === sectionIndex ? section : item));
+    commitExtractorDraftText(serializeTaggedDraft(nextSections));
+  };
+
+  const handleEditorSectionKeyDown = (
+    event: ReactKeyboardEvent<HTMLTextAreaElement>,
+    sectionIndex: number,
+    section: TaggedDraftSection,
+  ) => {
+    if (event.key !== "Backspace" || sectionIndex === 0) {
+      return;
+    }
+
+    const textarea = event.currentTarget;
+    if (textarea.selectionStart !== 0 || textarea.selectionEnd !== 0) {
+      return;
+    }
+
+    const previousSection = editorSections[sectionIndex - 1];
+    if (!previousSection) {
+      return;
+    }
+
+    event.preventDefault();
+    const previousText = previousSection.lines.join("\n");
+    const currentText = section.lines.join("\n");
+    const mergedText = [previousText, currentText].filter((value) => value.length > 0).join("\n");
+    const nextSections = editorSections
+      .map((item, index) => {
+        if (index === sectionIndex - 1) {
+          return { ...previousSection, lines: mergedText.length > 0 ? mergedText.split("\n") : [""] };
+        }
+
+        return item;
+      })
+      .filter((_, index) => index !== sectionIndex);
+
+    pendingEditorSelectionRef.current = {
+      sectionIndex: sectionIndex - 1,
+      selectionStart: previousText.length,
+    };
     commitExtractorDraftText(serializeTaggedDraft(nextSections));
   };
 
@@ -2625,12 +2683,6 @@ export default function ServiceBuilderClient({
                               return (
                                 <article
                                   key={`${tag}-${index}`}
-                                  draggable
-                                  onDragStart={(event) => {
-                                    setDraggedEditorSectionIndex(index);
-                                    event.dataTransfer.effectAllowed = "move";
-                                    event.dataTransfer.setData("text/plain", String(index));
-                                  }}
                                   onDragOver={(event) => {
                                     event.preventDefault();
                                     event.dataTransfer.dropEffect = "move";
@@ -2651,7 +2703,20 @@ export default function ServiceBuilderClient({
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-2">
-                                      <span className="cursor-grab select-none text-lg text-[var(--color-text-secondary)] active:cursor-grabbing">::</span>
+                                      <button
+                                        type="button"
+                                        draggable
+                                        onDragStart={(event) => {
+                                          setDraggedEditorSectionIndex(index);
+                                          event.dataTransfer.effectAllowed = "move";
+                                          event.dataTransfer.setData("text/plain", String(index));
+                                        }}
+                                        className="cursor-grab select-none rounded p-1 text-lg leading-none text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] active:cursor-grabbing"
+                                        aria-label="Drag section"
+                                        title="Drag section"
+                                      >
+                                        ::
+                                      </button>
                                       <select
                                         value={tag}
                                         onChange={(event) => updateEditorSection(index, { ...section, tag: event.target.value })}
@@ -2699,7 +2764,11 @@ export default function ServiceBuilderClient({
                                     </div>
                                   </div>
                                   <textarea
+                                    ref={(element) => {
+                                      editorSectionTextareaRefs.current[index] = element;
+                                    }}
                                     value={section.lines.join("\n")}
+                                    onKeyDown={(event) => handleEditorSectionKeyDown(event, index, section)}
                                     onChange={(event) => updateEditorSection(index, { ...section, lines: event.target.value.split("\n") })}
                                     rows={Math.max(3, Math.min(8, section.lines.length + 1))}
                                     spellCheck={false}
