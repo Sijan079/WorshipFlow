@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -154,15 +154,30 @@ function parseTaggedDraft(text: string) {
   return sections;
 }
 
-function serializeTaggedDraft(sections: TaggedDraftSection[]) {
-  return sections
+type SerializeTaggedDraftOptions = {
+  preserveWhitespace?: boolean;
+};
+
+function serializeTaggedDraft(sections: TaggedDraftSection[], options: SerializeTaggedDraftOptions = {}) {
+  const preserveWhitespace = options.preserveWhitespace ?? false;
+  const serializedSections = sections
     .map((section) => {
-      const body = section.lines.join("\n").trim();
+      const body = preserveWhitespace ? section.lines.join("\n") : section.lines.join("\n").trim();
       return section.tag ? [`[${section.tag}]`, body].filter(Boolean).join("\n") : body;
     })
-    .filter((section) => section.trim().length > 0)
-    .join("\n\n")
-    .trim();
+    .filter((section) => section.trim().length > 0);
+
+  if (!preserveWhitespace) {
+    return serializedSections.join("\n\n").trim();
+  }
+
+  return serializedSections.reduce((draft, section) => {
+    if (!draft) {
+      return section;
+    }
+
+    return `${draft}${draft.endsWith("\n") ? "" : "\n"}${section}`;
+  }, "").trimStart();
 }
 
 function regroupDraftTagSections(text: string, tagToken: string, groupSize: 2 | 3) {
@@ -400,6 +415,7 @@ export default function ServiceBuilderClient({
   const [extractorRedoStack, setExtractorRedoStack] = useState<string[]>([]);
   const [extractorLastSavedAt, setExtractorLastSavedAt] = useState<number | null>(null);
   const [editorClock, setEditorClock] = useState(() => Date.now());
+  const [editorDraftSections, setEditorDraftSections] = useState<TaggedDraftSection[]>([]);
   const [draggedEditorSectionIndex, setDraggedEditorSectionIndex] = useState<number | null>(null);
   const [sectionFormatTag, setSectionFormatTag] = useState("Verse");
   const [sectionLineGroupSize, setSectionLineGroupSize] = useState<2 | 3>(2);
@@ -414,8 +430,7 @@ export default function ServiceBuilderClient({
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
-  const editorSectionTextareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
-  const pendingEditorSelectionRef = useRef<{ sectionIndex: number; selectionStart: number } | null>(null);
+  const editorDraftTextFromSectionsRef = useRef<string | null>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -480,6 +495,14 @@ export default function ServiceBuilderClient({
     const interval = window.setInterval(() => setEditorClock(Date.now()), 30000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (editorDraftTextFromSectionsRef.current === extractorDraftText) {
+      return;
+    }
+
+    setEditorDraftSections(parseTaggedDraft(extractorDraftText));
+  }, [extractorDraftText]);
 
   const commitExtractorDraftText = (nextText: string) => {
     setExtractorDraftText((currentText) => {
@@ -968,67 +991,18 @@ export default function ServiceBuilderClient({
     : [];
   const isFormatterProcessing =
     uploadExtractorMutation.isPending || pasteExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
-  const editorSections = parseTaggedDraft(extractorDraftText);
+  const editorSections = editorDraftSections;
 
-  useEffect(() => {
-    const pendingSelection = pendingEditorSelectionRef.current;
-    if (!pendingSelection) {
-      return;
-    }
-
-    pendingEditorSelectionRef.current = null;
-    const textarea = editorSectionTextareaRefs.current[pendingSelection.sectionIndex];
-    if (!textarea) {
-      return;
-    }
-
-    textarea.focus();
-    textarea.setSelectionRange(pendingSelection.selectionStart, pendingSelection.selectionStart);
-  }, [extractorDraftText]);
+  const commitEditorSections = (nextSections: TaggedDraftSection[], options: SerializeTaggedDraftOptions = {}) => {
+    const nextText = serializeTaggedDraft(nextSections, options);
+    setEditorDraftSections(nextSections);
+    editorDraftTextFromSectionsRef.current = nextText;
+    commitExtractorDraftText(nextText);
+  };
 
   const updateEditorSection = (sectionIndex: number, section: TaggedDraftSection) => {
     const nextSections = editorSections.map((item, index) => (index === sectionIndex ? section : item));
-    commitExtractorDraftText(serializeTaggedDraft(nextSections));
-  };
-
-  const handleEditorSectionKeyDown = (
-    event: ReactKeyboardEvent<HTMLTextAreaElement>,
-    sectionIndex: number,
-    section: TaggedDraftSection,
-  ) => {
-    if (event.key !== "Backspace" || sectionIndex === 0) {
-      return;
-    }
-
-    const textarea = event.currentTarget;
-    if (textarea.selectionStart !== 0 || textarea.selectionEnd !== 0) {
-      return;
-    }
-
-    const previousSection = editorSections[sectionIndex - 1];
-    if (!previousSection) {
-      return;
-    }
-
-    event.preventDefault();
-    const previousText = previousSection.lines.join("\n");
-    const currentText = section.lines.join("\n");
-    const mergedText = [previousText, currentText].filter((value) => value.length > 0).join("\n");
-    const nextSections = editorSections
-      .map((item, index) => {
-        if (index === sectionIndex - 1) {
-          return { ...previousSection, lines: mergedText.length > 0 ? mergedText.split("\n") : [""] };
-        }
-
-        return item;
-      })
-      .filter((_, index) => index !== sectionIndex);
-
-    pendingEditorSelectionRef.current = {
-      sectionIndex: sectionIndex - 1,
-      selectionStart: previousText.length,
-    };
-    commitExtractorDraftText(serializeTaggedDraft(nextSections));
+    commitEditorSections(nextSections, { preserveWhitespace: true });
   };
 
   const reorderEditorSection = (fromIndex: number, toIndex: number) => {
@@ -1043,7 +1017,7 @@ export default function ServiceBuilderClient({
     }
 
     nextSections.splice(toIndex, 0, movedSection);
-    commitExtractorDraftText(serializeTaggedDraft(nextSections));
+    commitEditorSections(nextSections);
     setDraggedEditorSectionIndex(null);
     showToast("Section reordered.", "success");
   };
@@ -2740,7 +2714,7 @@ export default function ServiceBuilderClient({
                                             { ...section, lines: [...section.lines] },
                                             ...editorSections.slice(index + 1),
                                           ];
-                                          commitExtractorDraftText(serializeTaggedDraft(nextSections));
+                                          commitEditorSections(nextSections);
                                           showToast("Section duplicated.", "success");
                                         }}
                                         className="rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] hover:text-[var(--color-focus)]"
@@ -2753,7 +2727,7 @@ export default function ServiceBuilderClient({
                                         type="button"
                                         onClick={() => {
                                           const nextSections = editorSections.filter((_, itemIndex) => itemIndex !== index);
-                                          commitExtractorDraftText(serializeTaggedDraft(nextSections));
+                                          commitEditorSections(nextSections);
                                           showToast("Section deleted.");
                                         }}
                                         className="rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] hover:text-[var(--color-danger)]"
@@ -2764,17 +2738,12 @@ export default function ServiceBuilderClient({
                                     </div>
                                   </div>
                                   <textarea
-                                    ref={(element) => {
-                                      editorSectionTextareaRefs.current[index] = element;
-                                    }}
                                     value={section.lines.join("\n")}
-                                    onKeyDown={(event) => handleEditorSectionKeyDown(event, index, section)}
                                     onChange={(event) => updateEditorSection(index, { ...section, lines: event.target.value.split("\n") })}
                                     rows={Math.max(3, Math.min(8, section.lines.length + 1))}
                                     spellCheck={false}
-                                    className={`mt-4 w-full resize-y rounded-md border-0 bg-transparent px-6 py-1 text-base leading-7 text-[var(--color-brand-ink)] outline-none ${
-                                      tag.toLowerCase().includes("chorus") ? "font-semibold italic text-[var(--color-focus)]" : ""
-                                    }`}
+                                    className="mt-4 w-full resize-y rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-3 py-2 text-sm leading-6 text-[var(--color-brand-ink)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-focus)]"
+                                    aria-label={`${tag} lyrics`}
                                   />
                                 </article>
                               );
@@ -2782,7 +2751,7 @@ export default function ServiceBuilderClient({
 
                             <button
                               type="button"
-                              onClick={() => commitExtractorDraftText(serializeTaggedDraft([...editorSections, { tag: "Verse", lines: [""] }]))}
+                              onClick={() => commitEditorSections([...editorSections, { tag: "Verse", lines: [""] }])}
                               className="pressable flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] py-8 text-sm font-semibold text-[var(--color-text-secondary)] hover:border-[var(--color-focus)] hover:text-[var(--color-focus)]"
                             >
                               <Plus className="h-7 w-7" />

@@ -52,7 +52,7 @@ function normalizeTitleBlock(lines: string[]) {
 }
 
 export async function createLyricsDocx(text: string) {
-  const lines = normalizeTitleBlock(text.split("\n"));
+  const lines = normalizeFreeShowTagSeparators(normalizeTitleBlock(text.split("\n")));
   const zip = new JSZip();
 
   zip.file("[Content_Types].xml", CONTENT_TYPES_XML);
@@ -65,6 +65,23 @@ export async function createLyricsDocx(text: string) {
     type: "uint8array",
     compression: "DEFLATE",
   });
+}
+
+function normalizeFreeShowTagSeparators(lines: string[]) {
+  const output: string[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const isTag = line.trim().startsWith("[") && line.trim().endsWith("]");
+
+    if (isTag && output.length > 0 && output.at(-1)?.trim()) {
+      output.push("");
+    }
+
+    output.push(line);
+  }
+
+  return output;
 }
 
 function escapeXml(value: string) {
