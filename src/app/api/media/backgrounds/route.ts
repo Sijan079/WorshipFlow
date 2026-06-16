@@ -18,7 +18,7 @@ export async function GET() {
         job: true,
       },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 10,
     });
 
     return NextResponse.json(outputs);
