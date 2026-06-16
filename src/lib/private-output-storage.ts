@@ -44,6 +44,18 @@ export function normalizePrivateOutputRelativePath(relativePath: string) {
   return relativePath.replace(/\\/g, "/");
 }
 
+export function describePrivateOutputStorageMode(relativePath: string) {
+  const normalizedRelativePath = normalizePrivateOutputRelativePath(relativePath);
+  const supabasePath = fromSupabaseRelativePath(normalizedRelativePath);
+
+  return {
+    hasSupabaseConfig: Boolean(getSupabaseStorageConfig()),
+    normalizedRelativePath,
+    storageMode: supabasePath ? "supabase" : "filesystem",
+    supabasePath,
+  } as const;
+}
+
 export function getPrivateOutputPathParts(directoryName: string, fileName: string) {
   const safeDirectoryName = directoryName.replace(/[^a-zA-Z0-9._-]/g, "-");
   const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -85,6 +97,13 @@ export async function savePrivateOutputFile(
       throw new Error(`Failed to save private output to Supabase Storage: ${error.message}`);
     }
 
+    console.info("private-output-storage save", {
+      bucket: storage.bucket,
+      directoryName,
+      mode: "supabase",
+      storagePath,
+    });
+
     return {
       ...pathParts,
       absolutePath: storagePath,
@@ -92,6 +111,13 @@ export async function savePrivateOutputFile(
       relativePath: `${SUPABASE_STORAGE_PREFIX}${storagePath}`,
     };
   }
+
+  console.warn("private-output-storage save", {
+    directoryName,
+    mode: "filesystem",
+    normalizedRelativePath: pathParts.relativePath,
+    reason: "missing_supabase_storage_config",
+  });
 
   await mkdir(pathParts.absoluteDirectory, { recursive: true });
   await writeFile(pathParts.absolutePath, data);
@@ -103,16 +129,25 @@ export async function readPrivateOutputFile(relativePath: string) {
     throw new Error("Invalid output path.");
   }
 
-  const normalizedRelativePath = normalizePrivateOutputRelativePath(relativePath);
-  const supabasePath = fromSupabaseRelativePath(normalizedRelativePath);
+  const storageDescription = describePrivateOutputStorageMode(relativePath);
+  const { normalizedRelativePath, supabasePath } = storageDescription;
   const storage = supabasePath ? createSupabaseStorageClient() : null;
   if (supabasePath && storage) {
     const { data, error } = await storage.client.storage.from(storage.bucket).download(supabasePath);
     if (error) {
       throw new Error(`Failed to read private output from Supabase Storage: ${error.message}`);
     }
+
+    console.info("private-output-storage read", {
+      bucket: storage.bucket,
+      ...storageDescription,
+    });
     return Buffer.from(await data.arrayBuffer());
   }
+
+  console.warn("private-output-storage read", {
+    ...storageDescription,
+  });
 
   return readFile(join(process.cwd(), ".worship-flow-private", ...normalizedRelativePath.split("/")));
 }
@@ -122,16 +157,25 @@ export async function deletePrivateOutputFile(relativePath: string) {
     throw new Error("Invalid output path.");
   }
 
-  const normalizedRelativePath = normalizePrivateOutputRelativePath(relativePath);
-  const supabasePath = fromSupabaseRelativePath(normalizedRelativePath);
+  const storageDescription = describePrivateOutputStorageMode(relativePath);
+  const { normalizedRelativePath, supabasePath } = storageDescription;
   const storage = supabasePath ? createSupabaseStorageClient() : null;
   if (supabasePath && storage) {
     const { error } = await storage.client.storage.from(storage.bucket).remove([supabasePath]);
     if (error) {
       throw new Error(`Failed to delete private output from Supabase Storage: ${error.message}`);
     }
+
+    console.info("private-output-storage delete", {
+      bucket: storage.bucket,
+      ...storageDescription,
+    });
     return;
   }
+
+  console.warn("private-output-storage delete", {
+    ...storageDescription,
+  });
 
   await rm(join(process.cwd(), ".worship-flow-private", ...normalizedRelativePath.split("/")), { force: true });
 }

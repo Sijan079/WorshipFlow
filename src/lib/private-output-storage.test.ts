@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { getPrivateOutputPathParts, normalizePrivateOutputRelativePath } from "./private-output-storage.ts";
+import {
+  describePrivateOutputStorageMode,
+  getPrivateOutputPathParts,
+  normalizePrivateOutputRelativePath,
+} from "./private-output-storage.ts";
 
 export function runPrivateOutputStorageTests() {
   const pathParts = getPrivateOutputPathParts("outputs", "Sunday Service.freeshow");
@@ -16,4 +20,17 @@ export function runPrivateOutputStorageTests() {
     normalizePrivateOutputRelativePath("background-images/1781595741239-worship-background.png"),
     "background-images/1781595741239-worship-background.png"
   );
+
+  assert.deepEqual(describePrivateOutputStorageMode("supabase:background-images/example.png"), {
+    hasSupabaseConfig: false,
+    normalizedRelativePath: "supabase:background-images/example.png",
+    storageMode: "supabase",
+    supabasePath: "background-images/example.png",
+  });
+  assert.deepEqual(describePrivateOutputStorageMode(String.raw`background-images\example.png`), {
+    hasSupabaseConfig: false,
+    normalizedRelativePath: "background-images/example.png",
+    storageMode: "filesystem",
+    supabasePath: null,
+  });
 }

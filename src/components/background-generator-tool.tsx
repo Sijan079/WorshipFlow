@@ -82,6 +82,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
   const [estimate, setEstimate] = useState<BackgroundGenerationEstimateRecord | null>(null);
   const [generatedOutput, setGeneratedOutput] = useState<GeneratedOutputRecord | null>(null);
   const [previewOutput, setPreviewOutput] = useState<GeneratedOutputRecord | null>(null);
+  const [downloadingOutputId, setDownloadingOutputId] = useState<string | null>(null);
 
   const backgroundsQuery = useQuery({
     queryKey: ["media-backgrounds"],
@@ -163,14 +164,18 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
   };
 
   const handleDownload = async (outputId: string, options: { resetAfterDownload?: boolean } = {}) => {
+    setDownloadingOutputId(outputId);
     try {
       const download = await downloadGeneratedBackground(outputId);
       triggerBrowserDownload(download.blob, download.fileName);
+      showToast("Download started.", "success");
       if (options.resetAfterDownload) {
         resetProcess();
       }
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Download failed");
+    } finally {
+      setDownloadingOutputId((current) => (current === outputId ? null : current));
     }
   };
 
@@ -218,6 +223,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
             <StagePanel>
               <OutputStage
                 output={generatedOutput}
+                downloadingOutputId={downloadingOutputId}
                 isPending={generateMutation.isPending}
                 onDownload={(outputId) => handleDownload(outputId, { resetAfterDownload: true })}
                 onReset={resetProcess}
@@ -229,6 +235,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
 
       <RecentBackgroundShelf
         backgrounds={recentBackgrounds}
+        downloadingOutputId={downloadingOutputId}
         isLoading={backgroundsQuery.isLoading}
         onDownload={(outputId) => handleDownload(outputId, { resetAfterDownload: false })}
         onPreview={setPreviewOutput}
@@ -237,6 +244,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
       {previewOutput ? (
         <BackgroundPreviewModal
           output={previewOutput}
+          downloadingOutputId={downloadingOutputId}
           onClose={() => setPreviewOutput(null)}
           onDownload={(outputId) => handleDownload(outputId, { resetAfterDownload: false })}
         />
@@ -394,11 +402,13 @@ function EstimationStage({
 
 function OutputStage({
   output,
+  downloadingOutputId,
   isPending,
   onDownload,
   onReset,
 }: {
   output: GeneratedOutputRecord | null;
+  downloadingOutputId: string | null;
   isPending: boolean;
   onDownload: (outputId: string) => void;
   onReset: () => void;
@@ -428,6 +438,8 @@ function OutputStage({
     );
   }
 
+  const isDownloading = downloadingOutputId === output.id;
+
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
       <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
@@ -449,10 +461,11 @@ function OutputStage({
           <button
             type="button"
             onClick={() => onDownload(output.id)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white"
+            disabled={isDownloading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
           >
-            <Download size={16} />
-            Download
+            {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+            {isDownloading ? "Preparing download..." : "Download"}
           </button>
           <button
             type="button"
@@ -470,12 +483,14 @@ function OutputStage({
 
 function RecentBackgroundShelf({
   backgrounds,
+  downloadingOutputId,
   isLoading,
   onDownload,
   onPreview,
   onRefresh,
 }: {
   backgrounds: GeneratedOutputRecord[];
+  downloadingOutputId: string | null;
   isLoading: boolean;
   onDownload: (outputId: string) => void;
   onPreview: (output: GeneratedOutputRecord) => void;
@@ -529,14 +544,20 @@ function RecentBackgroundShelf({
               </button>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <p className="truncate text-xs text-slate-500">{new Date(output.createdAt).toLocaleString()}</p>
+                {(() => {
+                  const isDownloading = downloadingOutputId === output.id;
+                  return (
                 <button
                   type="button"
                   onClick={() => onDownload(output.id)}
-                  className="rounded-md border border-slate-700 p-1.5 text-slate-200 hover:bg-slate-800"
+                  disabled={isDownloading}
+                  className="rounded-md border border-slate-700 p-1.5 text-slate-200 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-75"
                   aria-label="Download generated background"
                 >
-                  <Download size={14} />
+                  {isDownloading ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
                 </button>
+                  );
+                })()}
               </div>
             </article>
           ))}
@@ -548,14 +569,17 @@ function RecentBackgroundShelf({
 
 function BackgroundPreviewModal({
   output,
+  downloadingOutputId,
   onClose,
   onDownload,
 }: {
   output: GeneratedOutputRecord;
+  downloadingOutputId: string | null;
   onClose: () => void;
   onDownload: (outputId: string) => void;
 }) {
   const [overlayTextTone, setOverlayTextTone] = useState<"white" | "black">("white");
+  const isDownloading = downloadingOutputId === output.id;
   const overlayTextClass =
     overlayTextTone === "white"
       ? "text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.72)]"
@@ -618,10 +642,11 @@ function BackgroundPreviewModal({
           <button
             type="button"
             onClick={() => onDownload(output.id)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white"
+            disabled={isDownloading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
           >
-            <Download size={16} />
-            Download
+            {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+            {isDownloading ? "Preparing download..." : "Download"}
           </button>
         </div>
       </div>
