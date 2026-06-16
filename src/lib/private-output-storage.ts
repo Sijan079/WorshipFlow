@@ -40,11 +40,15 @@ function fromSupabaseRelativePath(relativePath: string) {
   return relativePath.slice(SUPABASE_STORAGE_PREFIX.length);
 }
 
+export function normalizePrivateOutputRelativePath(relativePath: string) {
+  return relativePath.replace(/\\/g, "/");
+}
+
 export function getPrivateOutputPathParts(directoryName: string, fileName: string) {
   const safeDirectoryName = directoryName.replace(/[^a-zA-Z0-9._-]/g, "-");
   const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
   const storedFileName = `${Date.now()}-${safeFileName}`;
-  const relativePath = join(safeDirectoryName, storedFileName);
+  const relativePath = normalizePrivateOutputRelativePath(`${safeDirectoryName}/${storedFileName}`);
   const absoluteDirectory = join(process.cwd(), ".worship-flow-private", safeDirectoryName);
 
   return {
@@ -99,7 +103,8 @@ export async function readPrivateOutputFile(relativePath: string) {
     throw new Error("Invalid output path.");
   }
 
-  const supabasePath = fromSupabaseRelativePath(relativePath);
+  const normalizedRelativePath = normalizePrivateOutputRelativePath(relativePath);
+  const supabasePath = fromSupabaseRelativePath(normalizedRelativePath);
   const storage = supabasePath ? createSupabaseStorageClient() : null;
   if (supabasePath && storage) {
     const { data, error } = await storage.client.storage.from(storage.bucket).download(supabasePath);
@@ -109,7 +114,7 @@ export async function readPrivateOutputFile(relativePath: string) {
     return Buffer.from(await data.arrayBuffer());
   }
 
-  return readFile(join(process.cwd(), ".worship-flow-private", relativePath));
+  return readFile(join(process.cwd(), ".worship-flow-private", ...normalizedRelativePath.split("/")));
 }
 
 export async function deletePrivateOutputFile(relativePath: string) {
@@ -117,7 +122,8 @@ export async function deletePrivateOutputFile(relativePath: string) {
     throw new Error("Invalid output path.");
   }
 
-  const supabasePath = fromSupabaseRelativePath(relativePath);
+  const normalizedRelativePath = normalizePrivateOutputRelativePath(relativePath);
+  const supabasePath = fromSupabaseRelativePath(normalizedRelativePath);
   const storage = supabasePath ? createSupabaseStorageClient() : null;
   if (supabasePath && storage) {
     const { error } = await storage.client.storage.from(storage.bucket).remove([supabasePath]);
@@ -127,5 +133,5 @@ export async function deletePrivateOutputFile(relativePath: string) {
     return;
   }
 
-  await rm(join(process.cwd(), ".worship-flow-private", relativePath), { force: true });
+  await rm(join(process.cwd(), ".worship-flow-private", ...normalizedRelativePath.split("/")), { force: true });
 }
