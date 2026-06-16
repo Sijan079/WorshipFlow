@@ -88,6 +88,8 @@ model Workspace {
   services  WorshipService[]
   songs     Song[]
   tagPresets SongTagPreset[]
+  automationJobs AutomationJob[]
+  generatedOutputs GeneratedOutput[]
 }
 
 model PAPTransferRoom {
@@ -267,11 +269,12 @@ model ServiceAsset {
 }
 
 model AutomationJob {
-  id          String @id @default(uuid())
+    id          String @id @default(uuid())
 
-  serviceId   String
-  jobType     JobType
-  status      JobStatus @default(QUEUED)
+    workspaceId String
+    serviceId   String?
+    jobType     JobType
+    status      JobStatus @default(QUEUED)
 
   inputJson   Json?
   outputJson  Json?
@@ -279,22 +282,29 @@ model AutomationJob {
   createdAt   DateTime @default(now())
   completedAt DateTime?
 
-  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+    workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    service     WorshipService? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  outputs     GeneratedOutput[]
-}
+    outputs     GeneratedOutput[]
+
+    @@index([workspaceId, createdAt])
+  }
 
 model GeneratedOutput {
-  id          String @id @default(uuid())
+    id          String @id @default(uuid())
 
-  serviceId   String
-  jobId       String?
+    workspaceId String
+    serviceId   String?
+    jobId       String?
 
   type        OutputType
   filePath    String
 
   createdAt   DateTime @default(now())
 
-  service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  job         AutomationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
-}
+    workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    service     WorshipService? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+    job         AutomationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+    @@index([workspaceId, createdAt])
+  }

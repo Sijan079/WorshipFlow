@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import { getActivePAPRoomByToken, hashPAPRoomToken, validatePAPRoomToken } from "@/features/pap/server/pap-room-security";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,10 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   } catch (error: unknown) {
     console.error("GET /api/pap/rooms/[roomToken] error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to load PAP room." }, { status: 500 });
   }
 }
@@ -60,6 +65,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   } catch (error: unknown) {
     console.error("DELETE /api/pap/rooms/[roomToken] error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to revoke PAP room." }, { status: 500 });
   }
 }

@@ -1,22 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download, ImageIcon, Loader2, Play, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
+import { useState } from "react";
+import Image from "next/image";
+import { Download, ImageIcon, Loader2, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   downloadGeneratedBackground,
   estimateBackgroundGeneration,
   fetchGeneratedBackgrounds,
   generateBackground,
+  getGeneratedBackgroundPreviewUrl,
   triggerBrowserDownload,
   type BackgroundGenerationEstimateRecord,
   type BackgroundGenerationRequestPayload,
-  type ServiceRecord,
 } from "@/lib/api-client";
 
 type BackgroundGeneratorToolProps = {
-  services: ServiceRecord[];
   showToast: (message: string, tone?: "success" | "info") => void;
+};
+
+type MoodValue = BackgroundGenerationRequestPayload["mood"];
+type VisualStyleValue = BackgroundGenerationRequestPayload["visualStyle"];
+type BackgroundGeneratorFormState = Omit<BackgroundGenerationRequestPayload, "mood" | "visualStyle"> & {
+  mood: MoodValue | "";
+  visualStyle: VisualStyleValue | "";
 };
 
 const purposes = [
@@ -52,25 +59,16 @@ const textSafeAreas = [
   ["full-frame", "Full Frame"],
 ] as const;
 
-function formatServiceLabel(service: Pick<ServiceRecord, "ministryName" | "serviceDate">) {
-  return `${service.ministryName} - ${new Date(service.serviceDate).toLocaleDateString()}`;
-}
-
-export default function BackgroundGeneratorTool({ services, showToast }: BackgroundGeneratorToolProps) {
+export default function BackgroundGeneratorTool({ showToast }: BackgroundGeneratorToolProps) {
   const queryClient = useQueryClient();
-  const [request, setRequest] = useState<BackgroundGenerationRequestPayload>({
+  const [request, setRequest] = useState<BackgroundGeneratorFormState>({
     mediaType: "image",
     purpose: "lyrics",
-    mood: "reflective",
-    visualStyle: "abstract-light",
+    mood: "",
+    visualStyle: "",
     textSafeArea: "center-clear",
-    serviceId: services[0]?.id,
   });
   const [estimate, setEstimate] = useState<BackgroundGenerationEstimateRecord | null>(null);
-  const selectedService = useMemo(
-    () => services.find((service) => service.id === request.serviceId),
-    [request.serviceId, services]
-  );
 
   const backgroundsQuery = useQuery({
     queryKey: ["media-backgrounds"],
@@ -91,28 +89,35 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["media-backgrounds"] });
       setEstimate(null);
+      setRequest((current) => ({ ...current, mood: "", visualStyle: "" }));
       showToast("Background generated.", "success");
     },
     onError: (error: Error) => showToast(error.message),
   });
 
-  const updateRequest = (patch: Partial<BackgroundGenerationRequestPayload>) => {
+  const updateRequest = (patch: Partial<BackgroundGeneratorFormState>) => {
     setEstimate(null);
-    setRequest((current) => {
-      const next = { ...current, ...patch };
-      if (next.mediaType === "video") {
-        next.durationSeconds = 15;
-        next.videoQuality = "480p";
-      } else {
-        delete next.durationSeconds;
-        delete next.videoQuality;
-      }
-      return next;
-    });
+    setRequest((current) => ({ ...current, ...patch }));
+  };
+
+  const getValidatedRequest = () => {
+    if (!request.mood || !request.visualStyle) {
+      showToast("Choose both Mood and Style before validating the estimate.");
+      return null;
+    }
+
+    return {
+      ...request,
+      mood: request.mood,
+      visualStyle: request.visualStyle,
+    } satisfies BackgroundGenerationRequestPayload;
   };
 
   const handleEstimate = () => {
-    estimateMutation.mutate(request);
+    const validatedRequest = getValidatedRequest();
+    if (!validatedRequest) return;
+
+    estimateMutation.mutate(validatedRequest);
   };
 
   const handleGenerate = () => {
@@ -120,7 +125,11 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
       showToast("Review the estimate before generating.");
       return;
     }
-    generateMutation.mutate({ request, acceptedEstimate: estimate });
+
+    const validatedRequest = getValidatedRequest();
+    if (!validatedRequest) return;
+
+    generateMutation.mutate({ request: validatedRequest, acceptedEstimate: estimate });
   };
 
   const handleDownload = async (outputId: string) => {
@@ -146,47 +155,16 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
         </div>
 
         <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Worship Service
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-purple-400"
-              value={request.serviceId ?? ""}
-              onChange={(event) => updateRequest({ serviceId: event.target.value || undefined })}
-            >
-              <option value="">Select a service</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {formatServiceLabel(service)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-900/80 p-1">
-            {(["image", "video"] as const).map((mediaType) => (
-              <button
-                key={mediaType}
-                type="button"
-                onClick={() => updateRequest({ mediaType })}
-                className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
-                  request.mediaType === mediaType
-                    ? "bg-purple-500 text-white"
-                    : "text-slate-300 hover:bg-slate-800"
-                }`}
-              >
-                {mediaType === "image" ? <ImageIcon size={16} /> : <Play size={16} />}
-                {mediaType === "image" ? "Image" : "15s 480p Video"}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2 text-sm text-slate-200">
+            <ImageIcon size={16} />
+            Workspace image asset
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Purpose" value={request.purpose} options={purposes} onChange={(value) => updateRequest({ purpose: value })} />
+            <SelectField label="Purpose" value={request.purpose} options={purposes} onChange={(value) => value && updateRequest({ purpose: value })} />
             <SelectField label="Mood" value={request.mood} options={moods} onChange={(value) => updateRequest({ mood: value })} />
             <SelectField label="Style" value={request.visualStyle} options={visualStyles} onChange={(value) => updateRequest({ visualStyle: value })} />
-            <SelectField label="Text Area" value={request.textSafeArea} options={textSafeAreas} onChange={(value) => updateRequest({ textSafeArea: value })} />
+            <SelectField label="Text Area" value={request.textSafeArea} options={textSafeAreas} onChange={(value) => value && updateRequest({ textSafeArea: value })} />
           </div>
 
           <div>
@@ -206,7 +184,7 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
           <button
             type="button"
             onClick={handleEstimate}
-            disabled={estimateMutation.isPending}
+            disabled={estimateMutation.isPending || !request.mood || !request.visualStyle}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {estimateMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
@@ -229,8 +207,8 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Metric label="Provider" value={`${estimate.provider} / ${estimate.model}`} />
               <Metric label="Resolution" value={estimate.providerResolution} />
-              <Metric label="Cost" value={`$${estimate.estimatedCostUsd.toFixed(2)}`} />
-              <Metric label="Media" value={estimate.mediaType === "video" ? "15s 480p loop" : "Image"} />
+              <Metric label="Estimated Cost" value={`$${estimate.estimatedCostUsd.toFixed(2)}`} />
+              <Metric label="Media" value="Image" />
               <Metric label="Input Tokens" value={estimate.estimatedInputTokens ?? "Provider reported"} />
               <Metric label="Output Tokens" value={estimate.estimatedOutputTokens ?? "Provider reported"} />
               <p className="sm:col-span-2 lg:col-span-3 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
@@ -246,7 +224,7 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={!estimate || !selectedService || generateMutation.isPending}
+            disabled={!estimate || generateMutation.isPending}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generateMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
@@ -258,7 +236,7 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-slate-50">Recent Backgrounds</h3>
-              <p className="text-sm text-slate-400">Video outputs are loop-intended and should be previewed before use.</p>
+              <p className="text-sm text-slate-400">Workspace assets expire after 24 hours.</p>
             </div>
             <button
               type="button"
@@ -272,21 +250,33 @@ export default function BackgroundGeneratorTool({ services, showToast }: Backgro
 
           <div className="space-y-3">
             {(backgroundsQuery.data ?? []).map((output) => (
-              <div key={output.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-                <div>
-                  <p className="text-sm font-medium text-slate-100">
-                    {output.type === "BACKGROUND_VIDEO" ? "15s 480p loop video" : "Presentation image"}
-                  </p>
-                  <p className="text-xs text-slate-500">{formatServiceLabel(output.service)}</p>
+              <div key={output.id} className="grid gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3 sm:grid-cols-[180px_1fr]">
+                <div className="aspect-video overflow-hidden rounded-md border border-slate-800 bg-slate-950">
+                  <Image
+                    src={getGeneratedBackgroundPreviewUrl(output.id)}
+                    alt="Generated worship background preview"
+                    width={320}
+                    height={180}
+                    unoptimized
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDownload(output.id)}
-                  className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-                >
-                  <Download size={15} />
-                  Download
-                </button>
+                <div className="flex min-w-0 flex-col justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-100">Presentation image</p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(output.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(output.id)}
+                    className="flex w-fit items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                  >
+                    <Download size={15} />
+                    Download
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -309,9 +299,9 @@ function SelectField<T extends string>({
   onChange,
 }: {
   label: string;
-  value: T;
+  value: T | "";
   options: readonly (readonly [T, string])[];
-  onChange: (value: T) => void;
+  onChange: (value: T | "") => void;
 }) {
   return (
     <label className="block">
@@ -321,6 +311,7 @@ function SelectField<T extends string>({
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
       >
+        <option value="">Select {label.toLowerCase()}</option>
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>
             {optionLabel}

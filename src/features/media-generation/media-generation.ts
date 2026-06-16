@@ -41,34 +41,23 @@ export type BackgroundTextSafeArea = (typeof backgroundTextSafeAreas)[number];
 
 const BackgroundGenerationSchema = z
   .object({
-    mediaType: z.enum(["image", "video"]),
+    mediaType: z.literal("image", {
+      error: "Image backgrounds only. Video generation is temporarily disabled.",
+    }),
     purpose: z.enum(backgroundPurposes),
-    mood: z.enum(backgroundMoods),
-    visualStyle: z.enum(backgroundVisualStyles),
+    mood: z.enum(backgroundMoods, {
+      error: "Mood is required.",
+    }),
+    visualStyle: z.enum(backgroundVisualStyles, {
+      error: "Style is required.",
+    }),
     textSafeArea: z.enum(backgroundTextSafeAreas),
     promptDetails: z.string().trim().max(500, "Prompt details must be 500 characters or fewer.").optional(),
-    serviceId: z.string().uuid().optional(),
     durationSeconds: z.number().int().optional(),
     videoQuality: z.enum(["480p"]).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.mediaType === "video" && value.durationSeconds !== 15) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["durationSeconds"],
-        message: "V1 video backgrounds must be exactly 15 seconds.",
-      });
-    }
-
-    if (value.mediaType === "video" && value.videoQuality !== "480p") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["videoQuality"],
-        message: "V1 video backgrounds must use 480p quality.",
-      });
-    }
-
-    if (value.mediaType === "image" && (value.durationSeconds !== undefined || value.videoQuality !== undefined)) {
+    if (value.durationSeconds !== undefined || value.videoQuality !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["mediaType"],
@@ -79,14 +68,14 @@ const BackgroundGenerationSchema = z
   .transform((value) => ({
     ...value,
     format: "presentation-16:9" as const,
-    providerResolution: value.mediaType === "video" ? "854x480" : "1920x1080",
+    providerResolution: "1920x1080",
     promptDetails: value.promptDetails || undefined,
   }));
 
 export type BackgroundGenerationRequest = z.infer<typeof BackgroundGenerationSchema>;
 
 export type BackgroundGenerationEstimate = {
-  provider: "gemini";
+  provider: "openai";
   model: string;
   mediaType: BackgroundMediaType;
   format: "presentation-16:9";
@@ -139,26 +128,22 @@ export function parseBackgroundGenerationRequest(input: unknown) {
 
 export function estimateBackgroundGeneration(
   request: BackgroundGenerationRequest,
-  models: { imageModel?: string; videoModel?: string } = {}
+  models: { imageModel?: string; estimatedImageCostUsd?: number } = {}
 ): BackgroundGenerationEstimate {
   return {
-    provider: "gemini",
-    model:
-      request.mediaType === "video"
-        ? models.videoModel || "gemini-video-480p-loop"
-        : models.imageModel || "gemini-image-background",
+    provider: "openai",
+    model: models.imageModel || "gpt-image-1",
     mediaType: request.mediaType,
     format: request.format,
-    providerResolution: request.providerResolution,
-    durationSeconds: request.mediaType === "video" ? 15 : null,
-    videoQuality: request.mediaType === "video" ? "480p" : null,
-    seamlessLoop: request.mediaType === "video",
+    providerResolution: "1536x1024",
+    durationSeconds: null,
+    videoQuality: null,
+    seamlessLoop: false,
     estimatedInputTokens: null,
     estimatedOutputTokens: null,
-    estimatedCostUsd: 0,
-    pricingSnapshot: "Gemini free-tier availability is provider-controlled and may change.",
-    freeTierNote:
-      "Estimated cost is $0 when the configured Gemini provider remains within free-tier quota; generation can fail if quota is exhausted.",
+    estimatedCostUsd: models.estimatedImageCostUsd ?? 0.04,
+    pricingSnapshot: "OpenAI image pricing is token-based and should be reconciled against the OpenAI usage dashboard.",
+    freeTierNote: "Image generation uses the configured OpenAI project and incurs API usage charges.",
   };
 }
 
@@ -177,14 +162,6 @@ export function buildBackgroundPrompt(request: BackgroundGenerationRequest) {
     "No political campaign imagery, violent content, sexual content, or manipulative content.",
     "Keep the image calm enough for lyrics, scripture, or service information overlays.",
   ];
-
-  if (request.mediaType === "video") {
-    base.push(
-      "Create a seamless 15-second loop with matching first and final frames.",
-      "Use subtle continuous motion, no camera cuts, no flashing, no rapid motion, and no hard transitions.",
-      "The output will repeat behind song lyrics, so it must have no visible beginning or ending."
-    );
-  }
 
   if (request.promptDetails) {
     base.push(`User direction: ${request.promptDetails}`);

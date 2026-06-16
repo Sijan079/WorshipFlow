@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import prisma from "@/lib/prisma";
+import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import {
   cleanupExpiredPAPRooms,
   createPAPRoomToken,
@@ -46,6 +47,10 @@ export async function POST() {
     );
   } catch (error: unknown) {
     console.error("POST /api/pap/rooms error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to create PAP room." }, { status: 500 });
   }
 }

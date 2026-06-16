@@ -11,8 +11,8 @@ export async function POST(request: Request) {
     const env = getServerEnv();
     const generationRequest = parseBackgroundGenerationRequest(await request.json());
     const estimate = estimateBackgroundGeneration(generationRequest, {
-      imageModel: env.GEMINI_BACKGROUND_IMAGE_MODEL,
-      videoModel: env.GEMINI_BACKGROUND_VIDEO_MODEL,
+      imageModel: env.OPENAI_BACKGROUND_IMAGE_MODEL,
+      estimatedImageCostUsd: env.OPENAI_BACKGROUND_IMAGE_ESTIMATED_COST_USD,
     });
 
     return NextResponse.json({ request: generationRequest, estimate });

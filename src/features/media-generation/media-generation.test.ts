@@ -6,22 +6,6 @@ import {
 } from "./media-generation.ts";
 
 export function runMediaGenerationTests() {
-  const videoRequest = parseBackgroundGenerationRequest({
-    mediaType: "video",
-    purpose: "lyrics",
-    mood: "reflective",
-    visualStyle: "abstract-light",
-    textSafeArea: "center-clear",
-    promptDetails: "Blue and violet light, calm movement.",
-    serviceId: "8d2a12ef-a909-4358-92fb-72a135600787",
-    durationSeconds: 15,
-    videoQuality: "480p",
-  });
-
-  assert.equal(videoRequest.mediaType, "video");
-  assert.equal(videoRequest.durationSeconds, 15);
-  assert.equal(videoRequest.videoQuality, "480p");
-
   assert.throws(
     () =>
       parseBackgroundGenerationRequest({
@@ -33,22 +17,32 @@ export function runMediaGenerationTests() {
         durationSeconds: 10,
         videoQuality: "480p",
       }),
-    /15 seconds/
+    /Image backgrounds only/
   );
 
-  const prompt = buildBackgroundPrompt(videoRequest);
-  assert.match(prompt, /seamless 15-second loop/i);
-  assert.match(prompt, /matching first and final frames/i);
-  assert.match(prompt, /no text/i);
-  assert.match(prompt, /calm movement/i);
+  assert.throws(
+    () =>
+      parseBackgroundGenerationRequest({
+        mediaType: "image",
+        purpose: "lyrics",
+        mood: "",
+        visualStyle: "abstract-light",
+        textSafeArea: "center-clear",
+      }),
+    /Mood is required/
+  );
 
-  const estimate = estimateBackgroundGeneration(videoRequest);
-  assert.equal(estimate.mediaType, "video");
-  assert.equal(estimate.durationSeconds, 15);
-  assert.equal(estimate.videoQuality, "480p");
-  assert.equal(estimate.seamlessLoop, true);
-  assert.equal(estimate.estimatedCostUsd, 0);
-  assert.match(estimate.freeTierNote, /free-tier/i);
+  assert.throws(
+    () =>
+      parseBackgroundGenerationRequest({
+        mediaType: "image",
+        purpose: "lyrics",
+        mood: "reflective",
+        visualStyle: "",
+        textSafeArea: "center-clear",
+      }),
+    /Style is required/
+  );
 
   const imageEstimate = estimateBackgroundGeneration(
     parseBackgroundGenerationRequest({
@@ -57,9 +51,27 @@ export function runMediaGenerationTests() {
       mood: "reverent",
       visualStyle: "stained-glass",
       textSafeArea: "lower-third-clear",
+    }),
+    { estimatedImageCostUsd: 0.08 }
+  );
+  assert.equal(imageEstimate.provider, "openai");
+  assert.equal(imageEstimate.mediaType, "image");
+  assert.equal(imageEstimate.format, "presentation-16:9");
+  assert.equal(imageEstimate.providerResolution, "1536x1024");
+  assert.equal(imageEstimate.seamlessLoop, false);
+  assert.equal(imageEstimate.estimatedCostUsd, 0.08);
+
+  const prompt = buildBackgroundPrompt(
+    parseBackgroundGenerationRequest({
+      mediaType: "image",
+      purpose: "lyrics",
+      mood: "reflective",
+      visualStyle: "abstract-light",
+      textSafeArea: "center-clear",
+      promptDetails: "Blue and violet light.",
     })
   );
-  assert.equal(imageEstimate.format, "presentation-16:9");
-  assert.equal(imageEstimate.providerResolution, "1920x1080");
-  assert.equal(imageEstimate.seamlessLoop, false);
+  assert.doesNotMatch(prompt, /seamless 15-second loop/i);
+  assert.match(prompt, /no text/i);
+  assert.match(prompt, /Blue and violet light/i);
 }

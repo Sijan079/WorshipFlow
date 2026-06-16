@@ -13,6 +13,7 @@ import {
   PAP_UPLOAD_NOTE_MAX_LENGTH,
   sanitizePAPFileName,
 } from "@/features/pap/server/pap-room-security";
+import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 import { validateUploadFile, validateUploadTotal } from "@/lib/upload-security";
@@ -73,6 +74,10 @@ export async function GET() {
     );
   } catch (error: unknown) {
     console.error("GET /api/pap/uploads error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to load PAP uploads." }, { status: 500 });
   }
 }
@@ -157,6 +162,10 @@ export async function POST(request: Request) {
     );
   } catch (error: unknown) {
     console.error("POST /api/pap/uploads error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to upload PAP screenshots." }, { status: 500 });
   }
 }

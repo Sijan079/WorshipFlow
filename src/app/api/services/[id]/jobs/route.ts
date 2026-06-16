@@ -97,6 +97,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const job = await prisma.automationJob.create({
       data: {
+        workspaceId,
         serviceId,
         jobType,
         status: JobStatus.QUEUED,
@@ -163,6 +164,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
           await tx.generatedOutput.create({
             data: {
+              workspaceId,
               serviceId,
               jobId: job.id,
               type: outputType,

@@ -17,15 +17,15 @@ function getOutputMimeType(outputJson: unknown) {
   return typeof mimeType === "string" ? mimeType : "application/octet-stream";
 }
 
-export async function GET(_request: Request, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
   try {
     const { outputId } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
     const output = await prisma.generatedOutput.findFirst({
       where: {
         id: outputId,
-        type: { in: [OutputType.BACKGROUND_IMAGE, OutputType.BACKGROUND_VIDEO] },
-        service: { workspaceId },
+        workspaceId,
+        type: OutputType.BACKGROUND_IMAGE,
       },
       include: { job: true },
     });
@@ -36,12 +36,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const bytes = await readPrivateOutputFile(output.filePath);
     const fileName = output.filePath.split(/[\\/]/).pop() || "background.bin";
+    const disposition = new URL(request.url).searchParams.get("disposition") === "inline" ? "inline" : "attachment";
 
     return new Response(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": getOutputMimeType(output.job?.outputJson),
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `${disposition}; filename="${fileName}"`,
         "Cache-Control": "no-store",
       },
     });

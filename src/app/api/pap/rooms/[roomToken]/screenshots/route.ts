@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import { validateUploadFile, validateUploadTotal } from "@/lib/upload-security";
 import { createPAPBatchFileName } from "@/features/pap/rtc/pap-file-names";
+import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import {
   getActivePAPRoomByToken,
   PAP_IMAGE_UPLOAD_EXTENSIONS,
@@ -83,6 +84,10 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   } catch (error: unknown) {
     console.error("GET /api/pap/rooms/[roomToken]/screenshots error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to load PAP screenshots." }, { status: 500 });
   }
 }
@@ -173,6 +178,10 @@ export async function POST(request: Request, context: RouteContext) {
     );
   } catch (error: unknown) {
     console.error("POST /api/pap/rooms/[roomToken]/screenshots error:", error);
+    if (isPAPDatabaseUnavailableError(error)) {
+      return papDatabaseUnavailableResponse();
+    }
+
     return NextResponse.json({ error: "Failed to upload PAP screenshots." }, { status: 500 });
   }
 }

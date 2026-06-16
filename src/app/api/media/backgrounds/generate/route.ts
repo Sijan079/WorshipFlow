@@ -4,7 +4,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 import { rateLimitResponse } from "@/lib/rate-limit";
-import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 import { getServerEnv } from "@/lib/server-env";
 import {
   assertAcceptedEstimateMatches,
@@ -12,7 +12,8 @@ import {
   estimateBackgroundGeneration,
   parseBackgroundGenerationRequest,
 } from "@/features/media-generation/media-generation";
-import { createGeminiBackgroundProvider } from "@/features/media-generation/server/gemini-background-provider";
+import { deleteExpiredBackgroundOutputs } from "@/features/media-generation/server/background-output-retention";
+import { createOpenAIBackgroundProvider } from "@/features/media-generation/server/openai-background-provider";
 import { checkMediaGenerationRateLimits } from "@/features/media-generation/server/rate-limits";
 
 export async function POST(request: Request) {
@@ -23,22 +24,7 @@ export async function POST(request: Request) {
     const workspaceId = await getActiveWorkspaceId(prisma);
     const body = await request.json();
     const generationRequest = parseBackgroundGenerationRequest(body.request);
-
-    if (!generationRequest.serviceId) {
-      return NextResponse.json(
-        { error: "Select a worship service before generating a background." },
-        { status: 400 }
-      );
-    }
-
-    const service = await prisma.worshipService.findUnique({
-      where: serviceWorkspaceWhere(generationRequest.serviceId, workspaceId),
-      select: { id: true, ministryName: true, serviceDate: true },
-    });
-
-    if (!service) {
-      return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
-    }
+    await deleteExpiredBackgroundOutputs(prisma, workspaceId);
 
     const rateLimit = checkMediaGenerationRateLimits({
       request,
@@ -52,8 +38,8 @@ export async function POST(request: Request) {
     }
 
     const estimate = estimateBackgroundGeneration(generationRequest, {
-      imageModel: env.GEMINI_BACKGROUND_IMAGE_MODEL,
-      videoModel: env.GEMINI_BACKGROUND_VIDEO_MODEL,
+      imageModel: env.OPENAI_BACKGROUND_IMAGE_MODEL,
+      estimatedImageCostUsd: env.OPENAI_BACKGROUND_IMAGE_ESTIMATED_COST_USD,
     });
 
     if (!assertAcceptedEstimateMatches(body.acceptedEstimate, estimate)) {
@@ -66,11 +52,9 @@ export async function POST(request: Request) {
     const prompt = buildBackgroundPrompt(generationRequest);
     const job = await prisma.automationJob.create({
       data: {
-        serviceId: service.id,
-        jobType:
-          generationRequest.mediaType === "video"
-            ? JobType.BACKGROUND_VIDEO_GENERATE
-            : JobType.BACKGROUND_IMAGE_GENERATE,
+        workspaceId,
+        serviceId: null,
+        jobType: JobType.BACKGROUND_IMAGE_GENERATE,
         status: JobStatus.PROCESSING,
         inputJson: {
           request: generationRequest,
@@ -81,18 +65,17 @@ export async function POST(request: Request) {
     });
     jobId = job.id;
 
-    const provider = createGeminiBackgroundProvider(env);
+    const provider = createOpenAIBackgroundProvider(env);
     const result = await provider.generateBackground({
       request: generationRequest,
       prompt,
       estimate,
     });
-    const directory = generationRequest.mediaType === "video" ? "background-videos" : "background-images";
+    const directory = "background-images";
     const savedFile = await savePrivateOutputFile(directory, result.fileName, result.bytes, {
       contentType: result.mimeType,
     });
-    const outputType =
-      generationRequest.mediaType === "video" ? OutputType.BACKGROUND_VIDEO : OutputType.BACKGROUND_IMAGE;
+    const outputType = OutputType.BACKGROUND_IMAGE;
 
     const completed = await prisma.$transaction(async (tx) => {
       const updatedJob = await tx.automationJob.update({
@@ -113,7 +96,8 @@ export async function POST(request: Request) {
 
       const output = await tx.generatedOutput.create({
         data: {
-          serviceId: service.id,
+          workspaceId,
+          serviceId: null,
           jobId: job.id,
           type: outputType,
           filePath: savedFile.relativePath,

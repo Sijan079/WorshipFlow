@@ -111,7 +111,7 @@ const MEDIA_TOOLS: Array<{ id: MediaTool; href: string; label: string; descripti
     id: "background-generator",
     href: "/assets/background-generator",
     label: "Background Generator",
-    description: "Generate projection-ready image backgrounds and 15-second 480p worship loops with cost validation.",
+    description: "Generate projection-ready workspace image backgrounds with cost validation.",
   },
 ];
 
@@ -2859,7 +2859,7 @@ export default function ServiceBuilderClient({
             ) : null}
 
             {mediaTool === "background-generator" ? (
-              <BackgroundGeneratorTool services={services} showToast={showToast} />
+              <BackgroundGeneratorTool showToast={showToast} />
             ) : null}
 
           </div>

@@ -253,7 +253,8 @@ export type CreateAutomationJobPayload = {
 
 export type AutomationJobRecord = {
   id: string;
-  serviceId: string;
+  workspaceId: string;
+  serviceId: string | null;
   jobType: JobType;
   status: JobStatus;
   inputJson: unknown;
@@ -265,7 +266,8 @@ export type AutomationJobRecord = {
 
 export type GeneratedOutputRecord = {
   id: string;
-  serviceId: string;
+  workspaceId: string;
+  serviceId: string | null;
   jobId: string | null;
   type: OutputType;
   filePath: string;
@@ -273,7 +275,7 @@ export type GeneratedOutputRecord = {
 };
 
 export type BackgroundGenerationRequestPayload = {
-  mediaType: "image" | "video";
+  mediaType: "image";
   purpose: "lyrics" | "sermon" | "scripture" | "offering" | "announcements" | "general-worship";
   mood: "reverent" | "joyful" | "reflective" | "hopeful" | "quiet" | "celebration";
   visualStyle:
@@ -285,15 +287,12 @@ export type BackgroundGenerationRequestPayload = {
     | "atmospheric-clouds";
   textSafeArea: "center-clear" | "lower-third-clear" | "full-frame";
   promptDetails?: string;
-  serviceId?: string;
-  durationSeconds?: 15;
-  videoQuality?: "480p";
 };
 
 export type BackgroundGenerationEstimateRecord = {
-  provider: "gemini";
+  provider: "openai";
   model: string;
-  mediaType: "image" | "video";
+  mediaType: "image";
   format: "presentation-16:9";
   providerResolution: string;
   durationSeconds: number | null;
@@ -316,7 +315,6 @@ export type BackgroundGenerationEstimateResponse = {
 
 export type BackgroundGenerationOutputRecord = GeneratedOutputRecord & {
   job: AutomationJobRecord | null;
-  service: Pick<ServiceRecord, "id" | "ministryName" | "serviceDate">;
 };
 
 export function estimateBackgroundGeneration(payload: BackgroundGenerationRequestPayload) {
@@ -342,6 +340,10 @@ export function fetchGeneratedBackgrounds() {
 
 export async function downloadGeneratedBackground(outputId: string) {
   return downloadBinaryResponse(`/api/media/backgrounds/${outputId}/download`);
+}
+
+export function getGeneratedBackgroundPreviewUrl(outputId: string) {
+  return `/api/media/backgrounds/${encodeURIComponent(outputId)}/download?disposition=inline`;
 }
 
 export type ServiceDetailRecord = WorshipServiceDetail;

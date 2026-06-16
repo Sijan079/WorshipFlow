@@ -33,8 +33,18 @@ function toSafeInput(input: LyricsExtractorJobInput): LyricsExtractorSafeInput {
 }
 
 export async function createExtractorJob(serviceId: string, input: LyricsExtractorJobInput) {
+  const service = await prisma.worshipService.findUnique({
+    where: { id: serviceId },
+    select: { workspaceId: true },
+  });
+
+  if (!service) {
+    throw new Error("Worship service not found.");
+  }
+
   return prisma.automationJob.create({
     data: {
+      workspaceId: service.workspaceId,
       serviceId,
       jobType: JobType.TRANSPOSE,
       status: JobStatus.QUEUED,

@@ -1,11 +1,15 @@
 import { runPrivateOutputStorageTests } from "./lib/private-output-storage.test.ts";
 import { runSecurityContextTests } from "./lib/security-context.test.ts";
 import { runMediaGenerationTests } from "./features/media-generation/media-generation.test.ts";
+import { runBackgroundOutputRetentionTests } from "./features/media-generation/server/background-output-retention.test.ts";
+import { runPAPApiErrorTests } from "./features/pap/server/pap-api-errors.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
 runPrivateOutputStorageTests();
 runMediaGenerationTests();
+runBackgroundOutputRetentionTests();
+runPAPApiErrorTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

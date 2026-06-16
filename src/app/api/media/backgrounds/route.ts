@@ -3,24 +3,19 @@ import { OutputType } from "@prisma/client";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { getActiveWorkspaceId } from "@/lib/security-context";
+import { deleteExpiredBackgroundOutputs } from "@/features/media-generation/server/background-output-retention";
 
 export async function GET() {
   try {
     const workspaceId = await getActiveWorkspaceId(prisma);
+    await deleteExpiredBackgroundOutputs(prisma, workspaceId);
     const outputs = await prisma.generatedOutput.findMany({
       where: {
-        type: { in: [OutputType.BACKGROUND_IMAGE, OutputType.BACKGROUND_VIDEO] },
-        service: { workspaceId },
+        workspaceId,
+        type: OutputType.BACKGROUND_IMAGE,
       },
       include: {
         job: true,
-        service: {
-          select: {
-            id: true,
-            ministryName: true,
-            serviceDate: true,
-          },
-        },
       },
       orderBy: { createdAt: "desc" },
       take: 20,
