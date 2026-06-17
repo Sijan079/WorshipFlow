@@ -13,17 +13,45 @@ local development.
 For phone transfer testing from another device on the same network:
 
 ```powershell
-$env:NEXT_PUBLIC_PAP_PUBLIC_URL="http://YOUR_DESKTOP_IP:3000"
 npm run dev -- -H 0.0.0.0
 ```
 
-## PAP Signaling
+If Phone Transfer returns a storage-unavailable response, verify that the
+connected database has the PAP inbox migration applied. In Supabase SQL Editor:
 
-Run in a second terminal:
-
-```powershell
-npm run pap:signal
+```sql
+SELECT tablename
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename = 'PAPInboxScreenshot';
 ```
 
-If a phone can open the web app but cannot connect to PAP, verify that port
-`3001` is reachable from the phone.
+The query should return one row named `PAPInboxScreenshot`.
+
+## Workspace Hygiene
+
+Codex desktop startup and new-thread creation can slow down when the workspace
+accumulates large generated folders. For this project, the main culprits are
+usually:
+
+- `.next/`
+- `.codex-backups/`
+- `.worship-flow-private/` when it contains leftover generated assets
+
+Best-practice local cleanup:
+
+```powershell
+Remove-Item -LiteralPath .next -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath .codex-backups -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Notes:
+
+- `node_modules/` should usually stay in place unless you are fixing dependency
+  issues.
+- `.next/` is safe to delete whenever the dev server is stopped; Next.js will
+  rebuild it.
+- `.codex-backups/` is local-only scratch output and should not be allowed to
+  grow indefinitely.
+- Generated backgrounds and PAP temporary assets should stay temporary in local
+  development too; clean `.worship-flow-private/` if you are done testing them.

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PAP_SERVER_INBOX_TTL_MS, type PAPConnectionState, type PAPServerScreenshot } from "../types";
+import { PAP_INBOX_RETENTION_MS } from "../pap-constants";
+import type { PAPConnectionState, PAPServerScreenshot } from "../types";
 
 type UploadListResponse = {
   expiresAfterMs?: number;
@@ -21,11 +22,11 @@ function getDownloadUrl(screenshotId: string) {
   return `/api/pap/uploads/${encodeURIComponent(screenshotId)}/download`;
 }
 
-export function usePAPDesktopSession() {
+export function usePAPInbox() {
   const [state, setState] = useState<PAPConnectionState>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<PAPServerScreenshot[]>([]);
-  const [expiresAfterMs, setExpiresAfterMs] = useState(PAP_SERVER_INBOX_TTL_MS);
+  const [expiresAfterMs, setExpiresAfterMs] = useState(PAP_INBOX_RETENTION_MS);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -41,7 +42,7 @@ export function usePAPDesktopSession() {
         cache: "no-store",
       });
       const result = await parseJsonResponse<UploadListResponse>(response);
-      setExpiresAfterMs(result.expiresAfterMs ?? PAP_SERVER_INBOX_TTL_MS);
+      setExpiresAfterMs(result.expiresAfterMs ?? PAP_INBOX_RETENTION_MS);
       setFiles(result.screenshots);
       setState("connected");
       setError(null);
@@ -58,7 +59,7 @@ export function usePAPDesktopSession() {
     }, 3_000);
   }, [loadScreenshots, stopPolling]);
 
-  const restartSession = useCallback(() => {
+  const refreshInbox = useCallback(() => {
     setState("connecting");
     void loadScreenshots();
     schedulePolling();
@@ -116,21 +117,13 @@ export function usePAPDesktopSession() {
 
   return {
     clearFiles,
-    clearSession: clearFiles,
     downloadFile,
     error,
     expiresAfterMs,
     files,
     getPreviewUrl,
-    isLocalhostJoinUrl: false,
-    joinUrl: "",
-    peerId: "global-inbox",
-    refreshFiles: loadScreenshots,
+    refreshInbox,
     removeFile,
-    renameFile: () => undefined,
-    restartSession,
-    room: null,
-    session: null,
     state,
   };
 }

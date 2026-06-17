@@ -33,17 +33,17 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
   const activeProgress = pap.progress.find((item) => !item.done);
 
   return (
-    <section className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
-      <div className="border-b border-[var(--color-brand-border)] p-4">
+    <section className="ui-surface-panel">
+      <div className="border-b border-[var(--border-default)] p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Upload screenshots</h2>
-            <p className="mt-1 text-sm leading-5 text-[var(--color-text-secondary)]">
+            <p className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">
               Add images from this device to the shared temporary inbox.
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-sm border border-[var(--color-brand-border)] px-2 py-1 text-xs font-semibold">
-            {connected ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> : <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          <span className="inline-flex items-center gap-2 rounded-sm border border-[var(--border-default)] px-2 py-1 text-xs font-semibold">
+            {connected ? <CheckCircle2 className="h-3.5 w-3.5 text-[var(--state-success)]" /> : <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--text-accent)]" />}
             {connected ? "Ready" : pap.state}
           </span>
         </div>
@@ -63,12 +63,12 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
         className={`flex flex-col items-center justify-center border-b border-dashed p-5 text-center ${
           compact ? "min-h-[260px]" : "min-h-[360px]"
         } ${
-          isDragging ? "border-[var(--color-brand-accent)] bg-[var(--color-card-sky)]" : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)]"
+          isDragging ? "border-[var(--border-focus)] bg-[var(--palette-pastel-sky)]/15" : "border-[var(--border-default)] bg-[var(--surface-panel-alt)]"
         }`}
       >
-        <ImagePlus className="h-12 w-12 text-[var(--color-brand-accent)]" />
+        <ImagePlus className="h-12 w-12 text-[var(--action-primary-bg)]" />
         <h3 className="mt-4 text-lg font-semibold">Choose or take screenshot</h3>
-        <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
           Upload one or more images. The same inbox is visible from phone and desktop.
         </p>
         <textarea
@@ -77,7 +77,7 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
           rows={2}
           maxLength={180}
           placeholder="Optional note for this batch"
-          className="mt-5 w-full resize-none rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+          className="mt-5 w-full resize-none rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm"
         />
         <input
           ref={inputRef}
@@ -94,7 +94,7 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
             showToast("Opening image picker.");
             inputRef.current?.click();
           }}
-          className="pressable mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-brand-accent)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="pressable ui-btn-primary mt-5 inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold disabled:opacity-50"
         >
           <Send className="h-4 w-4" />
           Select Images
@@ -102,18 +102,18 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
       </div>
 
       {activeProgress ? (
-        <div className="border-b border-[var(--color-brand-border)] p-4 text-sm">
+        <div className="border-b border-[var(--border-default)] p-4 text-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="font-semibold">
               Uploading {activeProgress.batchIndex} / {activeProgress.batchTotal}
             </span>
-            <span className="text-[var(--color-text-secondary)]">
+            <span className="text-[var(--text-secondary)]">
               {percent(activeProgress.sentBytes, activeProgress.totalBytes)}%
             </span>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--color-brand-panel-alt)]">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-panel-alt)]">
             <div
-              className="h-full rounded-full bg-[var(--color-brand-accent)] transition-[width] duration-200"
+              className="h-full rounded-full bg-[var(--action-primary-bg)] transition-[width] duration-200"
               style={{ width: `${percent(activeProgress.sentBytes, activeProgress.totalBytes)}%` }}
             />
           </div>
@@ -121,13 +121,13 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
       ) : null}
 
       {sentCount > 0 ? (
-        <div className="border-b border-green-700/30 bg-green-500/10 p-4 text-center text-sm font-semibold text-green-300">
+        <div className="border-b border-[color-mix(in_oklab,var(--state-success)_28%,transparent)] bg-[var(--state-success-soft)] p-4 text-center text-sm font-semibold text-[var(--state-success)]">
           {sentCount} screenshot{sentCount === 1 ? "" : "s"} uploaded. The inbox will refresh automatically.
         </div>
       ) : null}
 
       {pap.error ? (
-        <div className="m-4 flex gap-3 rounded-md border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-200">
+        <div className="m-4 flex gap-3 rounded-[var(--radius-control)] border border-[color-mix(in_oklab,var(--state-danger)_28%,transparent)] bg-[var(--state-danger-soft)] p-4 text-sm leading-6 text-[var(--state-danger)]">
           <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
           <p>{pap.error}</p>
         </div>
@@ -136,10 +136,10 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
       {pap.progress.length > 0 ? (
         <div className="space-y-2 p-4">
           {pap.progress.map((item) => (
-            <div key={item.transferId} className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-3">
+            <div key={item.transferId} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate font-semibold">{item.fileName}</span>
-                <span className="shrink-0 text-[var(--color-text-secondary)]">
+                <span className="shrink-0 text-[var(--text-secondary)]">
                   {item.done ? "Done" : `${percent(item.sentBytes, item.totalBytes)}%`}
                 </span>
               </div>

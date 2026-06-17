@@ -92,21 +92,8 @@ model Workspace {
   generatedOutputs GeneratedOutput[]
 }
 
-model PAPTransferRoom {
+model PapInboxScreenshot {
   id          String   @id @default(uuid())
-  tokenHash   String   @unique
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime
-  revokedAt   DateTime?
-
-  screenshots PAPScreenshot[]
-
-  @@index([expiresAt])
-}
-
-model PAPScreenshot {
-  id          String   @id @default(uuid())
-  roomId      String
   batchId     String
   batchIndex  Int
   batchTotal  Int
@@ -118,10 +105,9 @@ model PAPScreenshot {
   deviceName  String?
   createdAt   DateTime @default(now())
 
-  room        PAPTransferRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  @@index([roomId, createdAt])
-  @@index([roomId, batchId])
+  @@index([createdAt])
+  @@index([batchId, createdAt])
+  @@map("PAPInboxScreenshot")
 }
 
 model WorshipService {

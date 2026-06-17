@@ -283,7 +283,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               <select
                 value={presetId}
                 onChange={(event) => applyPreset(event.target.value as QRPresetId)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               >
                 {QR_PRESETS.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -298,7 +298,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               <select
                 value={sizePreset}
                 onChange={(event) => setSizePreset(event.target.value as QRSizePreset)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               >
                 {Object.entries(SIZE_PRESETS).map(([id, preset]) => (
                   <option key={id} value={id}>
@@ -315,13 +315,13 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               value={destination}
               onChange={(event) => setDestination(event.target.value)}
               rows={4}
-              className="mt-1 w-full resize-none rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-4 py-3 text-sm leading-6 text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+              className="mt-1 w-full resize-none rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               placeholder="https://example.com/pre-register"
             />
           </label>
 
           {warningText ? (
-            <p className="rounded-lg border border-[#f59e0b66] bg-[#f59e0b1a] px-3 py-2 text-xs font-semibold text-[#fbbf24]">{warningText}</p>
+            <p className="rounded-[var(--radius-control)] border border-[color-mix(in_oklab,var(--state-warning)_28%,transparent)] bg-[var(--state-warning-soft)] px-3 py-2 text-xs font-semibold text-[var(--state-warning)]">{warningText}</p>
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -330,7 +330,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               <select
                 value={exportMode}
                 onChange={(event) => setExportMode(event.target.value as QRExportMode)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               >
                 <option value="card">Labeled Card</option>
                 <option value="qr">QR Only</option>
@@ -345,7 +345,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                   manualFieldsRef.current.filename = true;
                   setFilename(event.target.value);
                 }}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               />
             </label>
           </div>
@@ -359,7 +359,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                   manualFieldsRef.current.title = true;
                   setTitle(event.target.value);
                 }}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               />
             </label>
 
@@ -371,7 +371,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                   manualFieldsRef.current.subtitle = true;
                   setSubtitle(event.target.value);
                 }}
-                className="mt-1 w-full rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2.5 text-sm text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
               />
             </label>
           </div>
@@ -379,41 +379,41 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="technical-label">Foreground</span>
-              <span className="mt-1 flex items-center gap-3 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
+              <span className="mt-1 flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2">
                 <input type="color" value={foreground} onChange={(event) => setForeground(event.target.value)} className="h-8 w-10 bg-transparent" />
-                <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--color-brand-ink)]">{foreground.toUpperCase()}</span>
+                <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--text-primary)]">{foreground.toUpperCase()}</span>
               </span>
             </label>
 
             <label className="block">
               <span className="technical-label">Background</span>
-              <span className="mt-1 flex items-center gap-3 rounded-lg border border-[var(--color-brand-border)] bg-[#060e20] px-3 py-2">
+              <span className="mt-1 flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2">
                 <input type="color" value={background} onChange={(event) => setBackground(event.target.value)} className="h-8 w-10 bg-transparent" />
-                <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--color-brand-ink)]">{background.toUpperCase()}</span>
+                <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--text-primary)]">{background.toUpperCase()}</span>
               </span>
             </label>
           </div>
         </div>
 
-        <div className="flex min-h-[520px] flex-col rounded-lg border border-[var(--color-brand-border)] bg-[#060e20]">
-          <div className="flex items-center justify-between border-b border-[var(--color-brand-border)] px-4 py-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-              {exportMode === "card" ? <FileImage className="h-4 w-4 text-[var(--color-secondary)]" /> : <QrCode className="h-4 w-4 text-[var(--color-secondary)]" />}
+        <div className="ui-surface-panel flex min-h-[520px] flex-col">
+          <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+              {exportMode === "card" ? <FileImage className="h-4 w-4 text-[var(--state-ready)]" /> : <QrCode className="h-4 w-4 text-[var(--state-ready)]" />}
               {exportMode === "card" ? "Labeled Card" : "QR Only"}
             </div>
-            <span className="font-[var(--font-mono)] text-xs font-semibold text-[var(--color-text-secondary)]">
+            <span className="font-[var(--font-mono)] text-xs font-semibold text-[var(--text-secondary)]">
               {exportMode === "card" ? `${activeSize.cardWidth}x${activeSize.cardHeight}` : `${activeSize.qrPixels}x${activeSize.qrPixels}`}
             </span>
           </div>
 
           <div className="flex flex-1 items-center justify-center p-5">
             {!trimmedDestination ? (
-              <div className="flex max-w-xs flex-col items-center text-center text-sm text-[var(--color-text-secondary)]">
-                <Link2 className="mb-3 h-8 w-8 text-[var(--color-secondary)]" />
+              <div className="flex max-w-xs flex-col items-center text-center text-sm text-[var(--text-secondary)]">
+                <Link2 className="mb-3 h-8 w-8 text-[var(--state-ready)]" />
                 Enter a link or text value to generate a QR asset.
               </div>
             ) : error ? (
-              <p className="max-w-xs text-center text-sm font-semibold text-[#fca5a5]">{error}</p>
+              <p className="max-w-xs text-center text-sm font-semibold text-[var(--state-danger)]">{error}</p>
             ) : exportMode === "card" ? (
               <div className="w-full max-w-[430px] rounded-lg bg-slate-50 p-7 text-center text-slate-900">
                 <p className="text-2xl font-bold leading-tight">{title.trim() || selectedPreset.title || "Scan the QR Code"}</p>
@@ -431,12 +431,12 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
             )}
           </div>
 
-          <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--color-brand-border)] p-4">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--border-default)] p-4">
             <button
               type="button"
               onClick={copySource}
               disabled={!trimmedDestination}
-              className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)] disabled:opacity-50"
+              className="pressable ui-btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold disabled:opacity-50"
             >
               <Copy className="h-4 w-4" />
               Copy Source
@@ -445,7 +445,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               type="button"
               onClick={copyImage}
               disabled={!canExport}
-              className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)] disabled:opacity-50"
+              className="pressable ui-btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold disabled:opacity-50"
             >
               <Clipboard className="h-4 w-4" />
               Copy PNG
@@ -455,7 +455,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                 type="button"
                 onClick={downloadSvg}
                 disabled={!canExport}
-                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)] disabled:opacity-50"
+                className="pressable ui-btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold disabled:opacity-50"
               >
                 <Check className="h-4 w-4" />
                 SVG
@@ -465,7 +465,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
               type="button"
               onClick={downloadPng}
               disabled={!canExport}
-              className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-50"
+              className="pressable ui-btn-primary inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               PNG

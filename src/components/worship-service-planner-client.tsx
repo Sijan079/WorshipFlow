@@ -262,7 +262,7 @@ export default function WorshipServicePlannerClient() {
                 })}
               </div>
 
-              <section className="mt-8 rounded-xl border border-[var(--color-brand-border)] bg-[#14151d] p-8">
+              <section className="mt-8 rounded-[var(--radius-container)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-8">
                 <div className="grid gap-5 md:grid-cols-[1fr_auto_auto] md:items-center">
                   <div>
                     <h2 className="text-2xl font-bold text-[var(--color-brand-ink)]">Production Quick Actions</h2>
@@ -283,8 +283,8 @@ export default function WorshipServicePlannerClient() {
             <aside className="space-y-6 border-l border-[var(--color-brand-border)] pl-5">
               <section>
                 <p className="technical-label">NEXT UP PREVIEW</p>
-                <div className="mt-4 overflow-hidden rounded-xl border border-[var(--color-brand-border)] bg-[#060e20]">
-                  <div className="flex aspect-video items-center justify-center bg-[radial-gradient(circle_at_center,#3b235f,#060e20_62%)]">
+                <div className="mt-4 overflow-hidden rounded-[var(--radius-container)] border border-[var(--border-default)] bg-[var(--surface-canvas)]">
+                  <div className="flex aspect-video items-center justify-center bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--action-primary-bg)_26%,transparent),var(--surface-canvas)_62%)]">
                     <Eye className="h-10 w-10 text-[var(--color-focus)]" />
                   </div>
                   <p className="px-4 py-3 text-sm font-bold text-[var(--color-brand-ink)]">Pastor Dave Standby</p>

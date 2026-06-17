@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ACCESS_SESSION_COOKIE, verifyAccessSessionCookie } from "@/lib/access-auth";
-
-const PUBLIC_PATH_PREFIXES = [
-  "/_next",
-  "/favicon.ico",
-  "/login",
-  "/api/auth/login",
-  "/api/pap/diagnostics",
-  "/api/pap/signaling/",
-];
+import { isPublicPathForProxy } from "@/lib/proxy-paths";
 
 export function proxy(request: NextRequest) {
   const accessPassword = process.env.APP_ACCESS_PASSWORD;
@@ -18,7 +10,7 @@ export function proxy(request: NextRequest) {
     return new NextResponse("Production access gate is not configured.", { status: 503 });
   }
 
-  if (!accessPassword || isPublicPath(request.nextUrl.pathname)) {
+  if (!accessPassword || isPublicPathForProxy(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
@@ -41,7 +33,3 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
-
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
-}

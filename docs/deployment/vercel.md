@@ -15,6 +15,8 @@
 - Test service creation, Song Formatter, and Media Tools.
 - Test PAP phone transfer by uploading from phone, viewing from desktop, and
   downloading or deleting from the shared inbox.
+- Test Background Generator by validating an estimate, generating an image,
+  previewing it, and downloading it from the output surface.
 
 ## Web App
 
@@ -66,7 +68,8 @@ Supabase setup:
 - Use the Supabase project URL for `NEXT_PUBLIC_SUPABASE_URL`.
 - Use the Supabase publishable/anon key for
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- Create a private Supabase Storage bucket for temporary PAP files.
+- Create a private Supabase Storage bucket for temporary PAP files and generated
+  workspace background assets.
 - Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SUPABASE_PRIVATE_BUCKET` for
   server-side private storage. Do not expose the secret key to the browser.
 - When `DIRECT_DATABASE_URL` is configured, the Vercel build command runs
@@ -86,7 +89,6 @@ Optional AI extractor variables:
 
 PAP production variables:
 
-- `NEXT_PUBLIC_PAP_PUBLIC_URL`
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `SUPABASE_PRIVATE_BUCKET`
@@ -114,8 +116,7 @@ routes. For public or higher-traffic deployments, add an edge/managed rate limit
 service because serverless instances do not share in-memory counters.
 
 Content Security Policy is enabled in `next.config.ts`. It currently allows
-inline scripts/styles for compatibility with Next.js and permits `ws:`/`wss:`
-connections for PAP signaling.
+inline scripts/styles for compatibility with Next.js.
 
 ## Health Check
 
@@ -134,9 +135,20 @@ or batch download from any trusted device, then delete or let the uploads expire
 Production deployments should use the Supabase Storage-backed private storage
 adapter for these temporary files.
 
-Generated automation outputs may still use local file output during development.
-Before relying on generated output persistence in production, either move those
-outputs to database-backed records or add a storage adapter.
+Generated backgrounds and PAP temporary assets now use the private output
+storage adapter. In production, that adapter should be backed by Supabase
+Storage so serverless runtimes do not depend on local filesystem persistence.
+
+When debugging generated background preview or download issues, look for the
+private output storage diagnostics in runtime logs:
+
+- `private-output-storage save`
+- `private-output-storage read`
+- `private-output-storage delete`
+
+Healthy production background records should log `storageMode: 'supabase'`.
+Legacy records from older deploys may still log `storageMode: 'filesystem'` and
+fail on Vercel because local files are not durable across serverless requests.
 
 ## PAP Global Inbox
 
@@ -146,5 +158,15 @@ tokens. Upload, list, download, and delete actions require the normal app access
 gate.
 
 Uploads are stored as private files and metadata rows. Room-token tables remain
-available as implementation storage, but the active user flow is the global
-temporary inbox.
+inbox-specific through `PAPInboxScreenshot`; the legacy room-token and signaling
+tables are no longer part of the active PAP schema.
+
+If Phone Transfer returns a storage-unavailable response in a deployed
+environment, verify that the latest PAP migration has been applied to the
+connected database:
+
+```sql
+SELECT migration_name, finished_at
+FROM "_prisma_migrations"
+WHERE migration_name = '20260617000000_remove_legacy_pap_runtime';
+```

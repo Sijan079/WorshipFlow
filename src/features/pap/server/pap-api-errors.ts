@@ -1,5 +1,5 @@
 export const PAP_DATABASE_UNAVAILABLE_MESSAGE =
-  "PAP media bridge storage is temporarily unavailable. Check the database connection and try again.";
+  "PAP media bridge storage is temporarily unavailable. Check the database connection and ensure the latest PAP inbox migration has been applied.";
 
 type PrismaLikeError = {
   code?: string;
@@ -21,7 +21,9 @@ export function isPAPDatabaseUnavailableError(error: unknown) {
 
   return (
     candidate.code === "P1001" ||
+    candidate.code === "P2021" ||
     (candidate.code === "P2010" && /database not reachable/i.test(metaMessage)) ||
+    /PAPInboxScreenshot/i.test(message) ||
     /database not reachable/i.test(message)
   );
 }

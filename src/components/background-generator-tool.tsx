@@ -184,16 +184,16 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-slate-700/80 bg-slate-950/70 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.35)]">
+      <section className="ui-surface-elevated p-5">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-50">Background Generator</h2>
-            <p className="text-sm text-slate-400">Create a workspace image asset in three controlled stages.</p>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Background Generator</h2>
+            <p className="text-sm text-[var(--text-secondary)]">Create a workspace image asset in three controlled stages.</p>
           </div>
           <StageProgress activeStage={activeStage} />
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50">
+        <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-panel)_74%,transparent)]">
           <div
             className="flex transition-transform duration-300 ease-out"
             style={{ transform: `translateX(-${stageIndex * 100}%)` }}
@@ -259,14 +259,16 @@ function StagePanel({ children }: { children: React.ReactNode }) {
 
 function StageProgress({ activeStage }: { activeStage: BackgroundStage }) {
   return (
-    <div className="flex gap-2 rounded-lg border border-slate-800 bg-slate-900/80 p-1">
+    <div className="flex gap-2 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-panel-strong)_82%,transparent)] p-1">
       {stageOrder.map((stage, index) => {
         const isActive = activeStage === stage;
         return (
           <div
             key={stage}
             className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
-              isActive ? "bg-purple-500 text-white" : "text-slate-400"
+              isActive
+                ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]"
+                : "text-[var(--text-secondary)]"
             }`}
           >
             <span className="font-[var(--font-mono)] text-xs">{index + 1}</span>
@@ -292,7 +294,7 @@ function DataEntryStage({
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
       <div className="space-y-4">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-200">
+        <div className="ui-surface-panel-alt flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)]">
           <ImageIcon size={16} />
           Workspace image asset
         </div>
@@ -305,30 +307,30 @@ function DataEntryStage({
         </div>
 
         <label className="block">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <span className="ui-technical-label mb-2 block">
             Prompt Details
           </span>
           <textarea
-            className="min-h-28 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-purple-400"
+            className="min-h-28 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
             maxLength={500}
             value={request.promptDetails ?? ""}
             onChange={(event) => onUpdateRequest({ promptDetails: event.target.value || undefined })}
             placeholder="Optional: color palette, lighting feel, or sanctuary-specific direction."
           />
-          <span className="mt-1 block text-xs text-slate-500">{request.promptDetails?.length ?? 0}/500</span>
+          <span className="ui-meta-text mt-1 block">{request.promptDetails?.length ?? 0}/500</span>
         </label>
       </div>
 
-      <div className="flex flex-col justify-between rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+      <div className="ui-surface-panel-alt flex flex-col justify-between p-4">
         <div>
-          <p className="text-sm font-medium text-slate-100">Required before estimate</p>
-          <p className="mt-2 text-sm text-slate-400">Mood and Style must be selected before the estimate can be validated.</p>
+          <p className="text-sm font-medium text-[var(--text-primary)]">Required before estimate</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Mood and Style must be selected before the estimate can be validated.</p>
         </div>
         <button
           type="button"
           onClick={onEstimate}
           disabled={isPending || !request.mood || !request.visualStyle}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          className="ui-btn-primary mt-4 flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
           Validate Estimate
@@ -353,10 +355,10 @@ function EstimationStage({
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-semibold text-slate-50">Generation Estimate</h3>
-          <p className="text-sm text-slate-400">Review provider, resolution, and estimated cost before generation.</p>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">Generation Estimate</h3>
+          <p className="text-sm text-[var(--text-secondary)]">Review provider, resolution, and estimated cost before generation.</p>
         </div>
-        <span className="rounded bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-200">16:9</span>
+        <span className="rounded-[var(--radius-control)] bg-[var(--state-ready-soft)] px-2 py-1 text-xs font-semibold text-[var(--state-ready)]">16:9</span>
       </div>
 
       {estimate ? (
@@ -367,12 +369,12 @@ function EstimationStage({
           <Metric label="Media" value="Image" />
           <Metric label="Input Tokens" value={estimate.estimatedInputTokens ?? "Provider reported"} />
           <Metric label="Output Tokens" value={estimate.estimatedOutputTokens ?? "Provider reported"} />
-          <p className="sm:col-span-2 lg:col-span-3 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
+          <p className="sm:col-span-2 lg:col-span-3 rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--state-warning)_28%,transparent)] bg-[var(--state-warning-soft)] p-3 text-sm text-[var(--state-warning)]">
             {estimate.freeTierNote}
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-slate-700 p-6 text-sm text-slate-400">
+        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] p-6 text-sm text-[var(--text-secondary)]">
           Return to Data Entry and validate the estimate before generating.
         </div>
       )}
@@ -381,7 +383,7 @@ function EstimationStage({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+          className="ui-btn-secondary flex items-center justify-center gap-2"
         >
           <ArrowLeft size={16} />
           Back to Data Entry
@@ -390,7 +392,7 @@ function EstimationStage({
           type="button"
           onClick={onGenerate}
           disabled={!estimate || isPending}
-          className="flex items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="ui-btn-primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
           Generate Background
@@ -415,8 +417,8 @@ function OutputStage({
 }) {
   if (isPending) {
     return (
-      <div className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-lg border border-slate-800 bg-slate-950/70 text-slate-300">
-        <Loader2 className="animate-spin text-purple-200" size={28} />
+      <div className="ui-surface-panel-alt flex min-h-80 flex-col items-center justify-center gap-3 text-[var(--text-secondary)]">
+        <Loader2 className="animate-spin text-[var(--text-accent)]" size={28} />
         <p className="text-sm font-medium">Generating background...</p>
       </div>
     );
@@ -424,12 +426,12 @@ function OutputStage({
 
   if (!output) {
     return (
-      <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-slate-700 bg-slate-950/50 text-center">
-        <p className="text-sm text-slate-400">No generated output is ready yet.</p>
+      <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-panel)_72%,transparent)] text-center">
+        <p className="text-sm text-[var(--text-secondary)]">No generated output is ready yet.</p>
         <button
           type="button"
           onClick={onReset}
-          className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          className="ui-btn-secondary flex items-center gap-2"
         >
           <RotateCcw size={16} />
           Restart Process
@@ -442,7 +444,7 @@ function OutputStage({
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
-      <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+      <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)]">
         <Image
           src={getGeneratedBackgroundPreviewUrl(output.id)}
           alt="Generated worship background preview"
@@ -452,17 +454,17 @@ function OutputStage({
           className="aspect-video h-full w-full object-cover"
         />
       </div>
-      <div className="flex flex-col justify-between rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+      <div className="ui-surface-panel-alt flex flex-col justify-between p-4">
         <div>
-          <p className="text-sm font-medium text-slate-100">Generated image ready</p>
-          <p className="mt-2 text-sm text-slate-400">Download it to finish, or restart the process without downloading.</p>
+          <p className="text-sm font-medium text-[var(--text-primary)]">Generated image ready</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Download it to finish, or restart the process without downloading.</p>
         </div>
         <div className="mt-4 space-y-2">
           <button
             type="button"
             onClick={() => onDownload(output.id)}
             disabled={isDownloading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+            className="ui-btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-80"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
             {isDownloading ? "Preparing download..." : "Download"}
@@ -470,7 +472,7 @@ function OutputStage({
           <button
             type="button"
             onClick={onReset}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+            className="ui-btn-secondary flex w-full items-center justify-center gap-2"
           >
             <RotateCcw size={16} />
             Restart Process
@@ -497,16 +499,16 @@ function RecentBackgroundShelf({
   onRefresh: () => void;
 }) {
   return (
-    <section className="rounded-xl border border-slate-700/80 bg-slate-950/70 p-5">
+    <section className="ui-surface-panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-slate-50">10 Most Recent Generated Images</h3>
-          <p className="text-sm text-slate-400">Workspace assets expire after 24 hours.</p>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">10 Most Recent Generated Images</h3>
+          <p className="text-sm text-[var(--text-secondary)]">Workspace assets expire after 24 hours.</p>
         </div>
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded-lg border border-slate-700 p-2 text-slate-300 hover:bg-slate-800"
+          className="ui-btn-secondary p-2"
           aria-label="Refresh backgrounds"
         >
           <RefreshCcw size={16} />
@@ -514,11 +516,11 @@ function RecentBackgroundShelf({
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-dashed border-slate-700 p-6 text-sm text-slate-400">Loading images...</div>
+        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] p-6 text-sm text-[var(--text-secondary)]">Loading images...</div>
       ) : null}
 
       {!isLoading && backgrounds.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-700 p-6 text-sm text-slate-400">
+        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] p-6 text-sm text-[var(--text-secondary)]">
           No generated backgrounds yet.
         </div>
       ) : null}
@@ -526,11 +528,11 @@ function RecentBackgroundShelf({
       {backgrounds.length > 0 ? (
         <div className="flex gap-3 overflow-x-auto pb-1">
           {backgrounds.map((output) => (
-            <article key={output.id} className="w-56 shrink-0 rounded-lg border border-slate-800 bg-slate-900/70 p-2">
+            <article key={output.id} className="w-56 shrink-0 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-panel-strong)_78%,transparent)] p-2">
               <button
                 type="button"
                 onClick={() => onPreview(output)}
-                className="block aspect-video w-full overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-left"
+                className="block aspect-video w-full overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-left"
                 aria-label="Preview generated background"
               >
                 <Image
@@ -543,7 +545,7 @@ function RecentBackgroundShelf({
                 />
               </button>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <p className="truncate text-xs text-slate-500">{new Date(output.createdAt).toLocaleString()}</p>
+                <p className="ui-meta-text truncate">{new Date(output.createdAt).toLocaleString()}</p>
                 {(() => {
                   const isDownloading = downloadingOutputId === output.id;
                   return (
@@ -551,7 +553,7 @@ function RecentBackgroundShelf({
                   type="button"
                   onClick={() => onDownload(output.id)}
                   disabled={isDownloading}
-                  className="rounded-md border border-slate-700 p-1.5 text-slate-200 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-75"
+                  className="ui-btn-secondary rounded-[var(--radius-control)] p-1.5 disabled:cursor-wait disabled:opacity-75"
                   aria-label="Download generated background"
                 >
                   {isDownloading ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
@@ -586,22 +588,24 @@ function BackgroundPreviewModal({
       : "text-black [text-shadow:0_1px_10px_rgba(255,255,255,0.55)]";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4">
+      <div className="ui-modal flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-3">
           <div>
-            <h3 className="text-sm font-semibold text-slate-50">Generated Background Preview</h3>
-            <p className="text-xs text-slate-500">{new Date(output.createdAt).toLocaleString()}</p>
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Generated Background Preview</h3>
+            <p className="ui-meta-text">{new Date(output.createdAt).toLocaleString()}</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-700 bg-slate-900 p-1">
+            <div className="flex rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1">
               {(["white", "black"] as const).map((tone) => (
                 <button
                   key={tone}
                   type="button"
                   onClick={() => setOverlayTextTone(tone)}
                   className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${
-                    overlayTextTone === tone ? "bg-purple-500 text-white" : "text-slate-300 hover:bg-slate-800"
+                    overlayTextTone === tone
+                      ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)]"
                   }`}
                 >
                   {tone}
@@ -611,15 +615,15 @@ function BackgroundPreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 p-2 text-slate-300 hover:bg-slate-800"
+              className="ui-btn-secondary p-2"
               aria-label="Close preview"
             >
               <X size={16} />
             </button>
           </div>
         </div>
-        <div className="min-h-0 overflow-auto bg-slate-950 p-4">
-          <div className="relative mx-auto aspect-video max-h-[62vh] w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+        <div className="min-h-0 overflow-auto bg-[var(--surface-panel-alt)] p-4">
+          <div className="relative mx-auto aspect-video max-h-[62vh] w-full overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)]">
             <Image
               src={getGeneratedBackgroundPreviewUrl(output.id)}
               alt="Generated worship background preview"
@@ -638,12 +642,12 @@ function BackgroundPreviewModal({
             </div>
           </div>
         </div>
-        <div className="border-t border-slate-800 px-4 py-3">
+        <div className="border-t border-[var(--border-default)] px-4 py-3">
           <button
             type="button"
             onClick={() => onDownload(output.id)}
             disabled={isDownloading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+            className="ui-btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-80"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
             {isDownloading ? "Preparing download..." : "Download"}
@@ -667,9 +671,9 @@ function SelectField<T extends string>({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <span className="ui-technical-label mb-2 block">{label}</span>
       <select
-        className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-purple-400"
+        className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
       >
@@ -686,9 +690,9 @@ function SelectField<T extends string>({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-100">{value}</p>
+    <div className="ui-surface-panel-alt p-3">
+      <p className="ui-technical-label">{label}</p>
+      <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{value}</p>
     </div>
   );
 }

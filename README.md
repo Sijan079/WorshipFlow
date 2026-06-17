@@ -16,7 +16,7 @@ Upload or paste worship lyrics, process them locally or with AI assistance, then
 Keep worship songs organized with metadata, keys, tempo, language, and service usage context.
 
 ### Media Tools
-Prepare production assets with tools for QR generation, media conversion, and booth handoff workflows.
+Prepare production assets with tools for Phone Transfer, QR generation, and Background Generator workflows.
 
 ### Live Outputs
 Support captions, translations, automation jobs, generated outputs, and future live production workflows from the same operational surface.
@@ -38,7 +38,7 @@ It is a worship preparation OS for the people arranging, formatting, assigning, 
 Project documentation lives under `docs/`:
 
 - `docs/specs/` - version-controlled feature specs.
-- `docs/specs/media-tools/` - individual specs for Phone Transfer and QR Generator.
+- `docs/specs/media-tools/` - individual specs for Phone Transfer, QR Generator, and Background Generator.
 - `docs/deployment/` - deployment notes, including Vercel planning.
 - `docs/development/` - local development workflows.
 - `docs/product/` and `docs/design/` - product and design support notes.

@@ -29,6 +29,7 @@ const NAV_ITEMS = [
 const MEDIA_TOOL_NAV = [
   { href: "/assets/phone-transfer", label: "Phone Transfer" },
   { href: "/assets/qr-generator", label: "QR Generator" },
+  { href: "/assets/background-generator", label: "Background Generator" },
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
@@ -96,17 +97,17 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-brand-bg)] text-[var(--color-text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="hidden min-h-screen border-r border-[var(--color-brand-border)] bg-[#060e20] px-4 py-4 lg:flex lg:flex-col">
+    <div className="min-h-screen bg-[var(--surface-app)] text-[var(--text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="hidden min-h-screen border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-4 py-4 lg:flex lg:flex-col">
         <div className="mb-10 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-brand-accent)] text-[var(--color-accent-ink)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]">
               {formatterMode ? <Sparkles className="h-5 w-5" /> : <ListMusic className="h-5 w-5" />}
           </div>
           <div>
-            <Link href="/planner" className="block text-2xl font-bold leading-none text-[var(--color-focus)]">
+            <Link href="/planner" className="block text-2xl font-bold leading-none text-[var(--text-accent)]">
               Tech Suite
             </Link>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
               {formatterMode ? "Song Formatter" : "Production Hub"}
             </p>
           </div>
@@ -127,8 +128,8 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                 <div
                   className={`flex items-center rounded-lg border-l-4 ${
                     active
-                      ? "border-l-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
-                      : "border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
+                      ? "border-l-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
+                      : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   <Link
@@ -143,7 +144,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                     <button
                       type="button"
                       onClick={() => setMediaToolsOpen((current) => !current)}
-                      className="pressable mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-[var(--color-brand-panel)]"
+                      className="pressable mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel)]"
                       aria-label={mediaToolsOpen ? "Collapse media tools" : "Expand media tools"}
                       aria-expanded={mediaToolsOpen}
                     >
@@ -153,7 +154,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                 </div>
 
                 {showMediaChildren ? (
-                  <div className="ml-7 mt-1 flex flex-col gap-1 border-l border-[var(--color-brand-border)] pl-3">
+                  <div className="ml-7 mt-1 flex flex-col gap-1 border-l border-[var(--border-default)] pl-3">
                     {MEDIA_TOOL_NAV.map((item) => {
                       const childActive = pathname === item.href;
                       return (
@@ -162,8 +163,8 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                           href={item.href}
                           className={`pressable rounded-md px-3 py-2 text-xs font-semibold ${
                             childActive
-                              ? "bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)]"
-                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
+                              ? "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
+                              : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
                           }`}
                           aria-current={childActive ? "page" : undefined}
                         >
@@ -178,17 +179,17 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
           })}
         </nav>
 
-        <div className="mt-auto border-t border-[var(--color-brand-border)] pt-4">
-          <div className="rounded-xl bg-[var(--color-brand-panel)] p-3">
+        <div className="mt-auto border-t border-[var(--border-default)] pt-4">
+          <div className="ui-surface-panel p-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-brand-accent)] font-bold text-[var(--color-accent-ink)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--action-primary-bg)] font-bold text-[var(--action-primary-ink)]">
                 {formatterMode ? "AU" : "CH"}
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--color-brand-ink)]">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
                   {formatterMode ? "Admin User" : "Central Church"}
                 </p>
-                <p className="mt-0.5 inline-flex items-center gap-1 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--color-danger)]">
+                <p className="mt-0.5 inline-flex items-center gap-1 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--state-danger)]">
                   {formatterMode ? null : <span className="status-pip status-pip-live" />}
                   {formatterMode ? "Production Mode" : "Live Booth"}
                 </p>
@@ -197,7 +198,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
             <button
               type="button"
               onClick={logout}
-              className="pressable mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[var(--color-brand-border)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-strong)] hover:text-[var(--color-brand-ink)]"
+              className="pressable mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border-default)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out
@@ -207,23 +208,23 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
       </aside>
 
       <div className="min-w-0">
-        <header className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] lg:hidden">
+        <header className="border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] lg:hidden">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/planner" className="text-sm font-semibold text-[var(--color-brand-ink)]">
+              <Link href="/planner" className="text-sm font-semibold text-[var(--text-primary)]">
                 Worship Production OS
               </Link>
               <button
                 type="button"
                 onClick={logout}
-                className="pressable inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-text-secondary)]"
+                className="pressable inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)]"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>
-          <nav className="flex gap-2 overflow-x-auto border-t border-[var(--color-brand-border)] px-3 py-2" aria-label="Production workspace">
+          <nav className="flex gap-2 overflow-x-auto border-t border-[var(--border-default)] px-3 py-2" aria-label="Production workspace">
             {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
               const active =
                 href === "/services#team"
@@ -237,8 +238,8 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                   href={href}
                   className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
                     active
-                      ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-panel-strong)] text-[var(--color-brand-ink)] shadow-[0_4px_12px_color-mix(in_oklab,var(--color-brand-accent)_10%,transparent)]"
-                      : "border-[var(--color-brand-border)] text-[var(--color-text-secondary)]"
+                      ? "border-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-primary)] shadow-[var(--elevation-subtle)]"
+                      : "border-[var(--border-default)] text-[var(--text-secondary)]"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -254,24 +255,24 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
       </div>
 
       {showInProgressWarning ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 px-4 pt-20" role="alertdialog" aria-modal="true" aria-labelledby="in-progress-warning-title">
-          <div className="w-full max-w-md rounded-lg border border-[var(--color-rule-strong)] bg-[var(--color-brand-panel-strong)] p-4 shadow-[0_12px_32px_color-mix(in_oklab,black_36%,transparent)]">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--surface-overlay)] px-4 pt-20" role="alertdialog" aria-modal="true" aria-labelledby="in-progress-warning-title">
+          <div className="ui-modal w-full max-w-md p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--state-warning-soft)] text-[var(--text-warning)]">
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 id="in-progress-warning-title" className="text-base font-semibold text-[var(--color-brand-ink)]">
+                <h2 id="in-progress-warning-title" className="text-base font-semibold text-[var(--text-primary)]">
                   {warningTitle} is in progress
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                   This part of the site is not fully working or has not been developed yet, so do not expect that you can use it already.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel)] hover:text-[var(--color-brand-ink)]"
+                className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
                 aria-label="Dismiss warning"
               >
                 <X className="h-4 w-4" />
@@ -281,7 +282,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
               <button
                 type="button"
                 onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable rounded-md bg-[var(--color-brand-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-accent-ink)] hover:bg-[var(--color-brand-accent-hover)]"
+                className="pressable ui-btn-primary px-3 py-2 text-sm font-semibold"
               >
                 Continue
               </button>

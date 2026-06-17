@@ -21,7 +21,7 @@ The overhaul keeps these workflows intact:
 - Song upload, extraction, and formatting.
 - Service asset persistence and upload workflows.
 - Automation job persistence and generated outputs.
-- PAP screenshot transfer, pairing, inbox, and progress states.
+- PAP screenshot transfer, shared inbox, and progress states.
 
 The invariant worship block order remains unchanged. The UI must always render
 the stored block order and must never introduce alternate sequencing.
@@ -57,7 +57,7 @@ ornamental flourishes are excluded.
 ### Typography
 
 - Display and body: Manrope.
-- Technical labels, dates, pairing codes, and job identifiers: IBM Plex Mono.
+- Technical labels, dates, and job identifiers: IBM Plex Mono.
 - Headings stay compact and functional.
 - Letter spacing remains `0`.
 - No oversized dashboard headlines.
@@ -146,10 +146,9 @@ Automation is a job register.
 
 PAP is a transfer desk.
 
-- Desktop surface prioritizes pairing code, QR code, and inbox.
-- Mobile sender prioritizes join state, file selection, and transfer progress.
+- Desktop surface prioritizes the shared inbox and quick upload actions.
+- Mobile sender prioritizes file selection and transfer progress.
 - Toasts are reserved for transfer outcomes and background events.
-- QR colors use explicit tokenized hex values for library compatibility.
 
 ## Tokens
 
@@ -223,7 +222,7 @@ Implementation verification must include:
   `/automation`
 - Desktop and mobile visual inspection
 - Core interaction checks for navigation, service selection, ledger rows,
-  services editing, songs navigation, PAP pairing, and PAP transfer progress
+  services editing, songs navigation, and PAP transfer progress
 - Hallmark slop-test review before handoff
 
 ## Out Of Scope
@@ -235,4 +234,3 @@ Implementation verification must include:
 - Authentication work.
 - Chat, notifications, recurring events, social features, and generic church
   management features.
-

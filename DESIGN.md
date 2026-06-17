@@ -16,9 +16,26 @@ purple actions, atmospheric blue technical states, and red alert states. The UI
 may feel cinematic and immersive where the workflow benefits from it, but it
 must still prioritize readability, service order accuracy, and operator speed.
 
-## Color Tokens
+## Token Architecture
 
-Use the Stitch palette as the canonical token source:
+The token system is intentionally two-layered:
+
+- `tokens.css` is the canonical editable token source.
+- The base palette layer holds raw brand, neutral, and state colors as
+  `--palette-*` variables.
+- The semantic layer sits on top of the palette and defines UI intent through
+  `--surface-*`, `--text-*`, `--border-*`, `--action-*`, `--state-*`,
+  `--radius-*`, and `--elevation-*`.
+- `src/app/globals.css` is the semantic application layer. It maps global UI
+  affordances and shared utility classes such as panel, button, modal, and
+  technical-label treatments to the semantic tokens.
+- Older `--color-*` names may remain temporarily as compatibility aliases while
+  migrated components move to semantic roles. New UI work should prefer the
+  semantic tokens directly.
+
+## Base Palette
+
+Use the Stitch palette as the canonical palette layer:
 
 - `surface`: `#0b1326`
 - `surface-dim`: `#0b1326`
@@ -46,6 +63,31 @@ Use the Stitch palette as the canonical token source:
 - `background`: `#0b1326`
 - `surface-variant`: `#2d3449`
 
+## Semantic Roles
+
+Components should consume tokens by intent rather than by color family.
+
+- Surfaces:
+  `--surface-canvas`, `--surface-panel`, `--surface-panel-alt`,
+  `--surface-panel-strong`, `--surface-panel-elevated`,
+  `--surface-overlay`, `--surface-overlay-strong`
+- Text:
+  `--text-primary`, `--text-secondary`, `--text-muted`, `--text-inverse`,
+  `--text-accent`, `--text-destructive`
+- Borders and rules:
+  `--border-default`, `--border-strong`, `--border-focus`,
+  `--rule-subtle`, `--rule-strong`
+- Actions and states:
+  `--action-primary-bg`, `--action-primary-bg-hover`,
+  `--action-primary-ink`, `--state-success`, `--state-warning`,
+  `--state-danger`, `--state-live`, `--state-ready`, `--state-idle`
+- Shape:
+  `--radius-control`, `--radius-card`, `--radius-container`,
+  `--radius-pill`
+- Elevation:
+  `--elevation-none`, `--elevation-subtle`, `--elevation-raised`,
+  `--elevation-modal`
+
 ## Typography
 
 - Display and body: Inter.
@@ -58,6 +100,14 @@ Use the Stitch palette as the canonical token source:
 - `body-md`: 16px / 24px, 400.
 - `label-md`: 14px / 20px, 500, `0.02em`.
 - `label-sm`: 12px / 16px, 500, `0.05em`.
+
+Typography roles should be exposed as tokens or token-backed utilities:
+
+- Body copy uses the default interface body role.
+- Headings use the heading role with tighter tracking where needed.
+- Technical labels and metadata use the mono-label role.
+- Dense inspector readouts and timestamps should reuse the same technical/meta
+  treatment instead of introducing one-off font stacks.
 
 ## Layout & Spacing
 
@@ -83,7 +133,9 @@ Depth is communicated through tonal layering and subtle outlines:
 - Level 2: `#222a3d` or `#2d3449` active/floating surfaces.
 
 Shadows should be tight and low-opacity. Purple ambient shadow is allowed when
-it helps an active control or panel separate from the background.
+it helps an active control or panel separate from the background, but shared
+elevation intents should come from the semantic elevation tokens rather than ad
+hoc shadow strings.
 
 ## Shapes
 
@@ -94,6 +146,17 @@ it helps an active control or panel separate from the background.
   alert states.
 
 ## Components
+
+Prefer stable semantic utilities or equivalent token-backed patterns:
+
+- Surface card
+- Elevated panel
+- Secondary text
+- Primary action
+- Secondary action
+- Danger action
+- Technical label
+- Modal container
 
 - Primary buttons: electric purple or primary-container fill with high-contrast
   text.
@@ -124,5 +187,6 @@ the worship-service-only domain and strict worship block order.
 
 ## Exports
 
-The canonical local export is `tokens.css`. Keep it aligned with this Stitch
-design system.
+`tokens.css` remains the canonical token source. Keep it aligned with this
+Stitch design system, and keep `src/app/globals.css` aligned as the semantic/UI
+contract layer that shared components consume.

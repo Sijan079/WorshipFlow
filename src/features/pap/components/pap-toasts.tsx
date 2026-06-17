@@ -47,15 +47,15 @@ export function PAPToastViewport({
         return (
           <div
             key={toast.id}
-            className="animate-toast-in rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-3 shadow-sm"
+            className="animate-toast-in rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-3 shadow-[var(--elevation-subtle)]"
           >
             <div className="flex items-start gap-3">
-              <Icon className={toast.tone === "success" ? "mt-0.5 h-4 w-4 text-green-600" : "mt-0.5 h-4 w-4 text-[var(--color-brand-accent)]"} />
+              <Icon className={toast.tone === "success" ? "mt-0.5 h-4 w-4 text-[var(--state-success)]" : "mt-0.5 h-4 w-4 text-[var(--text-accent)]"} />
               <p className="min-w-0 flex-1 text-sm font-semibold leading-5">{toast.message}</p>
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
-                className="pressable rounded-md p-1 text-[var(--color-text-muted)]"
+                className="pressable rounded-[var(--radius-control)] p-1 text-[var(--text-muted)]"
                 aria-label="Dismiss notification"
               >
                 <X className="h-3.5 w-3.5" />

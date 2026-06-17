@@ -10,4 +10,6 @@ This folder contains durable project documentation.
 - `archive/` - retired or superseded documentation.
 
 Keep root files such as `README.md`, `AGENTS.md`, `DESIGN.md`, and `tokens.css`
-in place unless the application conventions change.
+in place unless the application conventions change. Treat `tokens.css` as the
+canonical token source and `src/app/globals.css` as the shared semantic UI
+layer.

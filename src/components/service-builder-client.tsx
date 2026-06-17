@@ -121,6 +121,8 @@ const MEDIA_TOOLS_HOME_COPY = {
     "Prepare worship production media in one focused workspace. Move phone captures to the booth and generate QR codes for service resources.",
 };
 
+const DEFAULT_SONG_TAG_COLOR = "#CFE8F6";
+
 type TaggedDraftSection = {
   tag: string | null;
   lines: string[];
@@ -424,7 +426,7 @@ export default function ServiceBuilderClient({
   const [tagForm, setTagForm] = useState<CreateSongTagPresetPayload>({
     label: "",
     token: "",
-    color: "#CFE8F6",
+    color: DEFAULT_SONG_TAG_COLOR,
     order: 10,
   });
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -454,7 +456,7 @@ export default function ServiceBuilderClient({
     onSuccess: async (tag) => {
       await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
       setSectionFormatTag(tag.token);
-      setTagForm({ label: "", token: "", color: "#CFE8F6", order: tag.order + 1 });
+      setTagForm({ label: "", token: "", color: DEFAULT_SONG_TAG_COLOR, order: tag.order + 1 });
       showToast(`${tag.label} tag added.`, "success");
     },
     onError: (error: Error) => {
@@ -2206,7 +2208,7 @@ export default function ServiceBuilderClient({
                           type="button"
                           onClick={() => processFormatterSource(false)}
                           disabled={isFormatterProcessing}
-                          className="pressable min-w-48 rounded-xl bg-[var(--color-focus)] px-10 py-4 text-sm font-bold text-[#3f008e] shadow-[0_18px_36px_rgba(210,187,255,0.18)] disabled:opacity-60"
+                          className="ui-btn-primary pressable min-w-48 px-10 py-4 text-sm font-bold disabled:opacity-60"
                         >
                           Process Locally
                         </button>

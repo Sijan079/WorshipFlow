@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
+import { checkRateLimitBucket } from "./rate-limit-store";
 
 type RateLimitOptions = {
   key: string;
   limit: number;
   windowMs: number;
 };
-
-type RateLimitEntry = {
-  count: number;
-  resetAt: number;
-};
-
-const buckets = new Map<string, RateLimitEntry>();
 
 export function getRateLimitKey(request: Request, scope: string) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -20,21 +14,7 @@ export function getRateLimitKey(request: Request, scope: string) {
 }
 
 export function checkRateLimit({ key, limit, windowMs }: RateLimitOptions) {
-  const now = Date.now();
-  const current = buckets.get(key);
-
-  if (!current || current.resetAt <= now) {
-    const resetAt = now + windowMs;
-    buckets.set(key, { count: 1, resetAt });
-    return { allowed: true, remaining: limit - 1, resetAt };
-  }
-
-  current.count += 1;
-  return {
-    allowed: current.count <= limit,
-    remaining: Math.max(0, limit - current.count),
-    resetAt: current.resetAt,
-  };
+  return checkRateLimitBucket({ key, limit, windowMs });
 }
 
 export function rateLimitResponse(resetAt: number) {

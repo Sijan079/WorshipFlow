@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { createPAPBatchFileName } from "../rtc/pap-file-names";
 import type { PAPConnectionState, PAPSendProgress, PAPServerScreenshot } from "../types";
-import { getPAPDeviceName } from "../websocket/pap-signaling-client";
+import { getPAPDeviceName } from "../pap-device-name";
 
 type UploadResponse = {
   screenshots: PAPServerScreenshot[];
@@ -26,11 +26,6 @@ export function usePAPMobileSender() {
 
   const sendFiles = useCallback(
     async (files: File[], note = "") => {
-      if (state !== "connected") {
-        setError("The PAP room is not ready yet.");
-        return;
-      }
-
       const batchCreatedAt = new Date();
       const batchId =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -85,7 +80,6 @@ export function usePAPMobileSender() {
     error,
     progress,
     sendFiles,
-    session: null,
     state,
   };
 }

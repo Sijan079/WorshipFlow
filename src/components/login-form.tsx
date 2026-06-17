@@ -51,30 +51,30 @@ export default function LoginForm({ nextPath: rawNextPath }: { nextPath?: string
   return (
     <form onSubmit={submitLogin} className="space-y-4 pt-5">
       <label className="block">
-        <span className="text-sm font-semibold text-[var(--color-text-secondary)]">User</span>
+        <span className="text-sm font-semibold text-[var(--text-secondary)]">User</span>
         <input
           value={user}
           onChange={(event) => setUser(event.target.value)}
           autoComplete="username"
-          className="mt-2 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-3 text-sm outline-none focus:border-[var(--color-focus)]"
+          className="mt-2 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
           placeholder="Optional"
         />
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-[var(--color-text-secondary)]">Password</span>
+        <span className="text-sm font-semibold text-[var(--text-secondary)]">Password</span>
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
           type="password"
           required
-          className="mt-2 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-3 text-sm outline-none focus:border-[var(--color-focus)]"
+          className="mt-2 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
         />
       </label>
 
       {error ? (
-        <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="rounded-[var(--radius-control)] border border-[color-mix(in_oklab,var(--state-danger)_28%,transparent)] bg-[var(--state-danger-soft)] px-3 py-2 text-sm text-[var(--state-danger)]">
           {error}
         </p>
       ) : null}
@@ -82,7 +82,7 @@ export default function LoginForm({ nextPath: rawNextPath }: { nextPath?: string
       <button
         type="submit"
         disabled={isSubmitting}
-        className="pressable inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-focus)] px-4 py-3 text-sm font-bold text-[#3f008e] shadow-[0_16px_36px_rgba(210,187,255,0.2)] disabled:opacity-60"
+        className="pressable ui-btn-primary inline-flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold disabled:opacity-60"
       >
         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
         Sign in

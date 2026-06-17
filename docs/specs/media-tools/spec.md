@@ -38,3 +38,13 @@ converter that could imply downloading, extracting, or transforming media from
 third-party services in ways that may conflict with their terms. Any future
 conversion work should be local-first, rights-aware, and explicitly scoped to
 files the church is allowed to process.
+
+Background Generator currently uses a three-stage image-only workflow:
+
+- Data Entry
+- Estimation
+- Output
+
+Generated backgrounds are treated as temporary workspace assets, not permanent
+library items. The active workflow includes estimate confirmation, output
+preview, download, recent-image preview, and 24-hour automatic cleanup.

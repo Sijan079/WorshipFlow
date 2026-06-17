@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  cleanupExpiredPAPGlobalInboxUploads,
-  getOrCreatePAPGlobalInboxRoom,
-} from "@/features/pap/server/pap-room-security";
+import { cleanupExpiredPAPInboxUploads } from "@/features/pap/server/pap-inbox";
 import { deletePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 
@@ -12,33 +9,22 @@ type RouteContext = {
   params: Promise<{ screenshotId: string }>;
 };
 
-type PAPScreenshotDeleteRow = {
-  id: string;
-  filePath: string;
-};
-
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    await cleanupExpiredPAPGlobalInboxUploads();
+    await cleanupExpiredPAPInboxUploads(prisma);
     const { screenshotId } = await context.params;
-    const room = await getOrCreatePAPGlobalInboxRoom();
-    const [screenshot] = await prisma.$queryRaw<PAPScreenshotDeleteRow[]>`
-      SELECT "id", "filePath"
-      FROM "PAPScreenshot"
-      WHERE "id" = ${screenshotId}
-        AND "roomId" = ${room.id}
-      LIMIT 1
-    `;
+    const screenshot = await prisma.papInboxScreenshot.findUnique({
+      where: { id: screenshotId },
+      select: { id: true, filePath: true },
+    });
 
     if (!screenshot) {
       return NextResponse.json({ error: "Screenshot not found." }, { status: 404 });
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM "PAPScreenshot"
-      WHERE "id" = ${screenshot.id}
-        AND "roomId" = ${room.id}
-    `;
+    await prisma.papInboxScreenshot.delete({
+      where: { id: screenshot.id },
+    });
     await deletePrivateOutputFile(screenshot.filePath).catch(() => undefined);
 
     return NextResponse.json(

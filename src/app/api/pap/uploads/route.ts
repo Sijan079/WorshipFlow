@@ -1,18 +1,19 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { createPAPBatchFileName } from "@/features/pap/rtc/pap-file-names";
 import {
-  cleanupExpiredPAPGlobalInboxUploads,
-  getOrCreatePAPGlobalInboxRoom,
   PAP_IMAGE_UPLOAD_EXTENSIONS,
   PAP_IMAGE_UPLOAD_TYPES,
-  PAP_ROOM_TTL_MS,
+  PAP_INBOX_RETENTION_MS,
   PAP_UPLOAD_MAX_FILE_BYTES,
   PAP_UPLOAD_MAX_FILES,
   PAP_UPLOAD_MAX_TOTAL_BYTES,
   PAP_UPLOAD_NOTE_MAX_LENGTH,
+} from "@/features/pap/pap-constants";
+import { createPAPBatchFileName } from "@/features/pap/rtc/pap-file-names";
+import {
+  cleanupExpiredPAPInboxUploads,
   sanitizePAPFileName,
-} from "@/features/pap/server/pap-room-security";
+} from "@/features/pap/server/pap-inbox";
 import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
@@ -20,9 +21,8 @@ import { validateUploadFile, validateUploadTotal } from "@/lib/upload-security";
 
 export const dynamic = "force-dynamic";
 
-type PAPScreenshotRow = {
+type PapInboxScreenshotRow = {
   id: string;
-  roomId: string;
   batchId: string;
   batchIndex: number;
   batchTotal: number;
@@ -35,7 +35,7 @@ type PAPScreenshotRow = {
   createdAt: Date;
 };
 
-function toScreenshotRecord(screenshot: PAPScreenshotRow) {
+function toScreenshotRecord(screenshot: PapInboxScreenshotRow) {
   return {
     id: screenshot.id,
     batchId: screenshot.batchId,
@@ -52,18 +52,14 @@ function toScreenshotRecord(screenshot: PAPScreenshotRow) {
 
 export async function GET() {
   try {
-    await cleanupExpiredPAPGlobalInboxUploads();
-    const room = await getOrCreatePAPGlobalInboxRoom();
-    const screenshots = await prisma.$queryRaw<PAPScreenshotRow[]>`
-      SELECT "id", "roomId", "batchId", "batchIndex", "batchTotal", "fileName", "filePath", "mimeType", "size", "note", "deviceName", "createdAt"
-      FROM "PAPScreenshot"
-      WHERE "roomId" = ${room.id}
-      ORDER BY "createdAt" DESC, "batchIndex" ASC
-    `;
+    await cleanupExpiredPAPInboxUploads(prisma);
+    const screenshots = await prisma.papInboxScreenshot.findMany({
+      orderBy: [{ createdAt: "desc" }, { batchIndex: "asc" }],
+    });
 
     return NextResponse.json(
       {
-        expiresAfterMs: PAP_ROOM_TTL_MS,
+        expiresAfterMs: PAP_INBOX_RETENTION_MS,
         screenshots: screenshots.map(toScreenshotRecord),
       },
       {
@@ -84,8 +80,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await cleanupExpiredPAPGlobalInboxUploads();
-    const room = await getOrCreatePAPGlobalInboxRoom();
+    await cleanupExpiredPAPInboxUploads(prisma);
     const formData = await request.formData();
     const files = formData
       .getAll("files")
@@ -132,17 +127,20 @@ export async function POST(request: Request) {
       const savedFile = await savePrivateOutputFile("pap-global-inbox", fileName, bytes, {
         contentType: mimeType,
       });
-      const [screenshot] = await prisma.$queryRaw<PAPScreenshotRow[]>`
-        INSERT INTO "PAPScreenshot" (
-          "id", "roomId", "batchId", "batchIndex", "batchTotal",
-          "fileName", "filePath", "mimeType", "size", "note", "deviceName"
-        )
-        VALUES (
-          ${randomUUID()}, ${room.id}, ${batchId}, ${batchIndex}, ${files.length},
-          ${fileName}, ${savedFile.relativePath}, ${mimeType}, ${file.size}, ${note}, ${deviceName}
-        )
-        RETURNING "id", "roomId", "batchId", "batchIndex", "batchTotal", "fileName", "filePath", "mimeType", "size", "note", "deviceName", "createdAt"
-      `;
+      const screenshot = await prisma.papInboxScreenshot.create({
+        data: {
+          id: randomUUID(),
+          batchId,
+          batchIndex,
+          batchTotal: files.length,
+          fileName,
+          filePath: savedFile.relativePath,
+          mimeType,
+          size: file.size,
+          note,
+          deviceName,
+        },
+      });
 
       if (!screenshot) {
         throw new Error("PAP upload was not created.");
