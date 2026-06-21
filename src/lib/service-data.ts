@@ -1,96 +1,100 @@
 import { Prisma } from "@prisma/client";
 export { getServiceBlockOrder } from "@/lib/service-display";
 
-export const serviceDetailInclude = Prisma.validator<Prisma.WorshipServiceInclude>()({
-  bibleVerses: {
-    orderBy: {
-      order: "asc",
-    },
-  },
-  servantAssignments: {
-    orderBy: {
-      role: "asc",
-    },
-  },
-  hymnals: {
-    orderBy: {
-      role: "asc",
-    },
-  },
-  blocks: {
-    orderBy: {
-      order: "asc",
-    },
-    include: {
-      people: {
-        orderBy: {
-          order: "asc",
-        },
-      },
-      songs: {
-        orderBy: {
-          order: "asc",
-        },
-        include: {
-          song: true,
-        },
-      },
-      details: {
-        orderBy: {
-          key: "asc",
-        },
+export const serviceDetailArgs = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
+  include: {
+    bibleVerses: {
+      orderBy: {
+        order: "asc",
       },
     },
-  },
-  details: {
-    orderBy: {
-      key: "asc",
+    servantAssignments: {
+      orderBy: {
+        role: "asc",
+      },
     },
-  },
-  jobs: {
-    orderBy: {
-      createdAt: "desc",
+    hymnals: {
+      orderBy: {
+        role: "asc",
+      },
     },
-    include: {
-      outputs: {
-        orderBy: {
-          createdAt: "desc",
+    blocks: {
+      orderBy: {
+        order: "asc",
+      },
+      include: {
+        people: {
+          orderBy: {
+            order: "asc",
+          },
+        },
+        songs: {
+          orderBy: {
+            order: "asc",
+          },
+          include: {
+            song: true,
+          },
+        },
+        details: {
+          orderBy: {
+            key: "asc",
+          },
         },
       },
     },
-  },
-  outputs: {
-    orderBy: {
-      createdAt: "desc",
+    details: {
+      orderBy: {
+        key: "asc",
+      },
+    },
+    jobs: {
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        outputs: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    },
+    outputs: {
+      orderBy: {
+        createdAt: "desc",
+      },
     },
   },
 });
 
-export const serviceListInclude = Prisma.validator<Prisma.WorshipServiceInclude>()({
-  bibleVerses: {
-    orderBy: {
-      order: "asc",
+export const serviceDetailInclude = serviceDetailArgs.include;
+
+export const serviceListArgs = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
+  include: {
+    bibleVerses: {
+      orderBy: {
+        order: "asc",
+      },
     },
-  },
-  servantAssignments: {
-    orderBy: {
-      role: "asc",
+    servantAssignments: {
+      orderBy: {
+        role: "asc",
+      },
     },
-  },
-  hymnals: {
-    orderBy: {
-      role: "asc",
+    hymnals: {
+      orderBy: {
+        role: "asc",
+      },
     },
   },
 });
 
-export type ServiceDetailPayload = Prisma.WorshipServiceGetPayload<{
-  include: typeof serviceDetailInclude;
-}>;
+export const serviceListInclude = serviceListArgs.include;
 
-export type ServiceListPayload = Prisma.WorshipServiceGetPayload<{
-  include: typeof serviceListInclude;
-}>;
+export type ServiceDetailPayload = Prisma.WorshipServiceGetPayload<typeof serviceDetailArgs>;
+
+export type ServiceListPayload = Prisma.WorshipServiceGetPayload<typeof serviceListArgs>;
 
 export type SongRepositoryItem = Prisma.SongGetPayload<{
   include: {
