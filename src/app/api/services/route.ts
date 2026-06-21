@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
-import { getServiceBlockOrder, serviceDetailInclude, serviceListInclude } from "@/lib/service-data";
+import { getServiceBlockOrder, serviceDetailInclude, serviceListArgs } from "@/lib/service-data";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 import {
   type AssignedMinistry,
@@ -22,7 +22,7 @@ export async function GET() {
       orderBy: {
         serviceDate: "asc",
       },
-      include: serviceListInclude,
+      ...serviceListArgs,
     });
     return NextResponse.json(services);
   } catch (error: unknown) {
