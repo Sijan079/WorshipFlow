@@ -22,25 +22,41 @@ export async function GET() {
       orderBy: {
         serviceDate: "asc",
       },
-      include: {
-        bibleVerses: {
-          orderBy: {
-            order: "asc",
-          },
-        },
-        servantAssignments: {
-          orderBy: {
-            role: "asc",
-          },
-        },
-        hymnals: {
-          orderBy: {
-            role: "asc",
-          },
-        },
-      },
     });
-    return NextResponse.json(services);
+
+    const serviceIds = services.map((service) => service.id);
+
+    if (serviceIds.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const [bibleVerses, servantAssignments, hymnals] = await Promise.all([
+      prisma.serviceBibleVerse.findMany({
+        where: { serviceId: { in: serviceIds } },
+        orderBy: [{ serviceId: "asc" }, { order: "asc" }],
+      }),
+      prisma.serviceServantAssignment.findMany({
+        where: { serviceId: { in: serviceIds } },
+        orderBy: [{ serviceId: "asc" }, { role: "asc" }],
+      }),
+      prisma.serviceHymnal.findMany({
+        where: { serviceId: { in: serviceIds } },
+        orderBy: [{ serviceId: "asc" }, { role: "asc" }],
+      }),
+    ]);
+
+    const bibleVersesByService = Object.groupBy(bibleVerses, (entry) => entry.serviceId);
+    const servantAssignmentsByService = Object.groupBy(servantAssignments, (entry) => entry.serviceId);
+    const hymnalsByService = Object.groupBy(hymnals, (entry) => entry.serviceId);
+
+    return NextResponse.json(
+      services.map((service) => ({
+        ...service,
+        bibleVerses: bibleVersesByService[service.id] ?? [],
+        servantAssignments: servantAssignmentsByService[service.id] ?? [],
+        hymnals: hymnalsByService[service.id] ?? [],
+      }))
+    );
   } catch (error: unknown) {
     console.error("GET /api/services error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
