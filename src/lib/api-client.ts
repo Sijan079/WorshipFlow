@@ -1,4 +1,4 @@
-import type { ServiceDetailPayload, SongRepositoryItem } from "@/lib/service-data";
+import type { ServiceListPayload, SongRepositoryItem } from "@/lib/service-data";
 import type { BlockPerson, JobStatus, JobType, OutputType, ServiceStatus, ServiceVariant, SongRole, WorshipServiceDetail } from "@prisma/client";
 import type {
   LyricsExtractorAiRetryDescriptor,
@@ -6,6 +6,13 @@ import type {
   LyricsExtractorEditableResponse,
   LyricsExtractorJobInput,
 } from "@/lib/extractor-types";
+import type {
+  AssignedMinistry,
+  PledgeType,
+  ServiceHymnalRole,
+  ServiceServantRole,
+  ServiceTemplateType,
+} from "@/lib/service-records";
 
 export type { LyricsExtractorEditableResponse } from "@/lib/extractor-types";
 
@@ -182,7 +189,7 @@ export function triggerBrowserDownload(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
-export type ServiceRecord = Serialized<ServiceDetailPayload>;
+export type ServiceRecord = Serialized<ServiceListPayload>;
 export type SongRecord = Serialized<SongRepositoryItem>;
 
 export type SongTagPresetRecord = {
@@ -207,9 +214,25 @@ export type UpdateSongTagPresetPayload = Partial<CreateSongTagPresetPayload>;
 
 export type CreateServicePayload = {
   serviceDate: string;
-  ministryName: string;
-  theme?: string | null;
+  assignedMinistry?: AssignedMinistry;
+  sermonVerse?: string;
   status?: ServiceStatus;
+  templateType?: ServiceTemplateType;
+  pledgeType?: PledgeType | null;
+  bibleVerses?: Array<{
+    verse: string;
+    order: number;
+  }>;
+  servantAssignments?: Array<{
+    role: ServiceServantRole;
+    personName: string;
+  }>;
+  hymnals?: Array<{
+    role: ServiceHymnalRole;
+    title: string;
+  }>;
+  ministryName?: string;
+  theme?: string | null;
   serviceVariant?: ServiceVariant;
 };
 

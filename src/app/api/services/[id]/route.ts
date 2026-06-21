@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
 import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
+import {
+  mapAssignedMinistryToLegacyMinistryName,
+  mapTemplateTypeToServiceVariant,
+  type AssignedMinistry,
+  type PledgeType,
+  type ServiceHymnalRole,
+  type ServiceServantRole,
+  type ServiceTemplateType,
+} from "@/lib/service-records";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -54,10 +64,68 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
     }
 
-    const updatedService = await prisma.worshipService.update({
-      where: serviceWorkspaceWhere(id, workspaceId),
-      data: result.data,
-      include: serviceDetailInclude,
+    const updatedService = await prisma.$transaction(async (tx) => {
+      const nextAssignedMinistry = (result.data.assignedMinistry ?? service.assignedMinistry ?? "MIXED") as AssignedMinistry;
+      const nextTemplateType = (result.data.templateType ?? service.templateType) as ServiceTemplateType;
+      const data: Prisma.WorshipServiceUpdateInput = {
+        serviceDate: result.data.serviceDate,
+        assignedMinistry: result.data.assignedMinistry as AssignedMinistry | undefined,
+        sermonVerse: result.data.sermonVerse,
+        ministryName: mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
+        serviceVariant: mapTemplateTypeToServiceVariant(nextTemplateType) as "STANDARD" | "EXTENDED",
+        status: result.data.status,
+        templateType: result.data.templateType as ServiceTemplateType | undefined,
+        pledgeType: result.data.pledgeType as PledgeType | null | undefined,
+      };
+
+      await tx.worshipService.update({
+        where: serviceWorkspaceWhere(id, workspaceId),
+        data,
+      });
+
+      if (result.data.bibleVerses) {
+        await tx.serviceBibleVerse.deleteMany({ where: { serviceId: id } });
+        if (result.data.bibleVerses.length > 0) {
+          await tx.serviceBibleVerse.createMany({
+            data: result.data.bibleVerses.map((entry) => ({
+              serviceId: id,
+              verse: entry.verse,
+              order: entry.order,
+            })),
+          });
+        }
+      }
+
+      if (result.data.servantAssignments) {
+        await tx.serviceServantAssignment.deleteMany({ where: { serviceId: id } });
+        if (result.data.servantAssignments.length > 0) {
+          await tx.serviceServantAssignment.createMany({
+            data: result.data.servantAssignments.map((entry) => ({
+              serviceId: id,
+              role: entry.role as ServiceServantRole,
+              personName: entry.personName,
+            })),
+          });
+        }
+      }
+
+      if (result.data.hymnals) {
+        await tx.serviceHymnal.deleteMany({ where: { serviceId: id } });
+        if (result.data.hymnals.length > 0) {
+          await tx.serviceHymnal.createMany({
+            data: result.data.hymnals.map((entry) => ({
+              serviceId: id,
+              role: entry.role as ServiceHymnalRole,
+              title: entry.title,
+            })),
+          });
+        }
+      }
+
+      return tx.worshipService.findUnique({
+        where: serviceWorkspaceWhere(id, workspaceId),
+        include: serviceDetailInclude,
+      });
     });
 
     return NextResponse.json(updatedService);

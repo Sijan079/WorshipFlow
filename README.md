@@ -7,7 +7,7 @@ WorshipFlow helps church tech and worship teams turn service preparation into a 
 ## What It Does
 
 ### Service Flow
-Build worship services in the correct running order, assign people to blocks, attach songs, and keep every part of the service easy to scan before Sunday.
+Build worship services in the correct running order, assign people to blocks, attach songs, and keep every part of the service easy to scan before Sunday. The services workspace supports compact row-based review, inline detail expansion, and WS text parsing for faster service setup.
 
 ### Song Formatter
 Upload or paste worship lyrics, process them locally or with AI assistance, then refine the result in a block-based editor built for verses, choruses, bridges, repeats, and export-ready structure.
@@ -39,6 +39,7 @@ Project documentation lives under `docs/`:
 
 - `docs/specs/` - version-controlled feature specs.
 - `docs/specs/media-tools/` - individual specs for Phone Transfer, QR Generator, and Background Generator.
+- `docs/specs/service-flow/` - worship service list, edit, parser, and block-flow behavior.
 - `docs/deployment/` - deployment notes, including Vercel planning.
 - `docs/development/` - local development workflows.
 - `docs/product/` and `docs/design/` - product and design support notes.

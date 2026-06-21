@@ -1,5 +1,5 @@
-export function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
+export function getErrorMessage(error: unknown, fallback: string, options?: { exposeInternal?: boolean }) {
+  if (options?.exposeInternal && error instanceof Error && error.message) {
     return error.message;
   }
 

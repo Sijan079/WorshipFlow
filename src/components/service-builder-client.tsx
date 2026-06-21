@@ -64,6 +64,7 @@ import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import QRGeneratorTool from "@/components/qr-generator-tool";
 import BackgroundGeneratorTool from "@/components/background-generator-tool";
+import ResizeImageTool from "@/components/resize-image-tool";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -90,7 +91,7 @@ type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type WorkspaceModule = "services" | "songs" | "assets" | "automation";
 type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
-export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator";
+export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image";
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
@@ -101,17 +102,23 @@ const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; de
 const MEDIA_TOOLS: Array<{ id: MediaTool; href: string; label: string; description: string }> = [
   {
     id: "phone-transfer",
-    href: "/assets/phone-transfer",
+    href: "/media-tools/phone-transfer",
     label: "Phone Transfer",
     description:
       "Send screenshots from a phone, retrieve them here in original quality, then download or manage only the ones you need.",
   },
-  { id: "qr-generator", href: "/assets/qr-generator", label: "QR Generator", description: "Create a code for giving links, forms, or service resources." },
+  { id: "qr-generator", href: "/media-tools/qr-generator", label: "QR Generator", description: "Create a code for giving links, forms, or service resources." },
   {
     id: "background-generator",
-    href: "/assets/background-generator",
+    href: "/media-tools/background-generator",
     label: "Background Generator",
     description: "Generate projection-ready workspace image backgrounds with cost validation.",
+  },
+  {
+    id: "resize-image",
+    href: "/media-tools/resize-image",
+    label: "Resize Image",
+    description: "Fit one image into a 1920x1080 presentation frame without cropping.",
   },
 ];
 
@@ -1127,7 +1134,11 @@ export default function ServiceBuilderClient({
             : selectedService.serviceDate,
           ministryName: serviceAnalysisDraft.ministryName || selectedService.ministryName,
           theme: serviceAnalysisDraft.theme ?? selectedService.theme,
+          sermonVerse: serviceAnalysisDraft.sermonVerse ?? selectedService.sermonVerse ?? undefined,
           status: serviceAnalysisDraft.status,
+          bibleVerses: serviceAnalysisDraft.bibleVerses,
+          servantAssignments: serviceAnalysisDraft.servantAssignments,
+          hymnals: serviceAnalysisDraft.hymnals,
         } satisfies UpdateServicePayload),
       });
 
@@ -2862,6 +2873,10 @@ export default function ServiceBuilderClient({
 
             {mediaTool === "background-generator" ? (
               <BackgroundGeneratorTool showToast={showToast} />
+            ) : null}
+
+            {mediaTool === "resize-image" ? (
+              <ResizeImageTool showToast={showToast} />
             ) : null}
 
           </div>

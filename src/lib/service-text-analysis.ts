@@ -1,4 +1,5 @@
 import { BlockType, ServiceStatus, type BlockType as BlockTypeValue, type ServiceStatus as ServiceStatusValue } from "@/lib/service-constants";
+import type { ServiceHymnalRole, ServiceServantRole } from "@/lib/service-records";
 
 export type AnalyzedServiceParticipant = {
   blockType: BlockTypeValue;
@@ -18,6 +19,19 @@ export type AnalyzedServiceDraft = {
   ministryName?: string;
   theme?: string | null;
   status: ServiceStatusValue;
+  sermonVerse?: string;
+  bibleVerses: Array<{
+    verse: string;
+    order: number;
+  }>;
+  servantAssignments: Array<{
+    role: ServiceServantRole;
+    personName: string;
+  }>;
+  hymnals: Array<{
+    role: ServiceHymnalRole;
+    title: string;
+  }>;
   participants: AnalyzedServiceParticipant[];
   details: AnalyzedServiceDetail[];
   warnings: string[];
@@ -47,6 +61,20 @@ const DETAIL_BLOCKS: Record<string, BlockTypeValue> = {
   "bible reading": BlockType.SCRIPTURE_READING,
   "awit ng pakikinig": BlockType.AWIT_NG_PAKIKINIG,
   "awit ng pagtugon": BlockType.AWIT_NG_PAGTUGON,
+};
+
+const SERVANT_ASSIGNMENT_KEYS: Record<string, ServiceServantRole> = {
+  "call to worship": "CALL_TO_WORSHIP",
+  mc: "EMCEE",
+  "scripture reading": "SCRIPTURE_READER",
+  offering: "OFFERING",
+  speaker: "SERMON_SPEAKER",
+};
+
+const HYMNAL_KEYS: Record<string, ServiceHymnalRole> = {
+  "awit ng pakikinig": "HYMN_OF_PREPARATION",
+  "awit ng pagtugon": "HYMN_OF_RESPONSE",
+  "pag-awit ng himno": "SONG_OF_HYMNS",
 };
 
 const MONTHS: Record<string, number> = {
@@ -138,10 +166,19 @@ function parsePerson(rawValue: string, order: number): Omit<AnalyzedServiceParti
   };
 }
 
+function formatHymnalTitle(rawValue: string) {
+  const match = rawValue.trim().match(/^(.*?),\s*p\.\s*(\d+)\s*$/i);
+  if (!match) return rawValue.trim();
+  return `${match[2].padStart(3, "0")} - ${match[1].trim()}`;
+}
+
 export function analyzeServiceText(input: string, now = new Date()): AnalyzedServiceDraft {
   const warnings: string[] = [];
   const participants: AnalyzedServiceParticipant[] = [];
   const details: AnalyzedServiceDetail[] = [];
+  const servantAssignments: AnalyzedServiceDraft["servantAssignments"] = [];
+  const bibleVerses: AnalyzedServiceDraft["bibleVerses"] = [];
+  const hymnals: AnalyzedServiceDraft["hymnals"] = [];
   const lines = input
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -150,6 +187,7 @@ export function analyzeServiceText(input: string, now = new Date()): AnalyzedSer
   let inDetails = false;
   let serviceDate: string | undefined;
   let ministryName: string | undefined;
+  let sermonVerse: string | undefined;
 
   for (const line of lines) {
     if (/^ws participants$/i.test(line)) continue;
@@ -174,7 +212,51 @@ export function analyzeServiceText(input: string, now = new Date()): AnalyzedSer
 
     const normalizedKey = normalizeKey(split.key);
 
+    const servantRole = SERVANT_ASSIGNMENT_KEYS[normalizedKey];
+    if (servantRole) {
+      split.value
+        .split(/\s*&\s*/)
+        .map((person) => person.trim())
+        .filter(Boolean)
+        .forEach((person) => {
+          servantAssignments.push({
+            role: servantRole,
+            personName: parsePerson(person, 0).personName,
+          });
+        });
+
+      if (!inDetails) {
+        continue;
+      }
+    }
+
     if (inDetails) {
+      if (normalizedKey === "tawag ng pagsamba") {
+        bibleVerses.push({
+          verse: split.value,
+          order: bibleVerses.length,
+        });
+        continue;
+      }
+
+      if (normalizedKey === "bible reading") {
+        sermonVerse = split.value;
+        continue;
+      }
+
+      const hymnalRole = HYMNAL_KEYS[normalizedKey];
+      if (hymnalRole) {
+        hymnals.push({
+          role: hymnalRole,
+          title: formatHymnalTitle(split.value),
+        });
+        continue;
+      }
+
+      if (normalizedKey === "speaker") {
+        continue;
+      }
+
       const blockType = DETAIL_BLOCKS[normalizedKey];
       if (!blockType) {
         warnings.push(`Unknown detail line: ${line}`);
@@ -212,6 +294,10 @@ export function analyzeServiceText(input: string, now = new Date()): AnalyzedSer
     ministryName,
     theme: null,
     status: ServiceStatus.DRAFT,
+    sermonVerse,
+    bibleVerses,
+    servantAssignments,
+    hymnals,
     participants,
     details,
     warnings,

@@ -2,6 +2,21 @@ import { Prisma } from "@prisma/client";
 export { getServiceBlockOrder } from "@/lib/service-display";
 
 export const serviceDetailInclude = Prisma.validator<Prisma.WorshipServiceInclude>()({
+  bibleVerses: {
+    orderBy: {
+      order: "asc",
+    },
+  },
+  servantAssignments: {
+    orderBy: {
+      role: "asc",
+    },
+  },
+  hymnals: {
+    orderBy: {
+      role: "asc",
+    },
+  },
   blocks: {
     orderBy: {
       order: "asc",
@@ -51,8 +66,30 @@ export const serviceDetailInclude = Prisma.validator<Prisma.WorshipServiceInclud
   },
 });
 
+export const serviceListInclude = Prisma.validator<Prisma.WorshipServiceInclude>()({
+  bibleVerses: {
+    orderBy: {
+      order: "asc",
+    },
+  },
+  servantAssignments: {
+    orderBy: {
+      role: "asc",
+    },
+  },
+  hymnals: {
+    orderBy: {
+      role: "asc",
+    },
+  },
+});
+
 export type ServiceDetailPayload = Prisma.WorshipServiceGetPayload<{
   include: typeof serviceDetailInclude;
+}>;
+
+export type ServiceListPayload = Prisma.WorshipServiceGetPayload<{
+  include: typeof serviceListInclude;
 }>;
 
 export type SongRepositoryItem = Prisma.SongGetPayload<{

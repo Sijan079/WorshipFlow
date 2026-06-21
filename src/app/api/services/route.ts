@@ -2,8 +2,17 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
-import { getServiceBlockOrder, serviceDetailInclude } from "@/lib/service-data";
+import { getServiceBlockOrder, serviceDetailInclude, serviceListInclude } from "@/lib/service-data";
 import { getActiveWorkspaceId } from "@/lib/security-context";
+import {
+  type AssignedMinistry,
+  mapAssignedMinistryToLegacyMinistryName,
+  mapTemplateTypeToServiceVariant,
+  type PledgeType,
+  type ServiceHymnalRole,
+  type ServiceServantRole,
+  type ServiceTemplateType,
+} from "@/lib/service-records";
 
 export async function GET() {
   try {
@@ -11,9 +20,9 @@ export async function GET() {
     const services = await prisma.worshipService.findMany({
       where: { workspaceId },
       orderBy: {
-        serviceDate: "desc",
+        serviceDate: "asc",
       },
-      include: serviceDetailInclude,
+      include: serviceListInclude,
     });
     return NextResponse.json(services);
   } catch (error: unknown) {
@@ -32,17 +41,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error.format() }, { status: 400 });
     }
 
-    const { serviceDate, ministryName, theme, status, serviceVariant } = result.data;
+    const {
+      assignedMinistry,
+      bibleVerses,
+      hymnals,
+      pledgeType,
+      sermonVerse,
+      servantAssignments,
+      serviceDate,
+      status,
+      templateType,
+    } = result.data;
+    const ministryName = mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
+    const serviceVariant = mapTemplateTypeToServiceVariant(templateType as ServiceTemplateType);
 
     const newService = await prisma.$transaction(async (tx) => {
       const service = await tx.worshipService.create({
         data: {
           workspaceId,
           serviceDate,
+          assignedMinistry: assignedMinistry as AssignedMinistry,
+          sermonVerse,
           ministryName,
-          theme,
           status,
           serviceVariant,
+          templateType: templateType as ServiceTemplateType,
+          pledgeType: pledgeType as PledgeType | null | undefined,
         },
       });
 
@@ -59,6 +83,36 @@ export async function POST(request: Request) {
           })
         )
       );
+
+      if (bibleVerses.length > 0) {
+        await tx.serviceBibleVerse.createMany({
+          data: bibleVerses.map((entry) => ({
+            serviceId: service.id,
+            verse: entry.verse,
+            order: entry.order,
+          })),
+        });
+      }
+
+      if (servantAssignments.length > 0) {
+        await tx.serviceServantAssignment.createMany({
+          data: servantAssignments.map((entry) => ({
+            serviceId: service.id,
+            role: entry.role as ServiceServantRole,
+            personName: entry.personName,
+          })),
+        });
+      }
+
+      if (hymnals.length > 0) {
+        await tx.serviceHymnal.createMany({
+          data: hymnals.map((entry) => ({
+            serviceId: service.id,
+            role: entry.role as ServiceHymnalRole,
+            title: entry.title,
+          })),
+        });
+      }
 
       return service;
     });

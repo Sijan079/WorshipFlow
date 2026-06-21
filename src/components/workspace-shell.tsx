@@ -21,20 +21,20 @@ const NAV_ITEMS = [
   { href: "/planner", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
   { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
-  { href: "/assets", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
+  { href: "/media-tools", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
   { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
   { href: "/services#team", label: "Team", shortLabel: "Team", icon: Users },
 ] as const;
 
 const MEDIA_TOOL_NAV = [
-  { href: "/assets/phone-transfer", label: "Phone Transfer" },
-  { href: "/assets/qr-generator", label: "QR Generator" },
-  { href: "/assets/background-generator", label: "Background Generator" },
+  { href: "/media-tools/phone-transfer", label: "Phone Transfer" },
+  { href: "/media-tools/qr-generator", label: "QR Generator" },
+  { href: "/media-tools/background-generator", label: "Background Generator" },
+  { href: "/media-tools/resize-image", label: "Resize Image" },
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
   "/planner": "Dashboard",
-  "/services": "Services",
   "/automation": "Sermon Captions",
   "/services#team": "Team",
 } as const;
@@ -60,7 +60,7 @@ function getWarningKey(pathname: string, hash: string | null): InProgressWarning
     return "/services#team";
   }
 
-  if (pathname === "/planner" || pathname === "/services" || pathname === "/automation") {
+  if (pathname === "/planner" || pathname === "/automation") {
     return pathname;
   }
 
@@ -72,7 +72,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const formatterMode = pathname === "/songs/upload" || pathname === "/songs/format";
   const shellNavItems = NAV_ITEMS;
-  const [mediaToolsOpen, setMediaToolsOpen] = useState(() => pathname === "/assets" || pathname.startsWith("/assets/"));
+  const [mediaToolsOpen, setMediaToolsOpen] = useState(() => pathname === "/media-tools" || pathname.startsWith("/media-tools/"));
   const [currentHash, setCurrentHash] = useState<string | null>(null);
   const warningKey = getWarningKey(pathname, currentHash);
   const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
@@ -121,7 +121,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                 : href === "/services"
                   ? pathname === "/services" && currentHash !== null && currentHash !== "#team"
                   : isActivePath(pathname, href);
-            const isMediaTools = href === "/assets";
+            const isMediaTools = href === "/media-tools";
             const showMediaChildren = isMediaTools && mediaToolsOpen;
             return (
               <div key={`${href}-${label}`}>
