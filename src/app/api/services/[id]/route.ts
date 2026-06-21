@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
-import type { z } from "zod";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
@@ -20,7 +19,26 @@ type RouteParams = {
   params: Promise<{ id: string }>;
 };
 
-type UpdateWorshipServicePayload = z.infer<typeof UpdateWorshipServiceSchema>;
+type UpdateWorshipServicePayload = {
+  serviceDate?: Date;
+  assignedMinistry?: AssignedMinistry;
+  sermonVerse?: string;
+  status?: "DRAFT" | "READY" | "ARCHIVED";
+  templateType?: ServiceTemplateType;
+  pledgeType?: PledgeType | null;
+  bibleVerses?: Array<{
+    verse: string;
+    order: number;
+  }>;
+  servantAssignments?: Array<{
+    role: ServiceServantRole;
+    personName: string;
+  }>;
+  hymnals?: Array<{
+    role: ServiceHymnalRole;
+    title: string;
+  }>;
+};
 
 export async function GET(request: Request, { params }: RouteParams) {
   let serviceId = "";
@@ -58,7 +76,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (!result.success) {
       return NextResponse.json({ error: result.error.format() }, { status: 400 });
     }
-    const payload: UpdateWorshipServicePayload = result.data;
+    const payload = result.data as UpdateWorshipServicePayload;
 
     const service = await prisma.worshipService.findUnique({
       where: serviceWorkspaceWhere(id, workspaceId),
