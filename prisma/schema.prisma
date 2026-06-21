@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 enum ServiceStatus {
@@ -16,6 +17,39 @@ enum ServiceStatus {
 enum ServiceVariant {
   STANDARD
   EXTENDED
+}
+
+enum AssignedMinistry {
+  LEADERS
+  YOUTH
+  MENS
+  LADIES
+  MIXED
+}
+
+enum ServiceTemplateType {
+  REGULAR
+  FIRST_SUNDAY
+}
+
+enum PledgeType {
+  PLEDGE_OF_FAITH
+  COVENANT
+}
+
+enum ServiceServantRole {
+  CALL_TO_WORSHIP
+  EMCEE
+  SCRIPTURE_READER
+  SERMON_SPEAKER
+  OFFERING
+  PLEDGE_READER
+}
+
+enum ServiceHymnalRole {
+  HYMN_OF_PREPARATION
+  HYMN_OF_RESPONSE
+  SONG_OF_HYMNS
 }
 
 enum BlockType {
@@ -115,9 +149,13 @@ model WorshipService {
   workspaceId   String
   serviceDate   DateTime
   ministryName  String
+  assignedMinistry AssignedMinistry?
+  sermonVerse   String?
   theme         String?
   status        ServiceStatus  @default(DRAFT)
   serviceVariant ServiceVariant @default(STANDARD)
+  templateType  ServiceTemplateType @default(REGULAR)
+  pledgeType    PledgeType?
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -126,6 +164,9 @@ model WorshipService {
   blocks        WorshipServiceBlock[]
   songs         WorshipServiceSong[]
   details       WorshipServiceDetail[]
+  bibleVerses   ServiceBibleVerse[]
+  servantAssignments ServiceServantAssignment[]
+  hymnals       ServiceHymnal[]
   assets        ServiceAsset[]
   jobs          AutomationJob[]
   outputs       GeneratedOutput[]
@@ -238,6 +279,41 @@ model WorshipServiceDetail {
 
   service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   block       WorshipServiceBlock? @relation(fields: [blockId], references: [id], onDelete: Cascade)
+}
+
+model ServiceBibleVerse {
+  id        String @id @default(uuid())
+  serviceId String
+  verse     String
+  order     Int    @default(0)
+
+  service   WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, order])
+}
+
+model ServiceServantAssignment {
+  id         String @id @default(uuid())
+  serviceId  String
+  role       ServiceServantRole
+  personName String
+
+  service    WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, role])
+  @@index([serviceId])
+}
+
+model ServiceHymnal {
+  id        String @id @default(uuid())
+  serviceId String
+  role      ServiceHymnalRole
+  title     String
+
+  service   WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, role])
+  @@index([serviceId])
 }
 
 model ServiceAsset {

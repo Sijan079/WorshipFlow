@@ -15,6 +15,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Cleaning up database...");
+  await prisma.serviceBibleVerse.deleteMany();
+  await prisma.serviceServantAssignment.deleteMany();
+  await prisma.serviceHymnal.deleteMany();
   await prisma.worshipServiceDetail.deleteMany();
   await prisma.blockPerson.deleteMany();
   await prisma.worshipServiceSong.deleteMany();
@@ -68,11 +71,38 @@ async function main() {
     data: {
       workspaceId: workspace.id,
       serviceDate: new Date("2026-05-24T09:00:00.000Z"),
+      assignedMinistry: "LADIES",
+      sermonVerse: "Hebrews 11:29-40",
       ministryName: "Ladies Ministry",
       theme: "Serving God with Faithful Hearts",
       status: ServiceStatus.READY,
       serviceVariant: ServiceVariant.STANDARD,
+      templateType: "REGULAR",
     },
+  });
+
+  await prisma.serviceBibleVerse.createMany({
+    data: [
+      { serviceId: service.id, verse: "Awit 113:1-6", order: 0 },
+      { serviceId: service.id, verse: "Hebrews 11:29-40", order: 1 },
+    ],
+  });
+
+  await prisma.serviceServantAssignment.createMany({
+    data: [
+      { serviceId: service.id, role: "CALL_TO_WORSHIP", personName: "Ptr. Darwin" },
+      { serviceId: service.id, role: "EMCEE", personName: "Sis. Marichu Supan" },
+      { serviceId: service.id, role: "SCRIPTURE_READER", personName: "Sis. Tes Lalu" },
+      { serviceId: service.id, role: "SERMON_SPEAKER", personName: "Ptr. Jay" },
+      { serviceId: service.id, role: "OFFERING", personName: "Sis. Maritess Baldonaza / Sis. Kim De Jesus" },
+    ],
+  });
+
+  await prisma.serviceHymnal.createMany({
+    data: [
+      { serviceId: service.id, role: "HYMN_OF_PREPARATION", title: "Sa Mga Pangako'y Umaasa" },
+      { serviceId: service.id, role: "HYMN_OF_RESPONSE", title: "Tunay Kang Matapat" },
+    ],
   });
 
   console.log("Seeding service blocks in strict order...");

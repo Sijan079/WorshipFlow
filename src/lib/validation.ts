@@ -1,20 +1,73 @@
 import { z } from "zod";
-import { ServiceStatus, ServiceVariant, SongRole, JobType } from "@prisma/client";
+import { JobType, ServiceStatus, SongRole } from "@prisma/client";
 import { LyricsExtractorJobInputSchema } from "@/lib/extractor-types";
+import {
+  ASSIGNED_MINISTRY_OPTIONS,
+  PLEDGE_TYPE_OPTIONS,
+  SERVICE_HYMNAL_ROLES,
+  SERVICE_SERVANT_ROLES,
+  SERVICE_TEMPLATE_OPTIONS,
+} from "@/lib/service-records";
+
+const AssignedMinistrySchema = z.enum(ASSIGNED_MINISTRY_OPTIONS.map((option) => option.value) as [string, ...string[]]);
+const ServiceTemplateTypeSchema = z.enum(SERVICE_TEMPLATE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
+const PledgeTypeSchema = z.enum(PLEDGE_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
+const ServiceServantRoleSchema = z.enum(SERVICE_SERVANT_ROLES.map((role) => role.value) as [string, ...string[]]);
+const ServiceHymnalRoleSchema = z.enum(SERVICE_HYMNAL_ROLES.map((role) => role.value) as [string, ...string[]]);
+
+export const ServiceBibleVerseSchema = z.object({
+  verse: z.string().trim().min(1, "Bible verse is required"),
+  order: z.number().int().min(0),
+});
+
+export const ServiceServantAssignmentSchema = z.object({
+  role: ServiceServantRoleSchema,
+  personName: z.string().trim().min(1, "Servant name is required"),
+});
+
+export const ServiceHymnalSchema = z.object({
+  role: ServiceHymnalRoleSchema,
+  title: z.string().trim().min(1, "Hymnal title is required"),
+});
 
 export const WorshipServiceSchema = z.object({
   serviceDate: z.string().transform((val) => new Date(val)),
-  ministryName: z.string().min(1, "Ministry name is required"),
-  theme: z.string().optional().nullable(),
+  assignedMinistry: AssignedMinistrySchema,
+  sermonVerse: z.string().trim().min(1, "Sermon verse is required"),
   status: z.nativeEnum(ServiceStatus).default(ServiceStatus.DRAFT),
-  serviceVariant: z.nativeEnum(ServiceVariant).default(ServiceVariant.STANDARD),
+  templateType: ServiceTemplateTypeSchema.default("REGULAR"),
+  pledgeType: PledgeTypeSchema.optional().nullable(),
+  bibleVerses: z.array(ServiceBibleVerseSchema).default([]),
+  servantAssignments: z.array(ServiceServantAssignmentSchema).default([]),
+  hymnals: z.array(ServiceHymnalSchema).default([]),
+}).superRefine((value, context) => {
+  if (value.templateType !== "FIRST_SUNDAY" && value.pledgeType) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pledgeType"],
+      message: "Pledge selection is only allowed for 1st Sunday.",
+    });
+  }
 });
 
 export const UpdateWorshipServiceSchema = z.object({
   serviceDate: z.string().transform((val) => new Date(val)).optional(),
-  ministryName: z.string().min(1).optional(),
-  theme: z.string().optional().nullable(),
+  assignedMinistry: AssignedMinistrySchema.optional(),
+  sermonVerse: z.string().trim().min(1).optional(),
   status: z.nativeEnum(ServiceStatus).optional(),
+  templateType: ServiceTemplateTypeSchema.optional(),
+  pledgeType: PledgeTypeSchema.optional().nullable(),
+  bibleVerses: z.array(ServiceBibleVerseSchema).optional(),
+  servantAssignments: z.array(ServiceServantAssignmentSchema).optional(),
+  hymnals: z.array(ServiceHymnalSchema).optional(),
+}).superRefine((value, context) => {
+  if (value.templateType && value.templateType !== "FIRST_SUNDAY" && value.pledgeType) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pledgeType"],
+      message: "Pledge selection is only allowed for 1st Sunday.",
+    });
+  }
 });
 
 export const BlockPersonSchema = z.object({
