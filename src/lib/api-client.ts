@@ -1,5 +1,5 @@
-import type { ServiceListPayload, SongRepositoryItem } from "@/lib/service-data";
-import type { BlockPerson, JobStatus, JobType, OutputType, ServiceStatus, ServiceVariant, SongRole, WorshipServiceDetail } from "@prisma/client";
+import type { ServiceDetailPayload, ServiceListPayload, SongRepositoryItem } from "@/lib/service-data";
+import type { BlockPerson, JobStatus, JobType, OutputType, ServiceStatus, ServiceVariant, SongRole } from "@prisma/client";
 import type {
   LyricsExtractorAiRetryDescriptor,
   LyricsExtractorDocxRequest,
@@ -369,5 +369,5 @@ export function getGeneratedBackgroundPreviewUrl(outputId: string) {
   return `/api/media/backgrounds/${encodeURIComponent(outputId)}/download?disposition=inline`;
 }
 
-export type ServiceDetailRecord = WorshipServiceDetail;
+export type ServiceDetailRecord = Serialized<ServiceDetailPayload>;
 export type ParticipantRecord = BlockPerson;

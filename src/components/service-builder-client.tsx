@@ -35,6 +35,7 @@ import {
   type CreateServiceSongPayload,
   type CreateSongPayload,
   type LyricsExtractorEditableResponse,
+  type ServiceDetailRecord,
   type ServiceRecord,
   type SongTagPresetRecord,
   type UpdateParticipantPayload,
@@ -275,7 +276,7 @@ function formatServiceDate(dateString: string) {
   }).format(new Date(dateString));
 }
 
-function getBlockByType(service: ServiceRecord, blockType: BlockType) {
+function getBlockByType(service: ServiceDetailRecord, blockType: BlockType) {
   return service.blocks.find((block) => block.blockType === blockType);
 }
 
@@ -445,7 +446,6 @@ export default function ServiceBuilderClient({
     queryKey: ["services"],
     queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
   });
-
   const songTagsQuery = useQuery({
     queryKey: ["song-tags"],
     queryFn: () => apiFetch<SongTagPresetRecord[]>("/api/song-tags"),
@@ -985,9 +985,13 @@ export default function ServiceBuilderClient({
     selectedServiceId && services.some((service) => service.id === selectedServiceId)
       ? selectedServiceId
       : (services.find((service) => service.ministryName === "Ladies Ministry") ?? services[0])?.id ?? null;
+  const selectedServiceQuery = useQuery({
+    queryKey: ["service", resolvedSelectedServiceId],
+    queryFn: () => apiFetch<ServiceDetailRecord>(`/api/services/${resolvedSelectedServiceId}`),
+    enabled: Boolean(resolvedSelectedServiceId),
+  });
 
-  const selectedService =
-    services.find((service) => service.id === resolvedSelectedServiceId) ?? null;
+  const selectedService = selectedServiceQuery.data ?? null;
   const selectedServiceBlockOrder = selectedService ? getServiceBlockOrder(selectedService.serviceVariant) : STRICT_BLOCK_ORDER;
   const effectiveActiveServiceBlockType = selectedServiceBlockOrder.includes(activeServiceBlockType)
     ? activeServiceBlockType
