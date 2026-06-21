@@ -70,7 +70,7 @@ export const serviceDetailArgs = Prisma.validator<Prisma.WorshipServiceDefaultAr
 
 export const serviceDetailInclude = serviceDetailArgs.include;
 
-export const serviceListArgs = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
+export const serviceListArgs = Prisma.validator<Prisma.WorshipServiceFindManyArgs>()({
   include: {
     bibleVerses: {
       orderBy: {
@@ -94,7 +94,9 @@ export const serviceListInclude = serviceListArgs.include;
 
 export type ServiceDetailPayload = Prisma.WorshipServiceGetPayload<typeof serviceDetailArgs>;
 
-export type ServiceListPayload = Prisma.WorshipServiceGetPayload<typeof serviceListArgs>;
+export type ServiceListPayload = Prisma.WorshipServiceGetPayload<{
+  include: typeof serviceListInclude;
+}>;
 
 export type SongRepositoryItem = Prisma.SongGetPayload<{
   include: {
