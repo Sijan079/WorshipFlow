@@ -10,7 +10,7 @@ import {
   Play,
   RefreshCcw,
 } from "lucide-react";
-import { apiFetch, type ServiceRecord } from "@/lib/api-client";
+import { apiFetch, type ServiceDetailRecord, type ServiceRecord } from "@/lib/api-client";
 import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-display";
 import { JobStatus, type BlockType } from "@/lib/service-constants";
 
@@ -22,19 +22,19 @@ function formatServiceDate(dateString: string) {
   }).format(new Date(dateString));
 }
 
-function getBlockByType(service: ServiceRecord, blockType: BlockType) {
+function getBlockByType(service: ServiceDetailRecord, blockType: BlockType) {
   return service.blocks.find((block) => block.blockType === blockType);
 }
 
-function countParticipants(service: ServiceRecord) {
+function countParticipants(service: ServiceDetailRecord) {
   return service.blocks.reduce((total, block) => total + block.people.length, 0);
 }
 
-function countServiceSongs(service: ServiceRecord) {
+function countServiceSongs(service: ServiceDetailRecord) {
   return service.blocks.reduce((total, block) => total + block.songs.length, 0);
 }
 
-function isBlockReady(service: ServiceRecord, blockType: BlockType) {
+function isBlockReady(service: ServiceDetailRecord, blockType: BlockType) {
   const block = getBlockByType(service, blockType);
   if (!block) {
     return false;
@@ -47,7 +47,7 @@ function isBlockReady(service: ServiceRecord, blockType: BlockType) {
   return block.people.length > 0 || block.details.length > 0;
 }
 
-function getBlockSummary(service: ServiceRecord, blockType: BlockType) {
+function getBlockSummary(service: ServiceDetailRecord, blockType: BlockType) {
   const block = getBlockByType(service, blockType);
   if (!block) {
     return "Missing block";
@@ -77,8 +77,12 @@ export default function WorshipServicePlannerClient() {
     selectedServiceId && services.some((service) => service.id === selectedServiceId)
       ? selectedServiceId
       : fallbackService?.id ?? null;
-  const selectedService =
-    services.find((service) => service.id === resolvedSelectedServiceId) ?? null;
+  const selectedServiceQuery = useQuery({
+    queryKey: ["service", resolvedSelectedServiceId],
+    queryFn: () => apiFetch<ServiceDetailRecord>(`/api/services/${resolvedSelectedServiceId}`),
+    enabled: Boolean(resolvedSelectedServiceId),
+  });
+  const selectedService = selectedServiceQuery.data ?? null;
 
   const plannerStats = useMemo(() => {
     if (!selectedService) {
