@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
+import type { z } from "zod";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
@@ -18,6 +19,8 @@ import {
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
+
+type UpdateWorshipServicePayload = z.infer<typeof UpdateWorshipServiceSchema>;
 
 export async function GET(request: Request, { params }: RouteParams) {
   let serviceId = "";
@@ -55,6 +58,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (!result.success) {
       return NextResponse.json({ error: result.error.format() }, { status: 400 });
     }
+    const payload: UpdateWorshipServicePayload = result.data;
 
     const service = await prisma.worshipService.findUnique({
       where: serviceWorkspaceWhere(id, workspaceId),
@@ -65,17 +69,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const updatedService = await prisma.$transaction(async (tx) => {
-      const nextAssignedMinistry = (result.data.assignedMinistry ?? service.assignedMinistry ?? "MIXED") as AssignedMinistry;
-      const nextTemplateType = (result.data.templateType ?? service.templateType) as ServiceTemplateType;
+      const nextAssignedMinistry = (payload.assignedMinistry ?? service.assignedMinistry ?? "MIXED") as AssignedMinistry;
+      const nextTemplateType = (payload.templateType ?? service.templateType) as ServiceTemplateType;
       const data: Prisma.WorshipServiceUpdateInput = {
-        serviceDate: result.data.serviceDate,
-        assignedMinistry: result.data.assignedMinistry as AssignedMinistry | undefined,
-        sermonVerse: result.data.sermonVerse,
+        serviceDate: payload.serviceDate,
+        assignedMinistry: payload.assignedMinistry as AssignedMinistry | undefined,
+        sermonVerse: payload.sermonVerse,
         ministryName: mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
         serviceVariant: mapTemplateTypeToServiceVariant(nextTemplateType) as "STANDARD" | "EXTENDED",
-        status: result.data.status,
-        templateType: result.data.templateType as ServiceTemplateType | undefined,
-        pledgeType: result.data.pledgeType as PledgeType | null | undefined,
+        status: payload.status,
+        templateType: payload.templateType as ServiceTemplateType | undefined,
+        pledgeType: payload.pledgeType as PledgeType | null | undefined,
       };
 
       await tx.worshipService.update({
@@ -83,11 +87,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
         data,
       });
 
-      if (result.data.bibleVerses) {
+      if (payload.bibleVerses) {
         await tx.serviceBibleVerse.deleteMany({ where: { serviceId: id } });
-        if (result.data.bibleVerses.length > 0) {
+        if (payload.bibleVerses.length > 0) {
           await tx.serviceBibleVerse.createMany({
-            data: result.data.bibleVerses.map((entry) => ({
+            data: payload.bibleVerses.map((entry) => ({
               serviceId: id,
               verse: entry.verse,
               order: entry.order,
@@ -96,11 +100,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
         }
       }
 
-      if (result.data.servantAssignments) {
+      if (payload.servantAssignments) {
         await tx.serviceServantAssignment.deleteMany({ where: { serviceId: id } });
-        if (result.data.servantAssignments.length > 0) {
+        if (payload.servantAssignments.length > 0) {
           await tx.serviceServantAssignment.createMany({
-            data: result.data.servantAssignments.map((entry) => ({
+            data: payload.servantAssignments.map((entry) => ({
               serviceId: id,
               role: entry.role as ServiceServantRole,
               personName: entry.personName,
@@ -109,11 +113,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
         }
       }
 
-      if (result.data.hymnals) {
+      if (payload.hymnals) {
         await tx.serviceHymnal.deleteMany({ where: { serviceId: id } });
-        if (result.data.hymnals.length > 0) {
+        if (payload.hymnals.length > 0) {
           await tx.serviceHymnal.createMany({
-            data: result.data.hymnals.map((entry) => ({
+            data: payload.hymnals.map((entry) => ({
               serviceId: id,
               role: entry.role as ServiceHymnalRole,
               title: entry.title,
