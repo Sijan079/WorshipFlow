@@ -70,33 +70,17 @@ export const serviceDetailArgs = Prisma.validator<Prisma.WorshipServiceDefaultAr
 
 export const serviceDetailInclude = serviceDetailArgs.include;
 
-export const serviceListArgs = Prisma.validator<Prisma.WorshipServiceFindManyArgs>()({
+export const serviceListRelations = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
   include: {
-    bibleVerses: {
-      orderBy: {
-        order: "asc",
-      },
-    },
-    servantAssignments: {
-      orderBy: {
-        role: "asc",
-      },
-    },
-    hymnals: {
-      orderBy: {
-        role: "asc",
-      },
-    },
+    bibleVerses: true,
+    servantAssignments: true,
+    hymnals: true,
   },
 });
 
-export const serviceListInclude = serviceListArgs.include;
-
 export type ServiceDetailPayload = Prisma.WorshipServiceGetPayload<typeof serviceDetailArgs>;
 
-export type ServiceListPayload = Prisma.WorshipServiceGetPayload<{
-  include: typeof serviceListInclude;
-}>;
+export type ServiceListPayload = Prisma.WorshipServiceGetPayload<typeof serviceListRelations>;
 
 export type SongRepositoryItem = Prisma.SongGetPayload<{
   include: {

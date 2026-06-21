@@ -150,6 +150,27 @@ function validateServiceForm(_form: ServiceFormState): ServiceFormErrors {
 
 function buildServicePayload(form: ServiceFormState): CreateServicePayload {
   const normalizedForm = normalizeServiceForm(form);
+  type ServiceServantAssignmentPayload = NonNullable<CreateServicePayload["servantAssignments"]>[number];
+  const servantAssignments = SERVICE_SERVANT_ROLES
+    .filter((role) => isFirstSunday(normalizedForm.templateType) || !FIRST_SUNDAY_SERVANT_ROLES.has(role.value))
+    .reduce<ServiceServantAssignmentPayload[]>((assignments, role) => {
+      if (role.value === "OFFERING") {
+        const personName = formatOfferingPeople(normalizedForm.offeringPeople);
+        if (personName) {
+          assignments.push({ role: role.value, personName });
+        }
+
+        return assignments;
+      }
+
+      assignments.push({
+        role: role.value,
+        personName: normalizedForm.servantAssignments[role.value].trim(),
+      });
+
+      return assignments;
+    }, []);
+
   return {
     serviceDate: new Date(normalizedForm.serviceDate).toISOString(),
     assignedMinistry: normalizedForm.assignedMinistry,
@@ -160,19 +181,7 @@ function buildServicePayload(form: ServiceFormState): CreateServicePayload {
     bibleVerses: normalizedForm.bibleVerses
       .map((verse, index) => ({ verse: verse.trim(), order: index }))
       .filter((entry) => entry.verse.length > 0),
-    servantAssignments: SERVICE_SERVANT_ROLES
-      .filter((role) => isFirstSunday(normalizedForm.templateType) || !FIRST_SUNDAY_SERVANT_ROLES.has(role.value))
-      .flatMap((role) =>
-        role.value === "OFFERING"
-          ? (() => {
-              const personName = formatOfferingPeople(normalizedForm.offeringPeople);
-              return personName ? [{ role: role.value, personName }] : [];
-            })()
-          : [{
-              role: role.value,
-              personName: normalizedForm.servantAssignments[role.value].trim(),
-            }]
-      ),
+    servantAssignments,
     hymnals: SERVICE_HYMNAL_ROLES
       .filter((role) => isFirstSunday(normalizedForm.templateType) || !FIRST_SUNDAY_HYMNAL_ROLES.has(role.value))
       .map((role) => ({
