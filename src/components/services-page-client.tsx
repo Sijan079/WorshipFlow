@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiFetch,
   type CreateServicePayload,
   type ServiceRecord,
+  type ServantRecord,
   type UpdateServicePayload,
 } from "@/lib/api-client";
 import { analyzeServiceText } from "@/lib/service-text-analysis";
@@ -29,6 +30,8 @@ import {
   type ServiceTemplateType,
 } from "@/lib/service-records";
 import { ServiceStatus } from "@/lib/service-constants";
+import { formatServantDisplayName } from "@/lib/servants";
+import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 
 type ServiceFormState = {
   assignedMinistry: AssignedMinistry;
@@ -65,6 +68,45 @@ const SERVICE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 
 function formatServiceDate(dateString: string) {
   return SERVICE_DATE_FORMATTER.format(new Date(dateString));
+}
+
+function ServicesTableSkeleton() {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse">
+        <thead className="bg-[var(--color-brand-panel-strong)]">
+          <tr className="text-left">
+            <th className="w-12 px-4 py-3" />
+            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Date</th>
+            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Ministry</th>
+            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Sermon Verse</th>
+            <th className="w-14 px-2 py-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <tr key={`service-skeleton-${index}`} className="border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
+              <td className="px-4 py-4 align-top">
+                <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--color-brand-panel-alt)]" />
+              </td>
+              <td className="px-4 py-4 align-top">
+                <div className="h-5 w-28 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
+              </td>
+              <td className="px-4 py-4 align-top">
+                <div className="h-5 w-24 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
+              </td>
+              <td className="px-4 py-4 align-top">
+                <div className="h-5 w-36 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
+              </td>
+              <td className="px-2 py-3 align-top">
+                <div className="h-9 w-9 animate-pulse rounded-md bg-[var(--color-brand-panel-alt)]" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function createBlankServiceForm(): ServiceFormState {
@@ -143,8 +185,22 @@ function isFirstSunday(templateType: ServiceTemplateType) {
   return templateType === "FIRST_SUNDAY";
 }
 
-function validateServiceForm(_form: ServiceFormState): ServiceFormErrors {
-  void _form;
+function normalizePersonNameForComparison(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function hasDuplicateOfferingPeople(offeringPeople: [string, string]) {
+  const [firstPerson, secondPerson] = offeringPeople.map(normalizePersonNameForComparison);
+  return firstPerson.length > 0 && firstPerson === secondPerson;
+}
+
+function validateServiceForm(form: ServiceFormState): ServiceFormErrors {
+  if (hasDuplicateOfferingPeople(normalizeServiceForm(form).offeringPeople)) {
+    return {
+      OFFERING: "Offering servants cannot be the same person.",
+    };
+  }
+
   return {};
 }
 
@@ -223,17 +279,157 @@ function applyAnalysisToServiceForm(form: ServiceFormState, input: string) {
   return { draft, nextForm };
 }
 
+function ServantCombobox({
+  onChange,
+  options,
+  placeholder,
+  value,
+}: {
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  value: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const filteredOptions = useMemo(() => {
+    const normalizedValue = value.trim().toLocaleLowerCase();
+    if (!normalizedValue) {
+      return options;
+    }
+
+    return options.filter((option) => option.toLocaleLowerCase().includes(normalizedValue));
+  }, [options, value]);
+
+  return (
+    <div
+      className="relative"
+      onBlur={() => {
+        window.setTimeout(() => setOpen(false), 120);
+      }}
+    >
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+              setOpen(true);
+              setHighlightedIndex(0);
+              return;
+            }
+
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setHighlightedIndex((currentIndex) => Math.min(currentIndex + 1, Math.max(filteredOptions.length - 1, 0)));
+              return;
+            }
+
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setHighlightedIndex((currentIndex) => Math.max(currentIndex - 1, 0));
+              return;
+            }
+
+            if (event.key === "Enter" && open && filteredOptions[highlightedIndex]) {
+              event.preventDefault();
+              onChange(filteredOptions[highlightedIndex]);
+              setOpen(false);
+              return;
+            }
+
+            if (event.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          placeholder={placeholder}
+          className="w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 pr-11 text-[var(--text-primary)]"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((currentOpen) => !currentOpen);
+            setHighlightedIndex(0);
+          }}
+          className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+          aria-label={open ? "Hide servant suggestions" : "Show servant suggestions"}
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+
+      {open ? (
+        <div className="absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option, index) => {
+              const isActive = index === highlightedIndex;
+              return (
+                <button
+                  key={`${option}-${index}`}
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    onChange(option);
+                    setOpen(false);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                    isActive
+                      ? "bg-[color:color-mix(in_srgb,var(--color-brand-accent)_18%,var(--surface-panel))] text-[var(--text-primary)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  <span className="truncate">{option}</span>
+                  {value === option ? <Check className="h-4 w-4 shrink-0" /> : null}
+                </button>
+              );
+            })
+          ) : (
+            <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">No matching servants</div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ServiceFormFields({
   errors,
   form,
   onChange,
+  servants,
+  onInvalidOfferingDuplicate,
 }: {
   errors: ServiceFormErrors;
   form: ServiceFormState;
   onChange: (next: ServiceFormState) => void;
+  servants: ServantRecord[];
+  onInvalidOfferingDuplicate: () => void;
 }) {
   const normalizedForm = normalizeServiceForm(form);
   const firstSunday = isFirstSunday(normalizedForm.templateType);
+  const servantOptions = servants.map((servant) => formatServantDisplayName(servant));
+
+  function updateOfferingPerson(index: 0 | 1, nextValue: string) {
+    const nextOfferingPeople = [...normalizedForm.offeringPeople] as [string, string];
+    nextOfferingPeople[index] = nextValue;
+
+    if (hasDuplicateOfferingPeople(nextOfferingPeople)) {
+      onInvalidOfferingDuplicate();
+      return;
+    }
+
+    onChange({
+      ...normalizedForm,
+      offeringPeople: nextOfferingPeople,
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -400,6 +596,7 @@ function ServiceFormFields({
 
       <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
         <p className="technical-label">SERVANTS</p>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">Pick from Teams suggestions or type a one-off name manually.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {SERVICE_SERVANT_ROLES.filter((role) => firstSunday || !("firstSundayOnly" in role && role.firstSundayOnly)).map((role) => (
             <label
@@ -410,38 +607,33 @@ function ServiceFormFields({
               {role.value === "OFFERING" ? (
                 <div className="mt-1 grid grid-cols-2 gap-3">
                   {normalizedForm.offeringPeople.map((personName, index) => (
-                    <input
-                      key={`offering-${index}`}
-                      type="text"
-                      value={personName}
-                      onChange={(event) => {
-                        const nextOfferingPeople = [...normalizedForm.offeringPeople] as [string, string];
-                        nextOfferingPeople[index] = event.target.value;
-                        onChange({
-                          ...normalizedForm,
-                          offeringPeople: nextOfferingPeople,
-                        });
-                      }}
-                      placeholder={index === 0 ? "Offering person 1" : "Offering person 2"}
-                      className="min-w-0 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]"
-                    />
+                    <div key={`offering-${index}`}>
+                      <ServantCombobox
+                        value={personName}
+                        onChange={(nextValue) => updateOfferingPerson(index as 0 | 1, nextValue)}
+                        options={servantOptions}
+                        placeholder={index === 0 ? "Offering person 1" : "Offering person 2"}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (
-                <input
-                  type="text"
-                  value={normalizedForm.servantAssignments[role.value]}
-                  onChange={(event) =>
-                    onChange({
-                      ...normalizedForm,
-                      servantAssignments: {
-                        ...normalizedForm.servantAssignments,
-                        [role.value]: event.target.value,
-                      },
-                    })
-                  }
-                  className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]"
-                />
+                <div className="mt-1">
+                  <ServantCombobox
+                    value={normalizedForm.servantAssignments[role.value]}
+                    onChange={(nextValue) =>
+                      onChange({
+                        ...normalizedForm,
+                        servantAssignments: {
+                          ...normalizedForm.servantAssignments,
+                          [role.value]: nextValue,
+                        },
+                      })
+                    }
+                    options={servantOptions}
+                    placeholder={role.label}
+                  />
+                </div>
               )}
               {errors[role.value] ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors[role.value]}</p> : null}
             </label>
@@ -599,6 +791,7 @@ type ServiceListItem = ServiceRecord & {
 
 export default function ServicesPageClient({ initialServices = [] }: { initialServices?: ServiceRecord[] }) {
   const queryClient = useQueryClient();
+  const { dismissToast, showToast, toasts } = usePAPToasts();
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -617,6 +810,11 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     queryKey: ["services"],
     queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
     initialData: initialServices,
+    staleTime: 30_000,
+  });
+  const servantsQuery = useQuery({
+    queryKey: ["servants", "all"],
+    queryFn: () => apiFetch<ServantRecord[]>("/api/servants"),
     staleTime: 30_000,
   });
 
@@ -641,6 +839,7 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
   const expandedService = filteredServices.find((service) => service.id === expandedServiceId)
     ?? services.find((service) => service.id === expandedServiceId)
     ?? null;
+  const showTableSkeleton = servicesQuery.isLoading || servicesQuery.isFetching;
 
   const createServiceMutation = useMutation({
     mutationFn: (payload: CreateServicePayload) =>
@@ -697,6 +896,9 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     const errors = validateServiceForm(createForm);
     setCreateErrors(errors);
     if (Object.keys(errors).length > 0) {
+      if (errors.OFFERING) {
+        showToast(errors.OFFERING);
+      }
       return;
     }
 
@@ -721,6 +923,9 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     const errors = validateServiceForm(editForm);
     setEditErrors(errors);
     if (Object.keys(errors).length > 0) {
+      if (errors.OFFERING) {
+        showToast(errors.OFFERING);
+      }
       return;
     }
 
@@ -835,10 +1040,8 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
           </div>
         </div>
 
-        {servicesQuery.isLoading ? (
-          <div className="flex min-h-[320px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[var(--color-brand-accent)]" />
-          </div>
+        {showTableSkeleton ? (
+          <ServicesTableSkeleton />
         ) : filteredServices.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
             <h3 className="text-lg font-semibold text-[var(--color-brand-ink)]">No matching services</h3>
@@ -963,7 +1166,13 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
                               </div>
 
                               {isEditing ? (
-                                <ServiceFormFields form={editForm} errors={editErrors} onChange={setEditForm} />
+                                <ServiceFormFields
+                                  form={editForm}
+                                  errors={editErrors}
+                                  onChange={setEditForm}
+                                  onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
+                                  servants={servantsQuery.data ?? []}
+                                />
                               ) : (
                                 <ReadOnlyServiceDetails service={service} />
                               )}
@@ -1009,7 +1218,13 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
               </div>
             </div>
 
-            <ServiceFormFields form={createForm} errors={createErrors} onChange={setCreateForm} />
+            <ServiceFormFields
+              form={createForm}
+              errors={createErrors}
+              onChange={setCreateForm}
+              onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
+              servants={servantsQuery.data ?? []}
+            />
 
             <div className="mt-5 flex justify-end">
               <button
@@ -1108,6 +1323,8 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
           </div>
         </div>
       ) : null}
+
+      <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
     </main>
   );
 }

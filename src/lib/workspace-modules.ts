@@ -1,4 +1,4 @@
-export const WORKSPACE_MODULES = ["services", "songs", "media-tools", "automation"] as const;
+export const WORKSPACE_MODULES = ["services", "teams", "songs", "media-tools", "automation"] as const;
 
 export type WorkspaceModule = (typeof WORKSPACE_MODULES)[number];
 

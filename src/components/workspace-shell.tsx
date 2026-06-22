@@ -20,10 +20,10 @@ import {
 const NAV_ITEMS = [
   { href: "/planner", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
+  { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users },
   { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
   { href: "/media-tools", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
   { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
-  { href: "/services#team", label: "Team", shortLabel: "Team", icon: Users },
 ] as const;
 
 const MEDIA_TOOL_NAV = [
@@ -36,7 +36,6 @@ const MEDIA_TOOL_NAV = [
 const IN_PROGRESS_WARNINGS = {
   "/planner": "Dashboard",
   "/automation": "Sermon Captions",
-  "/services#team": "Team",
 } as const;
 
 type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
@@ -57,7 +56,7 @@ function getWarningKey(pathname: string, hash: string | null): InProgressWarning
   }
 
   if (pathname === "/services" && hash === "#team") {
-    return "/services#team";
+    return null;
   }
 
   if (pathname === "/planner" || pathname === "/automation") {
@@ -116,11 +115,9 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
         <nav className="flex flex-1 flex-col gap-1" aria-label="Production workspace">
           {shellNavItems.map(({ href, label, icon: Icon }) => {
             const active =
-              href === "/services#team"
-                ? pathname === "/services" && currentHash === "#team"
-                : href === "/services"
-                  ? pathname === "/services" && currentHash !== null && currentHash !== "#team"
-                  : isActivePath(pathname, href);
+              href === "/services"
+                ? pathname === "/services" && currentHash !== "#team"
+                : isActivePath(pathname, href);
             const isMediaTools = href === "/media-tools";
             const showMediaChildren = isMediaTools && mediaToolsOpen;
             return (
@@ -227,11 +224,9 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
           <nav className="flex gap-2 overflow-x-auto border-t border-[var(--border-default)] px-3 py-2" aria-label="Production workspace">
             {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
               const active =
-                href === "/services#team"
-                  ? pathname === "/services" && currentHash === "#team"
-                  : href === "/services"
-                    ? pathname === "/services" && currentHash !== null && currentHash !== "#team"
-                    : isActivePath(pathname, href);
+                href === "/services"
+                  ? pathname === "/services" && currentHash !== "#team"
+                  : isActivePath(pathname, href);
               return (
                 <Link
                   key={`${href}-${shortLabel}`}

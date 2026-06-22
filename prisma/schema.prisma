@@ -111,6 +111,21 @@ enum OutputType {
   ZIP
 }
 
+enum ServantGender {
+  MALE
+  FEMALE
+}
+
+enum ServantGroup {
+  PASTORS
+  CHURCH_LEADERS
+  MENS
+  LADIES
+  YOUTH
+  TECH
+  MUSIC
+}
+
 model Workspace {
   id        String   @id @default(uuid())
   slug      String   @unique
@@ -124,6 +139,7 @@ model Workspace {
   tagPresets SongTagPreset[]
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
+  servants  Servant[]
 }
 
 model PapInboxScreenshot {
@@ -370,3 +386,18 @@ model GeneratedOutput {
 
     @@index([workspaceId, createdAt])
   }
+
+model Servant {
+  id          String        @id @default(uuid())
+  workspaceId String
+  name        String
+  gender      ServantGender
+  group       ServantGroup
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, name])
+  @@index([workspaceId, group, name])
+}

@@ -8,6 +8,7 @@ import {
   SERVICE_SERVANT_ROLES,
   SERVICE_TEMPLATE_OPTIONS,
 } from "@/lib/service-records";
+import { ServantSchema, UpdateServantSchema } from "@/lib/servants";
 
 const AssignedMinistrySchema = z.enum(ASSIGNED_MINISTRY_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 const ServiceTemplateTypeSchema = z.enum(SERVICE_TEMPLATE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
@@ -129,3 +130,5 @@ export const UpdateSongTagPresetSchema = SongTagPresetSchema.partial().refine(
   (value) => Object.keys(value).length > 0,
   "At least one field is required"
 );
+
+export { ServantSchema, UpdateServantSchema };

@@ -247,6 +247,11 @@ const MODULE_CONTENT: Record<
     description:
       "Build the run of service in the exact worship order, keep participants and songs attached to their proper blocks, and prepare production handoffs.",
   },
+  teams: {
+    title: "Servant Teams",
+    description:
+      "Keep a simple directory of worship servants so assignments can be picked faster across services.",
+  },
   songs: {
     title: "Worship Song Formatter",
     description:

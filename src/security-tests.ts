@@ -8,6 +8,7 @@ import { runPAPApiErrorTests } from "./features/pap/server/pap-api-errors.test.t
 import { runPAPDeviceNameTests } from "./features/pap/pap-device-name.test.ts";
 import { runResizeImageTests } from "./lib/resize-image.test.ts";
 import { runServiceRecordTests } from "./lib/service-records.test.ts";
+import { runServantDirectoryTests } from "./lib/servant-directory.test.ts";
 import { runServicesSecurityTests } from "./lib/services-security.test.ts";
 import { runServiceTextAnalysisTests } from "./lib/service-text-analysis.test.ts";
 import { runWorkspaceModulesTests } from "./lib/workspace-modules.test.ts";
@@ -23,6 +24,7 @@ runPAPApiErrorTests();
 runPAPDeviceNameTests();
 runResizeImageTests();
 runServiceRecordTests();
+runServantDirectoryTests();
 runServicesSecurityTests();
 runServiceTextAnalysisTests();
 runWorkspaceModulesTests();
