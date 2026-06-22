@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function PhoneTransferPage() {
-  return <ServiceBuilderClient module="assets" mediaTool="phone-transfer" />;
+  redirect("/media-tools/phone-transfer");
 }

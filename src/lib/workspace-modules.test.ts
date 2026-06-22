@@ -23,4 +23,22 @@ export function runWorkspaceModulesTests() {
     );
     assert.doesNotMatch(source, /module="assets"/);
   }
+
+  const assetsCompatibilityPages = [
+    ["page.tsx", 'redirect("/media-tools")'],
+    ["converter/page.tsx", 'redirect("/media-tools")'],
+    ["phone-transfer/page.tsx", 'redirect("/media-tools/phone-transfer")'],
+    ["qr-generator/page.tsx", 'redirect("/media-tools/qr-generator")'],
+    ["background-generator/page.tsx", 'redirect("/media-tools/background-generator")'],
+  ] as const;
+
+  for (const [relativePath, expectedRedirect] of assetsCompatibilityPages) {
+    const source = readFileSync(
+      join(process.cwd(), "src", "app", "(workspace)", "assets", relativePath),
+      "utf8",
+    );
+    assert.match(source, /import \{ redirect \} from "next\/navigation";/);
+    assert.match(source, new RegExp(expectedRedirect.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(source, /module="assets"/);
+  }
 }

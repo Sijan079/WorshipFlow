@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function QRGeneratorPage() {
-  return <ServiceBuilderClient module="assets" mediaTool="qr-generator" />;
+  redirect("/media-tools/qr-generator");
 }

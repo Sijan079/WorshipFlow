@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function BackgroundGeneratorPage() {
-  return <ServiceBuilderClient module="assets" mediaTool="background-generator" />;
+  redirect("/media-tools/background-generator");
 }
