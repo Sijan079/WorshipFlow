@@ -10,6 +10,7 @@ import { runResizeImageTests } from "./lib/resize-image.test.ts";
 import { runServiceRecordTests } from "./lib/service-records.test.ts";
 import { runServicesSecurityTests } from "./lib/services-security.test.ts";
 import { runServiceTextAnalysisTests } from "./lib/service-text-analysis.test.ts";
+import { runWorkspaceModulesTests } from "./lib/workspace-modules.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -24,6 +25,7 @@ runResizeImageTests();
 runServiceRecordTests();
 runServicesSecurityTests();
 runServiceTextAnalysisTests();
+runWorkspaceModulesTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

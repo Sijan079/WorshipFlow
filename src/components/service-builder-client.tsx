@@ -66,6 +66,7 @@ import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-to
 import QRGeneratorTool from "@/components/qr-generator-tool";
 import BackgroundGeneratorTool from "@/components/background-generator-tool";
 import ResizeImageTool from "@/components/resize-image-tool";
+import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-modules";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -89,7 +90,6 @@ const updateServiceFormSchema = z.object({
 
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
-type WorkspaceModule = "services" | "songs" | "assets" | "automation";
 type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
 export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image";
@@ -252,7 +252,7 @@ const MODULE_CONTENT: Record<
     description:
       "Start from uploaded lyrics or pasted text, review extraction, then finish the document in the interactive editor.",
   },
-  assets: {
+  [MEDIA_TOOLS_MODULE]: {
     title: "Production Media Tools",
     description:
       "Attach and review service media, screenshots, PDFs, and supporting production documents.",
@@ -1208,7 +1208,7 @@ export default function ServiceBuilderClient({
 
   return (
     <div className="min-h-full space-y-5">
-      {module === "songs" || module === "assets" ? null : module === "services" ? (
+      {module === "songs" || module === MEDIA_TOOLS_MODULE ? null : module === "services" ? (
         <section className="production-panel-strong px-4 py-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -2839,7 +2839,7 @@ export default function ServiceBuilderClient({
           </div>
         ) : null}
 
-        {module === "assets" ? (
+        {module === MEDIA_TOOLS_MODULE ? (
           <div className="space-y-5">
             <div className="mx-auto max-w-3xl py-3 text-center">
               <h2 className="text-5xl font-bold leading-tight text-[var(--color-brand-ink)]">
