@@ -1,5 +1,5 @@
-import WorshipServicePlannerClient from "@/components/worship-service-planner-client";
+import { redirect } from "next/navigation";
 
 export default function PlannerPage() {
-  return <WorshipServicePlannerClient />;
+  redirect("/dashboard");
 }

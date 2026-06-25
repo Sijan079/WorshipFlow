@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/planner", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
+  { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
   { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users },
   { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
@@ -34,7 +34,7 @@ const MEDIA_TOOL_NAV = [
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
-  "/planner": "Dashboard",
+  "/dashboard": "Dashboard",
   "/automation": "Sermon Captions",
 } as const;
 
@@ -59,7 +59,7 @@ function getWarningKey(pathname: string, hash: string | null): InProgressWarning
     return null;
   }
 
-  if (pathname === "/planner" || pathname === "/automation") {
+  if (pathname === "/dashboard" || pathname === "/automation") {
     return pathname;
   }
 
@@ -103,7 +103,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
               {formatterMode ? <Sparkles className="h-5 w-5" /> : <ListMusic className="h-5 w-5" />}
           </div>
           <div>
-            <Link href="/planner" className="block text-2xl font-bold leading-none text-[var(--text-accent)]">
+            <Link href="/dashboard" className="block text-2xl font-bold leading-none text-[var(--text-accent)]">
               Tech Suite
             </Link>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -208,7 +208,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
         <header className="border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] lg:hidden">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/planner" className="text-sm font-semibold text-[var(--text-primary)]">
+              <Link href="/dashboard" className="text-sm font-semibold text-[var(--text-primary)]">
                 Worship Production OS
               </Link>
               <button
