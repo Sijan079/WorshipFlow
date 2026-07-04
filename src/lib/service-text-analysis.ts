@@ -1,5 +1,5 @@
-import { BlockType, ServiceStatus, type BlockType as BlockTypeValue, type ServiceStatus as ServiceStatusValue } from "@/lib/service-constants";
-import type { ServiceHymnalRole, ServiceServantRole } from "@/lib/service-records";
+import { BlockType, ServiceStatus, type BlockType as BlockTypeValue, type ServiceStatus as ServiceStatusValue } from "./service-constants.ts";
+import type { ServiceHymnalRole, ServiceServantRole } from "./service-records.ts";
 
 export type AnalyzedServiceParticipant = {
   blockType: BlockTypeValue;

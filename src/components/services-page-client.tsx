@@ -5,8 +5,11 @@ import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, Refr
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiFetch,
+  type CreateServantPayload,
   type CreateServicePayload,
+  type EditableSettingsPresetRecord,
   type ServiceRecord,
+  type ServiceTemplatePresetRecord,
   type ServantRecord,
   type UpdateServicePayload,
 } from "@/lib/api-client";
@@ -30,14 +33,14 @@ import {
   type ServiceTemplateType,
 } from "@/lib/service-records";
 import { ServiceStatus } from "@/lib/service-constants";
-import { formatServantDisplayName } from "@/lib/servants";
+import { formatServantDisplayName, normalizeServantName, normalizeServantNameForComparison } from "@/lib/servants";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 
 type ServiceFormState = {
-  assignedMinistry: AssignedMinistry;
+  assignedMinistry: string;
   serviceDate: string;
   sermonVerse: string;
-  templateType: ServiceTemplateType;
+  templateType: string;
   pledgeType: PledgeType | "";
   bibleVerses: string[];
   servantAssignments: Record<ServiceServantRole, string>;
@@ -57,6 +60,24 @@ type ServiceFormErrors = Partial<
     string
   >
 >;
+
+type PendingServiceSave = {
+  action: "create" | "update";
+  payload: CreateServicePayload | UpdateServicePayload;
+  serviceId?: string;
+};
+
+type MinistryOption = {
+  value: string;
+  label: string;
+  assignedMinistry: AssignedMinistry;
+};
+
+type TemplateOption = {
+  value: string;
+  label: string;
+  templateType: ServiceTemplateType;
+};
 
 const FIRST_SUNDAY_SERVANT_ROLES = new Set<ServiceServantRole>(["PLEDGE_READER"]);
 const FIRST_SUNDAY_HYMNAL_ROLES = new Set<ServiceHymnalRole>(["SONG_OF_HYMNS"]);
@@ -153,6 +174,45 @@ function formatTemplateLabel(templateType?: string | null) {
   return templateType === "FIRST_SUNDAY" ? "1st Sunday" : "Regular";
 }
 
+function buildMinistryOptions(records: EditableSettingsPresetRecord[] = []): MinistryOption[] {
+  if (records.length > 0) {
+    return records.filter((record) => record.active).map((record) => ({
+      value: record.code,
+      label: record.label,
+      assignedMinistry: ASSIGNED_MINISTRY_OPTIONS.some((item) => item.value === record.code)
+        ? (record.code as AssignedMinistry)
+        : inferAssignedMinistryFromName(record.label),
+    }));
+  }
+
+  return ASSIGNED_MINISTRY_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    assignedMinistry: option.value,
+  }));
+}
+
+function buildTemplateOptions(records: ServiceTemplatePresetRecord[] = []): TemplateOption[] {
+  if (records.length > 0) {
+    return records.filter((record) => record.active).map((record) => ({
+      value: record.code,
+      label: record.label,
+      templateType: record.templateType,
+    }));
+  }
+
+  return SERVICE_TEMPLATE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    templateType: option.value,
+  }));
+}
+
+function getSelectedTemplateType(templateCode: string, templateOptions: TemplateOption[]) {
+  return templateOptions.find((option) => option.value === templateCode)?.templateType
+    ?? (templateCode === "FIRST_SUNDAY" ? "FIRST_SUNDAY" : "REGULAR");
+}
+
 function createFormFromService(service: ServiceRecord): ServiceFormState {
   const blank = createBlankServiceForm();
 
@@ -169,10 +229,10 @@ function createFormFromService(service: ServiceRecord): ServiceFormState {
   }
 
   return normalizeServiceForm({
-    assignedMinistry: (service.assignedMinistry ?? "LADIES") as AssignedMinistry,
+    assignedMinistry: service.ministryPresetCode ?? service.assignedMinistry ?? "LADIES",
     serviceDate: new Date(service.serviceDate).toISOString().slice(0, 10),
     sermonVerse: service.sermonVerse ?? "",
-    templateType: (service.templateType ?? "REGULAR") as ServiceTemplateType,
+    templateType: service.templatePresetCode ?? service.templateType ?? "REGULAR",
     pledgeType: (service.pledgeType ?? "") as PledgeType | "",
     bibleVerses: service.bibleVerses?.length ? service.bibleVerses.map((entry) => entry.verse) : [""],
     servantAssignments: blank.servantAssignments,
@@ -181,12 +241,35 @@ function createFormFromService(service: ServiceRecord): ServiceFormState {
   });
 }
 
-function isFirstSunday(templateType: ServiceTemplateType) {
-  return templateType === "FIRST_SUNDAY";
+function isFirstSunday(templateType: string, templateOptions: TemplateOption[] = []) {
+  return getSelectedTemplateType(templateType, templateOptions) === "FIRST_SUNDAY";
 }
 
 function normalizePersonNameForComparison(value: string) {
   return value.trim().toLocaleLowerCase();
+}
+
+function collectUnlistedServantNames(form: ServiceFormState, servants: ServantRecord[]) {
+  const existingNames = new Set(servants.map((servant) => normalizeServantNameForComparison(servant.name)));
+  const candidateNames = [
+    ...Object.values(form.servantAssignments),
+    ...form.offeringPeople,
+  ];
+
+  const missingNames = new Map<string, string>();
+
+  for (const candidateName of candidateNames) {
+    const baseName = normalizeServantName(candidateName);
+    const comparisonName = normalizeServantNameForComparison(candidateName);
+
+    if (!baseName || !comparisonName || existingNames.has(comparisonName) || missingNames.has(comparisonName)) {
+      continue;
+    }
+
+    missingNames.set(comparisonName, baseName);
+  }
+
+  return [...missingNames.values()];
 }
 
 function hasDuplicateOfferingPeople(offeringPeople: [string, string]) {
@@ -204,11 +287,18 @@ function validateServiceForm(form: ServiceFormState): ServiceFormErrors {
   return {};
 }
 
-function buildServicePayload(form: ServiceFormState): CreateServicePayload {
+function buildServicePayload(
+  form: ServiceFormState,
+  ministryOptions: MinistryOption[],
+  templateOptions: TemplateOption[],
+): CreateServicePayload {
   const normalizedForm = normalizeServiceForm(form);
+  const ministryOption = ministryOptions.find((option) => option.value === normalizedForm.assignedMinistry);
+  const templateOption = templateOptions.find((option) => option.value === normalizedForm.templateType);
+  const templateType = templateOption?.templateType ?? getSelectedTemplateType(normalizedForm.templateType, templateOptions);
   type ServiceServantAssignmentPayload = NonNullable<CreateServicePayload["servantAssignments"]>[number];
   const servantAssignments = SERVICE_SERVANT_ROLES
-    .filter((role) => isFirstSunday(normalizedForm.templateType) || !FIRST_SUNDAY_SERVANT_ROLES.has(role.value))
+    .filter((role) => isFirstSunday(normalizedForm.templateType, templateOptions) || !FIRST_SUNDAY_SERVANT_ROLES.has(role.value))
     .reduce<ServiceServantAssignmentPayload[]>((assignments, role) => {
       if (role.value === "OFFERING") {
         const personName = formatOfferingPeople(normalizedForm.offeringPeople);
@@ -229,17 +319,19 @@ function buildServicePayload(form: ServiceFormState): CreateServicePayload {
 
   return {
     serviceDate: new Date(normalizedForm.serviceDate).toISOString(),
-    assignedMinistry: normalizedForm.assignedMinistry,
+    assignedMinistry: ministryOption?.assignedMinistry ?? inferAssignedMinistryFromName(ministryOption?.label),
+    ministryPresetCode: ministryOption?.value ?? normalizedForm.assignedMinistry,
     sermonVerse: normalizedForm.sermonVerse.trim(),
     status: ServiceStatus.DRAFT,
-    templateType: normalizedForm.templateType,
-    pledgeType: isFirstSunday(normalizedForm.templateType) ? (normalizedForm.pledgeType || null) : null,
+    templateType,
+    templatePresetCode: templateOption?.value ?? normalizedForm.templateType,
+    pledgeType: isFirstSunday(normalizedForm.templateType, templateOptions) ? (normalizedForm.pledgeType || null) : null,
     bibleVerses: normalizedForm.bibleVerses
       .map((verse, index) => ({ verse: verse.trim(), order: index }))
       .filter((entry) => entry.verse.length > 0),
     servantAssignments,
     hymnals: SERVICE_HYMNAL_ROLES
-      .filter((role) => isFirstSunday(normalizedForm.templateType) || !FIRST_SUNDAY_HYMNAL_ROLES.has(role.value))
+      .filter((role) => isFirstSunday(normalizedForm.templateType, templateOptions) || !FIRST_SUNDAY_HYMNAL_ROLES.has(role.value))
       .map((role) => ({
         role: role.value,
         title: normalizedForm.hymnals[role.value].trim(),
@@ -277,6 +369,98 @@ function applyAnalysisToServiceForm(form: ServiceFormState, input: string) {
   }
 
   return { draft, nextForm };
+}
+
+function UnlistedServantsModal({
+  names,
+  onClose,
+  onConfirmAddAndSave,
+  onSaveWithoutAdding,
+  pending,
+  selectedNames,
+  setSelectedNames,
+}: {
+  names: string[];
+  onClose: () => void;
+  onConfirmAddAndSave: () => void;
+  onSaveWithoutAdding: () => void;
+  pending: boolean;
+  selectedNames: string[];
+  setSelectedNames: (names: string[]) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
+      <div className="w-full max-w-lg rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="technical-label">ADD TO TEAMS</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Unlisted servants found</h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Select which names should be added to Teams before this service is saved.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
+            aria-label="Close add servants modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {names.map((name) => {
+            const isSelected = selectedNames.includes(name);
+            return (
+              <label
+                key={name}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+                  isSelected
+                    ? "border-[var(--color-brand-accent)] bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--surface-panel))] text-[var(--text-primary)]"
+                    : "border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() =>
+                    setSelectedNames(
+                      isSelected
+                        ? selectedNames.filter((selectedName) => selectedName !== name)
+                        : [...selectedNames, name],
+                    )
+                  }
+                  className="h-4 w-4"
+                />
+                <span className="min-w-0 flex-1 truncate">{name}</span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={onSaveWithoutAdding}
+            disabled={pending}
+            className="pressable rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-60"
+          >
+            Save without adding
+          </button>
+          <button
+            type="button"
+            onClick={onConfirmAddAndSave}
+            disabled={pending}
+            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Add selected and save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ServantCombobox({
@@ -402,18 +586,22 @@ function ServantCombobox({
 function ServiceFormFields({
   errors,
   form,
+  ministryOptions,
   onChange,
   servants,
+  templateOptions,
   onInvalidOfferingDuplicate,
 }: {
   errors: ServiceFormErrors;
   form: ServiceFormState;
+  ministryOptions: MinistryOption[];
   onChange: (next: ServiceFormState) => void;
   servants: ServantRecord[];
+  templateOptions: TemplateOption[];
   onInvalidOfferingDuplicate: () => void;
 }) {
   const normalizedForm = normalizeServiceForm(form);
-  const firstSunday = isFirstSunday(normalizedForm.templateType);
+  const firstSunday = isFirstSunday(normalizedForm.templateType, templateOptions);
   const servantOptions = servants.map((servant) => formatServantDisplayName(servant));
 
   function updateOfferingPerson(index: 0 | 1, nextValue: string) {
@@ -438,10 +626,10 @@ function ServiceFormFields({
           Assigned Ministry
           <select
             value={normalizedForm.assignedMinistry}
-            onChange={(event) => onChange({ ...normalizedForm, assignedMinistry: event.target.value as AssignedMinistry })}
+            onChange={(event) => onChange({ ...normalizedForm, assignedMinistry: event.target.value })}
             className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
           >
-            {ASSIGNED_MINISTRY_OPTIONS.map((option) => (
+            {ministryOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -467,13 +655,13 @@ function ServiceFormFields({
             onChange={(event) =>
               onChange({
                 ...normalizedForm,
-                templateType: event.target.value as ServiceTemplateType,
-                pledgeType: event.target.value === "FIRST_SUNDAY" ? normalizedForm.pledgeType : "",
+                templateType: event.target.value,
+                pledgeType: isFirstSunday(event.target.value, templateOptions) ? normalizedForm.pledgeType : "",
               })
             }
             className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
           >
-            {SERVICE_TEMPLATE_OPTIONS.map((option) => (
+            {templateOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -670,7 +858,7 @@ function ServiceFormFields({
   );
 }
 
-function ReadOnlyServiceDetails({ service }: { service: ServiceRecord }) {
+function ReadOnlyServiceDetails({ service }: { service: ServiceListItem }) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -683,7 +871,7 @@ function ReadOnlyServiceDetails({ service }: { service: ServiceRecord }) {
         <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
           <p className="technical-label">MINISTRY</p>
           <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {formatAssignedMinistry(service.assignedMinistry, service.ministryName)}
+            {service.ministryLabel}
           </p>
         </div>
         <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
@@ -695,7 +883,7 @@ function ReadOnlyServiceDetails({ service }: { service: ServiceRecord }) {
         <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
           <p className="technical-label">TEMPLATE</p>
           <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {formatTemplateLabel(service.templateType)}
+            {service.templateLabel}
           </p>
         </div>
       </div>
@@ -787,9 +975,10 @@ type ServiceListItem = ServiceRecord & {
   dateKey: string;
   dateLabel: string;
   ministryLabel: string;
+  templateLabel: string;
 };
 
-export default function ServicesPageClient({ initialServices = [] }: { initialServices?: ServiceRecord[] }) {
+export default function ServicesPageClient({ initialServices }: { initialServices?: ServiceRecord[] }) {
   const queryClient = useQueryClient();
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
@@ -804,12 +993,15 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
   const [editErrors, setEditErrors] = useState<ServiceFormErrors>({});
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
-  const [ministryFilter, setMinistryFilter] = useState<AssignedMinistry | "">("");
+  const [ministryFilter, setMinistryFilter] = useState("");
+  const [pendingServiceSave, setPendingServiceSave] = useState<PendingServiceSave | null>(null);
+  const [unlistedServantNames, setUnlistedServantNames] = useState<string[]>([]);
+  const [selectedUnlistedServantNames, setSelectedUnlistedServantNames] = useState<string[]>([]);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
     queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
-    initialData: initialServices,
+    ...(initialServices ? { initialData: initialServices } : {}),
     staleTime: 30_000,
   });
   const servantsQuery = useQuery({
@@ -817,6 +1009,27 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     queryFn: () => apiFetch<ServantRecord[]>("/api/servants"),
     staleTime: 30_000,
   });
+  const ministriesQuery = useQuery({
+    queryKey: ["settings", "ministries"],
+    queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/ministries"),
+    staleTime: 30_000,
+  });
+  const serviceTemplatesQuery = useQuery({
+    queryKey: ["settings", "service-templates"],
+    queryFn: () => apiFetch<ServiceTemplatePresetRecord[]>("/api/settings/service-templates"),
+    staleTime: 30_000,
+  });
+
+  const ministryOptions = useMemo(() => buildMinistryOptions(ministriesQuery.data), [ministriesQuery.data]);
+  const templateOptions = useMemo(() => buildTemplateOptions(serviceTemplatesQuery.data), [serviceTemplatesQuery.data]);
+  const ministryLabelByCode = useMemo(
+    () => new Map(ministryOptions.map((option) => [option.value, option.label])),
+    [ministryOptions],
+  );
+  const templateLabelByCode = useMemo(
+    () => new Map(templateOptions.map((option) => [option.value, option.label])),
+    [templateOptions],
+  );
 
   const services = useMemo<ServiceListItem[]>(
     () =>
@@ -824,22 +1037,25 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
         ...service,
         dateKey: new Date(service.serviceDate).toISOString().slice(0, 10),
         dateLabel: formatServiceDate(service.serviceDate),
-        ministryLabel: formatAssignedMinistry(service.assignedMinistry, service.ministryName),
+        ministryLabel: ministryLabelByCode.get(service.ministryPresetCode ?? "")
+          ?? formatAssignedMinistry(service.assignedMinistry, service.ministryName),
+        templateLabel: templateLabelByCode.get(service.templatePresetCode ?? "")
+          ?? formatTemplateLabel(service.templateType),
       })),
-    [servicesQuery.data]
+    [ministryLabelByCode, servicesQuery.data, templateLabelByCode]
   );
   const filteredServices = useMemo(() => {
     return services.filter((service) => {
       const matchesDate = !dateFilter || service.dateKey === dateFilter;
-      const assignedMinistry = (service.assignedMinistry ?? "MIXED") as AssignedMinistry;
-      const matchesMinistry = !ministryFilter || ministryFilter === assignedMinistry;
+      const serviceMinistry = service.ministryPresetCode ?? service.assignedMinistry ?? "MIXED";
+      const matchesMinistry = !ministryFilter || ministryFilter === serviceMinistry;
       return matchesDate && matchesMinistry;
     });
   }, [dateFilter, ministryFilter, services]);
   const expandedService = filteredServices.find((service) => service.id === expandedServiceId)
     ?? services.find((service) => service.id === expandedServiceId)
     ?? null;
-  const showTableSkeleton = servicesQuery.isLoading || servicesQuery.isFetching;
+  const showTableSkeleton = servicesQuery.isLoading || servicesQuery.isFetching || !servicesQuery.data;
 
   const createServiceMutation = useMutation({
     mutationFn: (payload: CreateServicePayload) =>
@@ -871,6 +1087,17 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     },
   });
 
+  const createMissingServantsMutation = useMutation({
+    mutationFn: (payload: CreateServantPayload[]) =>
+      apiFetch<ServantRecord[]>("/api/servants", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["servants"] });
+    },
+  });
+
   const deleteServicesMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       await Promise.all(
@@ -892,9 +1119,36 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
     },
   });
 
-  function submitCreateForm() {
-    const errors = validateServiceForm(createForm);
-    setCreateErrors(errors);
+  function closeUnlistedServantsModal() {
+    setPendingServiceSave(null);
+    setUnlistedServantNames([]);
+    setSelectedUnlistedServantNames([]);
+  }
+
+  function runPendingServiceSave(nextPendingSave: PendingServiceSave) {
+    if (nextPendingSave.action === "create") {
+      createServiceMutation.mutate(nextPendingSave.payload as CreateServicePayload);
+      return;
+    }
+
+    if (!nextPendingSave.serviceId) {
+      return;
+    }
+
+    updateServiceMutation.mutate({
+      id: nextPendingSave.serviceId,
+      payload: nextPendingSave.payload as UpdateServicePayload,
+    });
+  }
+
+  function prepareServiceSave(action: "create" | "update", form: ServiceFormState, serviceId?: string) {
+    const errors = validateServiceForm(form);
+    if (action === "create") {
+      setCreateErrors(errors);
+    } else {
+      setEditErrors(errors);
+    }
+
     if (Object.keys(errors).length > 0) {
       if (errors.OFFERING) {
         showToast(errors.OFFERING);
@@ -902,7 +1156,29 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
       return;
     }
 
-    createServiceMutation.mutate(buildServicePayload(createForm));
+    const payload = buildServicePayload(form, ministryOptions, templateOptions);
+    const missingNames = collectUnlistedServantNames(form, servantsQuery.data ?? []);
+    if (missingNames.length === 0) {
+      if (action === "create") {
+        createServiceMutation.mutate(payload);
+        return;
+      }
+
+      if (!serviceId) {
+        return;
+      }
+
+      updateServiceMutation.mutate({ id: serviceId, payload });
+      return;
+    }
+
+    setPendingServiceSave({ action, payload, serviceId });
+    setUnlistedServantNames(missingNames);
+    setSelectedUnlistedServantNames(missingNames);
+  }
+
+  function submitCreateForm() {
+    prepareServiceSave("create", createForm);
   }
 
   function applyCreateParser() {
@@ -920,19 +1196,42 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
       return;
     }
 
-    const errors = validateServiceForm(editForm);
-    setEditErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      if (errors.OFFERING) {
-        showToast(errors.OFFERING);
-      }
+    prepareServiceSave("update", editForm, expandedService.id);
+  }
+
+  async function addSelectedServantsAndSave() {
+    if (!pendingServiceSave) {
       return;
     }
 
-    updateServiceMutation.mutate({
-      id: expandedService.id,
-      payload: buildServicePayload(editForm),
-    });
+    const nextPendingSave = pendingServiceSave;
+    if (selectedUnlistedServantNames.length > 0) {
+      try {
+        await createMissingServantsMutation.mutateAsync(
+          selectedUnlistedServantNames.map((name) => ({
+            name,
+            gender: null,
+            group: null,
+          })),
+        );
+      } catch {
+        showToast("Failed to add selected servants to Teams.");
+        return;
+      }
+    }
+
+    closeUnlistedServantsModal();
+    runPendingServiceSave(nextPendingSave);
+  }
+
+  function saveWithoutAddingServants() {
+    if (!pendingServiceSave) {
+      return;
+    }
+
+    const nextPendingSave = pendingServiceSave;
+    closeUnlistedServantsModal();
+    runPendingServiceSave(nextPendingSave);
   }
 
   function toggleServiceSelection(serviceId: string) {
@@ -990,11 +1289,11 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
               <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
                 <select
                   value={ministryFilter}
-                  onChange={(event) => setMinistryFilter(event.target.value as AssignedMinistry | "")}
+                  onChange={(event) => setMinistryFilter(event.target.value)}
                   className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-[var(--color-brand-ink)]"
                 >
                   <option value="">All ministries</option>
-                  {ASSIGNED_MINISTRY_OPTIONS.map((option) => (
+                  {ministryOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -1006,7 +1305,10 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
             <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
               <button
                 type="button"
-                onClick={() => void servicesQuery.refetch()}
+                onClick={() => {
+                  setSelectedServiceIds([]);
+                  void servicesQuery.refetch();
+                }}
                 className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
                 aria-label="Refresh services"
               >
@@ -1125,7 +1427,7 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
                                   <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                                     {service.ministryLabel}
                                     {" / "}
-                                    {formatTemplateLabel(service.templateType)}
+                                    {service.templateLabel}
                                   </p>
                                 </div>
 
@@ -1169,9 +1471,11 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
                                 <ServiceFormFields
                                   form={editForm}
                                   errors={editErrors}
+                                  ministryOptions={ministryOptions}
                                   onChange={setEditForm}
                                   onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
                                   servants={servantsQuery.data ?? []}
+                                  templateOptions={templateOptions}
                                 />
                               ) : (
                                 <ReadOnlyServiceDetails service={service} />
@@ -1221,9 +1525,11 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
             <ServiceFormFields
               form={createForm}
               errors={createErrors}
+              ministryOptions={ministryOptions}
               onChange={setCreateForm}
               onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
               servants={servantsQuery.data ?? []}
+              templateOptions={templateOptions}
             />
 
             <div className="mt-5 flex justify-end">
@@ -1322,6 +1628,18 @@ export default function ServicesPageClient({ initialServices = [] }: { initialSe
             </div>
           </div>
         </div>
+      ) : null}
+
+      {pendingServiceSave ? (
+        <UnlistedServantsModal
+          names={unlistedServantNames}
+          onClose={closeUnlistedServantsModal}
+          onConfirmAddAndSave={addSelectedServantsAndSave}
+          onSaveWithoutAdding={saveWithoutAddingServants}
+          pending={createMissingServantsMutation.isPending}
+          selectedNames={selectedUnlistedServantNames}
+          setSelectedNames={setSelectedUnlistedServantNames}
+        />
       ) : null}
 
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />

@@ -22,9 +22,11 @@ type RouteParams = {
 type UpdateWorshipServicePayload = {
   serviceDate?: Date;
   assignedMinistry?: AssignedMinistry;
+  ministryPresetCode?: string | null;
   sermonVerse?: string;
   status?: "DRAFT" | "READY" | "ARCHIVED";
   templateType?: ServiceTemplateType;
+  templatePresetCode?: string | null;
   pledgeType?: PledgeType | null;
   bibleVerses?: Array<{
     verse: string;
@@ -88,15 +90,31 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     const updatedService = await prisma.$transaction(async (tx) => {
       const nextAssignedMinistry = (payload.assignedMinistry ?? service.assignedMinistry ?? "MIXED") as AssignedMinistry;
-      const nextTemplateType = (payload.templateType ?? service.templateType) as ServiceTemplateType;
+      const nextMinistryPresetCode = payload.ministryPresetCode !== undefined
+        ? payload.ministryPresetCode
+        : service.ministryPresetCode;
+      const nextTemplatePresetCode = payload.templatePresetCode !== undefined
+        ? payload.templatePresetCode
+        : service.templatePresetCode;
+      const [ministryPreset, templatePreset] = await Promise.all([
+        nextMinistryPresetCode
+          ? tx.ministryPreset.findFirst({ where: { workspaceId, code: nextMinistryPresetCode } })
+          : Promise.resolve(null),
+        nextTemplatePresetCode
+          ? tx.serviceTemplatePreset.findFirst({ where: { workspaceId, code: nextTemplatePresetCode } })
+          : Promise.resolve(null),
+      ]);
+      const nextTemplateType = (templatePreset?.templateType ?? payload.templateType ?? service.templateType) as ServiceTemplateType;
       const data: Prisma.WorshipServiceUpdateInput = {
         serviceDate: payload.serviceDate,
         assignedMinistry: payload.assignedMinistry as AssignedMinistry | undefined,
+        ministryPresetCode: payload.ministryPresetCode !== undefined ? (ministryPreset?.code ?? payload.ministryPresetCode) : undefined,
         sermonVerse: payload.sermonVerse,
-        ministryName: mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
+        ministryName: ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
         serviceVariant: mapTemplateTypeToServiceVariant(nextTemplateType) as "STANDARD" | "EXTENDED",
         status: payload.status,
-        templateType: payload.templateType as ServiceTemplateType | undefined,
+        templateType: nextTemplateType,
+        templatePresetCode: payload.templatePresetCode !== undefined ? (templatePreset?.code ?? payload.templatePresetCode) : undefined,
         pledgeType: payload.pledgeType as PledgeType | null | undefined,
       };
 

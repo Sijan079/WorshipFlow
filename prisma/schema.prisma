@@ -137,6 +137,10 @@ model Workspace {
   services  WorshipService[]
   songs     Song[]
   tagPresets SongTagPreset[]
+  ministryPresets MinistryPreset[]
+  servantGroupPresets ServantGroupPreset[]
+  checklistItemPresets ChecklistItemPreset[]
+  serviceTemplatePresets ServiceTemplatePreset[]
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
   servants  Servant[]
@@ -165,12 +169,14 @@ model WorshipService {
   workspaceId   String
   serviceDate   DateTime
   ministryName  String
+  ministryPresetCode String?
   assignedMinistry AssignedMinistry?
   sermonVerse   String?
   theme         String?
   status        ServiceStatus  @default(DRAFT)
   serviceVariant ServiceVariant @default(STANDARD)
   templateType  ServiceTemplateType @default(REGULAR)
+  templatePresetCode String?
   pledgeType    PledgeType?
 
   createdAt     DateTime       @default(now())
@@ -194,6 +200,8 @@ model WorshipServiceBlock {
   id          String     @id @default(uuid())
   serviceId   String
   blockType   BlockType
+  label       String?
+  code        String?
   order       Int
 
   service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -255,7 +263,6 @@ model SongTagPreset {
   label     String
   token     String
   color     String
-  order     Int      @default(0)
   isDefault Boolean  @default(false)
 
   createdAt DateTime @default(now())
@@ -264,8 +271,73 @@ model SongTagPreset {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, token])
-  @@index([order])
+}
+
+model MinistryPreset {
+  id          String   @id @default(uuid())
+  workspaceId String
+  label       String
+  code        String
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, code])
+}
+
+model ServantGroupPreset {
+  id          String   @id @default(uuid())
+  workspaceId String
+  label       String
+  code        String
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, code])
+}
+
+model ChecklistItemPreset {
+  id          String   @id @default(uuid())
+  workspaceId String
+  label       String
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([workspaceId, order])
+}
+
+model ServiceTemplatePreset {
+  id             String              @id @default(uuid())
+  workspaceId    String
+  label          String
+  code           String
+  templateType   ServiceTemplateType
+  optionalBlocks BlockType[]
+  blocks         Json                @default("[]")
+  active         Boolean             @default(true)
+  isDefault      Boolean             @default(false)
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, code])
 }
 
 model WorshipServiceSong {
@@ -391,8 +463,9 @@ model Servant {
   id          String        @id @default(uuid())
   workspaceId String
   name        String
-  gender      ServantGender
-  group       ServantGroup
+  gender      ServantGender?
+  group       ServantGroup?
+  groupCode   String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

@@ -8,6 +8,8 @@ import {
   formatServantDisplayName,
   formatServantGroupLabel,
   formatServantGenderLabel,
+  normalizeServantName,
+  normalizeServantNameForComparison,
 } from "./servants.ts";
 import { WORKSPACE_MODULES } from "./workspace-modules.ts";
 
@@ -28,11 +30,17 @@ export function runServantDirectoryTests() {
   );
   assert.equal(formatServantGroupLabel("CHURCH_LEADERS"), "Church Leaders");
   assert.equal(formatServantGenderLabel("FEMALE"), "Female");
+  assert.equal(formatServantGenderLabel(null), "Not set");
+  assert.equal(formatServantGroupLabel(null), "Not set");
   assert.equal(formatServantDisplayName({ name: "John Cruz", gender: "MALE", group: "TECH" }), "Bro. John Cruz");
   assert.equal(formatServantDisplayName({ name: "Maria Santos", gender: "FEMALE", group: "LADIES" }), "Sis. Maria Santos");
   assert.equal(formatServantDisplayName({ name: "Joel Reyes", gender: "MALE", group: "PASTORS" }), "Ptr. Joel Reyes");
   assert.equal(formatServantDisplayName({ name: "Ptr. Joel Reyes", gender: "MALE", group: "PASTORS" }), "Ptr. Joel Reyes");
   assert.equal(formatServantDisplayName({ name: "Sis. Abby", gender: "FEMALE", group: "LADIES" }), "Sis. Abby");
+  assert.equal(formatServantDisplayName({ name: "Ramon Cruz", gender: null, group: null }), "Ramon Cruz");
+  assert.equal(normalizeServantName("  Bro.   John   Cruz  "), "John Cruz");
+  assert.equal(normalizeServantName("Ptr. Joel Reyes"), "Joel Reyes");
+  assert.equal(normalizeServantNameForComparison("Sis. Maria Santos"), "maria santos");
 
   const valid = ServantSchema.safeParse({
     name: "  Sis. Abigail  ",
@@ -50,6 +58,16 @@ export function runServantDirectoryTests() {
     group: "LADIES",
   });
   assert.equal(invalid.success, false);
+
+  const nameOnly = ServantSchema.safeParse({
+    name: "  Joel Reyes  ",
+  });
+  assert.equal(nameOnly.success, true);
+  if (nameOnly.success) {
+    assert.equal(nameOnly.data.name, "Joel Reyes");
+    assert.equal(nameOnly.data.gender, undefined);
+    assert.equal(nameOnly.data.group, undefined);
+  }
 
   const teamsPagePath = join(process.cwd(), "src", "app", "(workspace)", "teams", "page.tsx");
   assert.equal(existsSync(teamsPagePath), true);

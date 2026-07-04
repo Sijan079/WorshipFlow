@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-export { getServiceBlockOrder } from "@/lib/service-display";
+export { getServiceBlockOrder } from "./service-display.ts";
 
 export const serviceDetailArgs = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
   include: {

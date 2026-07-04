@@ -56,29 +56,18 @@ One `WorshipService` represents one real worship service, such as:
 Do not expand the meaning of `WorshipService` to cover unrelated church
 activities.
 
-Every worship service must use this exact block order:
-
-1. `CALL_TO_WORSHIP`
-2. `PRAISE_AND_WORSHIP`
-3. `MC`
-4. Optional extended-template block: `AWIT_NG_HIMNO`
-5. Optional extended-template block: `TIPAN_PAHAYAG`
-6. `AWIT_NG_PAKIKINIG`
-7. `SCRIPTURE_READING`
-8. `SERMON`
-9. `AWIT_NG_PAGTUGON`
-10. `OFFERING`
-11. `FLOWERS_FOR_THE_LORD` displayed as Announcements
+Each church/workspace may define its own worship service templates and program
+block order.
 
 Rules that must not change:
 
-- Block order is invariant.
-- `AWIT_NG_PAKIKINIG` must remain before `SCRIPTURE_READING`.
-- `AWIT_NG_PAGTUGON` must remain after `SERMON`.
-- New services should create all active blocks for their selected template
-  immediately in strict order.
-- UI rendering should always respect stored block order and never present
-  alternate sequences.
+- Service templates own the intended block order for newly created services.
+- New services should copy all active blocks from their selected template
+  immediately, preserving the template order at creation time.
+- UI rendering should respect each service's stored block order and never
+  reorder blocks from a global hard-coded sequence.
+- Built-in block enums may still be used as internal behavior hints, but they
+  must not force every church into the same visible lineup.
 
 ## Architecture Rules
 
@@ -176,6 +165,8 @@ When contributing as an agent in this repository:
 - Reuse shared domain constants and enums when enforcing worship block behavior.
 - Preserve compatibility with `prisma/` schema management and the Prisma client
   setup in `src/lib/prisma.ts`.
+- Do not start the dev server. The user is responsible for starting and
+  stopping the dev server when they want to test the app locally.
 - Update `README.md` when setup steps, developer workflow, or run instructions
   materially change.
 - If a requested change conflicts with the worship-service-only scope, call it

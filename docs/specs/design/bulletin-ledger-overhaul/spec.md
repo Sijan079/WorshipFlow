@@ -218,7 +218,7 @@ Implementation verification must include:
 - `npx tsc --noEmit`
 - `npm run build`
 - `git diff --check`
-- Route checks for `/planner`, `/services`, `/songs`, `/assets`, `/pap`, and
+- Route checks for `/planner`, `/services`, `/songs`, `/media-tools`, `/pap`, and
   `/automation`
 - Desktop and mobile visual inspection
 - Core interaction checks for navigation, service selection, ledger rows,

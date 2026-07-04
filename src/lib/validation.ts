@@ -9,6 +9,7 @@ import {
   SERVICE_TEMPLATE_OPTIONS,
 } from "@/lib/service-records";
 import { ServantSchema, UpdateServantSchema } from "@/lib/servants";
+import { PresetCodeSchema } from "@/lib/settings-presets";
 
 const AssignedMinistrySchema = z.enum(ASSIGNED_MINISTRY_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 const ServiceTemplateTypeSchema = z.enum(SERVICE_TEMPLATE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
@@ -34,9 +35,11 @@ export const ServiceHymnalSchema = z.object({
 export const WorshipServiceSchema = z.object({
   serviceDate: z.string().transform((val) => new Date(val)),
   assignedMinistry: AssignedMinistrySchema,
+  ministryPresetCode: PresetCodeSchema.optional().nullable(),
   sermonVerse: z.string().trim().min(1, "Sermon verse is required"),
   status: z.nativeEnum(ServiceStatus).default(ServiceStatus.DRAFT),
   templateType: ServiceTemplateTypeSchema.default("REGULAR"),
+  templatePresetCode: PresetCodeSchema.optional().nullable(),
   pledgeType: PledgeTypeSchema.optional().nullable(),
   bibleVerses: z.array(ServiceBibleVerseSchema).default([]),
   servantAssignments: z.array(ServiceServantAssignmentSchema).default([]),
@@ -54,9 +57,11 @@ export const WorshipServiceSchema = z.object({
 export const UpdateWorshipServiceSchema = z.object({
   serviceDate: z.string().transform((val) => new Date(val)).optional(),
   assignedMinistry: AssignedMinistrySchema.optional(),
+  ministryPresetCode: PresetCodeSchema.optional().nullable(),
   sermonVerse: z.string().trim().min(1).optional(),
   status: z.nativeEnum(ServiceStatus).optional(),
   templateType: ServiceTemplateTypeSchema.optional(),
+  templatePresetCode: PresetCodeSchema.optional().nullable(),
   pledgeType: PledgeTypeSchema.optional().nullable(),
   bibleVerses: z.array(ServiceBibleVerseSchema).optional(),
   servantAssignments: z.array(ServiceServantAssignmentSchema).optional(),
@@ -123,7 +128,6 @@ export const SongTagPresetSchema = z.object({
     .max(32, "Tag token is too long")
     .regex(/^[A-Za-z][A-Za-z0-9 -]*$/, "Use letters, numbers, spaces, or hyphens"),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a hex pastel color"),
-  order: z.number().int().min(0).default(0),
 });
 
 export const UpdateSongTagPresetSchema = SongTagPresetSchema.partial().refine(

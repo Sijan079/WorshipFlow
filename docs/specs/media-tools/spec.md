@@ -20,12 +20,12 @@ Each tool has its own spec folder under `docs/specs/media-tools/`.
 
 The Media Tools sidebar item owns a subgroup for individual tool URLs:
 
-- `/assets`
-- `/assets/phone-transfer`
-- `/assets/qr-generator`
-- `/assets/background-generator`
+- `/media-tools`
+- `/media-tools/phone-transfer`
+- `/media-tools/qr-generator`
+- `/media-tools/background-generator`
 
-The `/assets` route acts as the tool selector page.
+The `/media-tools` route acts as the tool selector page.
 
 ## Deprecated
 

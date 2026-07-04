@@ -66,7 +66,7 @@ Out of scope:
 
 ## Screen Layout
 
-The page remains at `/assets/qr-generator`.
+The page remains at `/media-tools/qr-generator`.
 
 Desktop layout:
 
@@ -208,7 +208,7 @@ Automated checks should cover pure helper logic where practical:
 
 The current QR Generator UI is a static mock in `ServiceBuilderClient`. The
 implementation should replace that mock with a focused client component or
-small local module while keeping the route at `/assets/qr-generator`.
+small local module while keeping the route at `/media-tools/qr-generator`.
 
 No implementation should be committed or pushed until the local feature has
 been tested.

@@ -1,26 +1,67 @@
 "use client";
 
 import { startTransition, useDeferredValue, useMemo, useState } from "react";
-import { Loader2, Plus, RefreshCcw, Search, Trash2, X } from "lucide-react";
+import { Loader2, Plus, RefreshCcw, Search, Settings2, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, type CreateServantPayload, type ServantRecord, type UpdateServantPayload } from "@/lib/api-client";
+import {
+  apiFetch,
+  type CreateServantPayload,
+  type EditableSettingsPresetRecord,
+  type ServantRecord,
+  type UpdateServantPayload,
+} from "@/lib/api-client";
 import {
   formatServantGenderLabel,
   formatServantGroupLabel,
   SERVANT_GENDER_OPTIONS,
   SERVANT_GROUP_OPTIONS,
+  type NullableServantGender,
   type ServantGender,
   type ServantGroup,
 } from "@/lib/servants";
 
 type ServantFormState = CreateServantPayload;
 type ServantFormErrors = Partial<Record<keyof ServantFormState, string>>;
+type BulkAssignFormState = {
+  gender: ServantGender | "" | "null";
+  groupCode: string | "";
+};
+
+type GroupOption = {
+  value: string;
+  label: string;
+  legacyGroup: ServantGroup | null;
+};
 
 const EMPTY_FORM: ServantFormState = {
   name: "",
-  gender: "FEMALE",
-  group: "LADIES",
+  gender: null,
+  group: null,
+  groupCode: null,
 };
+
+function buildGroupOptions(records: EditableSettingsPresetRecord[] = []): GroupOption[] {
+  if (records.length > 0) {
+    return records.filter((record) => record.active).map((record) => ({
+      value: record.code,
+      label: record.label,
+      legacyGroup: SERVANT_GROUP_OPTIONS.some((option) => option.value === record.code)
+        ? (record.code as ServantGroup)
+        : null,
+    }));
+  }
+
+  return SERVANT_GROUP_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    legacyGroup: option.value,
+  }));
+}
+
+function getGroupLabel(servant: ServantRecord, groupOptions: GroupOption[]) {
+  return groupOptions.find((option) => option.value === servant.groupCode)?.label
+    ?? formatServantGroupLabel(servant.group);
+}
 
 function validateServantForm(form: ServantFormState): ServantFormErrors {
   const errors: ServantFormErrors = {};
@@ -67,9 +108,102 @@ function TeamsTableSkeleton() {
   );
 }
 
+function BulkAssignModal({
+  form,
+  groupOptions,
+  onApply,
+  onChange,
+  onClose,
+  pending,
+  selectedCount,
+}: {
+  form: BulkAssignFormState;
+  groupOptions: GroupOption[];
+  onApply: () => void;
+  onChange: (next: BulkAssignFormState) => void;
+  onClose: () => void;
+  pending: boolean;
+  selectedCount: number;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
+      <div className="w-full max-w-lg rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="technical-label">BULK ASSIGN</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
+              Update {selectedCount} servant{selectedCount === 1 ? "" : "s"}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Leave a field untouched if you do not want to change it for the selected rows.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
+            aria-label="Close bulk assign modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block text-sm text-[var(--text-secondary)]">
+            Gender
+            <select
+              value={form.gender}
+              onChange={(event) => onChange({ ...form, gender: (event.target.value || "") as BulkAssignFormState["gender"] })}
+              className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+            >
+              <option value="">Leave unchanged</option>
+              <option value="null">Set to Not set</option>
+              {SERVANT_GENDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm text-[var(--text-secondary)]">
+            Group
+            <select
+              value={form.groupCode}
+              onChange={(event) => onChange({ ...form, groupCode: event.target.value })}
+              className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+            >
+              <option value="">Leave unchanged</option>
+              <option value="null">Set to Not set</option>
+              {groupOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={pending}
+            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
+            Apply changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ServantModal({
   errors,
   form,
+  groupOptions,
   onChange,
   onClose,
   onSubmit,
@@ -78,6 +212,7 @@ function ServantModal({
 }: {
   errors: ServantFormErrors;
   form: ServantFormState;
+  groupOptions: GroupOption[];
   onChange: (next: ServantFormState) => void;
   onClose: () => void;
   onSubmit: () => void;
@@ -123,10 +258,11 @@ function ServantModal({
             <label className="block text-sm text-[var(--text-secondary)]">
               Gender
               <select
-                value={form.gender}
-                onChange={(event) => onChange({ ...form, gender: event.target.value as ServantGender })}
+                value={form.gender ?? ""}
+                onChange={(event) => onChange({ ...form, gender: (event.target.value || null) as NullableServantGender })}
                 className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
               >
+                <option value="">Not set</option>
                 {SERVANT_GENDER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -138,11 +274,20 @@ function ServantModal({
             <label className="block text-sm text-[var(--text-secondary)]">
               Group
               <select
-                value={form.group}
-                onChange={(event) => onChange({ ...form, group: event.target.value as ServantGroup })}
+                value={form.groupCode ?? form.group ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const option = groupOptions.find((item) => item.value === value);
+                  onChange({
+                    ...form,
+                    group: option?.legacyGroup ?? null,
+                    groupCode: value || null,
+                  });
+                }}
                 className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
               >
-                {SERVANT_GROUP_OPTIONS.map((option) => (
+                <option value="">Not set</option>
+                {groupOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -172,12 +317,14 @@ export default function TeamsPageClient() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const [groupFilter, setGroupFilter] = useState<ServantGroup | "">("");
+  const [groupFilter, setGroupFilter] = useState("");
   const [selectedServantIds, setSelectedServantIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [editingServant, setEditingServant] = useState<ServantRecord | null>(null);
   const [form, setForm] = useState<ServantFormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<ServantFormErrors>({});
+  const [bulkAssignForm, setBulkAssignForm] = useState<BulkAssignFormState>({ gender: "", groupCode: "" });
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -191,6 +338,12 @@ export default function TeamsPageClient() {
     queryKey: ["servants", queryString],
     queryFn: () => apiFetch<ServantRecord[]>(`/api/servants${queryString}`),
   });
+  const servantGroupsQuery = useQuery({
+    queryKey: ["settings", "servant-groups"],
+    queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/servant-groups"),
+    staleTime: 30_000,
+  });
+  const groupOptions = useMemo(() => buildGroupOptions(servantGroupsQuery.data), [servantGroupsQuery.data]);
 
   const createServantMutation = useMutation({
     mutationFn: (payload: CreateServantPayload) =>
@@ -232,6 +385,25 @@ export default function TeamsPageClient() {
     },
   });
 
+  const bulkAssignMutation = useMutation({
+    mutationFn: async ({ ids, payload }: { ids: string[]; payload: UpdateServantPayload }) => {
+      await Promise.all(
+        ids.map((id) =>
+          apiFetch<ServantRecord>(`/api/servants/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          }),
+        ),
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["servants"] });
+      setBulkAssignOpen(false);
+      setBulkAssignForm({ gender: "", groupCode: "" });
+      setSelectedServantIds([]);
+    },
+  });
+
   function openCreateModal() {
     setEditingServant(null);
     setForm(EMPTY_FORM);
@@ -245,6 +417,7 @@ export default function TeamsPageClient() {
       name: servant.name,
       gender: servant.gender,
       group: servant.group,
+      groupCode: servant.groupCode,
     });
     setErrors({});
     setModalOpen(true);
@@ -259,6 +432,20 @@ export default function TeamsPageClient() {
     });
   }
 
+  function openBulkAssignModal() {
+    if (selectedServantIds.length === 0) {
+      return;
+    }
+
+    setBulkAssignForm({ gender: "", groupCode: "" });
+    setBulkAssignOpen(true);
+  }
+
+  function closeBulkAssignModal() {
+    setBulkAssignOpen(false);
+    setBulkAssignForm({ gender: "", groupCode: "" });
+  }
+
   function submitForm() {
     const nextErrors = validateServantForm(form);
     setErrors(nextErrors);
@@ -269,8 +456,9 @@ export default function TeamsPageClient() {
 
     const payload = {
       name: form.name.trim(),
-      gender: form.gender,
-      group: form.group,
+      gender: form.gender ?? null,
+      group: form.group ?? null,
+      groupCode: form.groupCode ?? form.group ?? null,
     } satisfies CreateServantPayload;
 
     if (editingServant) {
@@ -297,6 +485,29 @@ export default function TeamsPageClient() {
     }
 
     await deleteServantMutation.mutateAsync(selectedServantIds);
+  }
+
+  async function applyBulkAssign() {
+    const payload: UpdateServantPayload = {
+      ...(bulkAssignForm.gender !== "" ? { gender: bulkAssignForm.gender === "null" ? null : bulkAssignForm.gender } : {}),
+      ...(bulkAssignForm.groupCode !== ""
+        ? {
+            group: bulkAssignForm.groupCode === "null"
+              ? null
+              : (groupOptions.find((option) => option.value === bulkAssignForm.groupCode)?.legacyGroup ?? null),
+            groupCode: bulkAssignForm.groupCode === "null" ? null : bulkAssignForm.groupCode,
+          }
+        : {}),
+    };
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await bulkAssignMutation.mutateAsync({
+      ids: selectedServantIds,
+      payload,
+    });
   }
 
   const servants = servantsQuery.data ?? [];
@@ -334,11 +545,11 @@ export default function TeamsPageClient() {
               <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
                 <select
                   value={groupFilter}
-                  onChange={(event) => setGroupFilter(event.target.value as ServantGroup | "")}
+                  onChange={(event) => setGroupFilter(event.target.value)}
                   className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-[var(--color-brand-ink)]"
                 >
                   <option value="">All groups</option>
-                  {SERVANT_GROUP_OPTIONS.map((option) => (
+                  {groupOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -350,11 +561,29 @@ export default function TeamsPageClient() {
             <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
               <button
                 type="button"
-                onClick={() => void servantsQuery.refetch()}
+                onClick={() => {
+                  setSelectedServantIds([]);
+                  void servantsQuery.refetch();
+                }}
                 className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
                 aria-label="Refresh servants"
               >
                 <RefreshCcw className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={openBulkAssignModal}
+                disabled={selectedServantIds.length === 0 || bulkAssignMutation.isPending}
+                className={`pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
+                  selectedServantIds.length > 0
+                    ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)] text-[var(--color-accent-ink)]"
+                    : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
+                }`}
+                aria-label="Bulk assign selected servants"
+                title="Bulk assign selected servants"
+              >
+                {bulkAssignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
               </button>
 
               <button
@@ -411,11 +640,10 @@ export default function TeamsPageClient() {
                   return (
                   <tr
                     key={servant.id}
-                    onClick={() => openEditModal(servant)}
                     className={
                       isSelected
-                        ? "cursor-pointer border-t border-[var(--color-brand-border)] bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--color-brand-panel))]"
-                        : "cursor-pointer border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]"
+                        ? "border-t border-[var(--color-brand-border)] bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--color-brand-panel))]"
+                        : "border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]"
                     }
                   >
                     <td className="px-4 py-4 align-top">
@@ -428,9 +656,24 @@ export default function TeamsPageClient() {
                         className="h-5 w-5 appearance-none rounded-[4px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] align-middle shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] checked:border-[var(--color-brand-accent)] checked:bg-[var(--color-brand-accent)] checked:bg-[image:linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] focus:outline-none focus:ring-2 focus:ring-[rgba(139,92,246,0.35)]"
                       />
                     </td>
-                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-brand-ink)]">{servant.name}</td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-text-secondary)]">{formatServantGenderLabel(servant.gender)}</td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-text-secondary)]">{formatServantGroupLabel(servant.group)}</td>
+                    <td
+                      className="cursor-pointer px-4 py-4 text-sm font-semibold text-[var(--color-brand-ink)]"
+                      onClick={() => openEditModal(servant)}
+                    >
+                      {servant.name}
+                    </td>
+                    <td
+                      className="cursor-pointer px-4 py-4 text-sm text-[var(--color-text-secondary)]"
+                      onClick={() => openEditModal(servant)}
+                    >
+                      {formatServantGenderLabel(servant.gender)}
+                    </td>
+                    <td
+                      className="cursor-pointer px-4 py-4 text-sm text-[var(--color-text-secondary)]"
+                      onClick={() => openEditModal(servant)}
+                    >
+                      {getGroupLabel(servant, groupOptions)}
+                    </td>
                   </tr>
                 )})}
               </tbody>
@@ -443,11 +686,24 @@ export default function TeamsPageClient() {
         <ServantModal
           errors={errors}
           form={form}
+          groupOptions={groupOptions}
           onChange={setForm}
           onClose={closeModal}
           onSubmit={submitForm}
           pending={pending}
           servant={editingServant}
+        />
+      ) : null}
+
+      {bulkAssignOpen ? (
+        <BulkAssignModal
+          form={bulkAssignForm}
+          groupOptions={groupOptions}
+          onApply={() => void applyBulkAssign()}
+          onChange={setBulkAssignForm}
+          onClose={closeBulkAssignModal}
+          pending={bulkAssignMutation.isPending}
+          selectedCount={selectedServantIds.length}
         />
       ) : null}
     </main>

@@ -3,7 +3,7 @@ import {
   ServiceVariant,
   type BlockType as BlockTypeValue,
   type ServiceVariant as ServiceVariantValue,
-} from "@/lib/service-constants";
+} from "./service-constants.ts";
 
 export const STANDARD_BLOCK_ORDER: readonly BlockTypeValue[] = [
   BlockType.CALL_TO_WORSHIP,

@@ -49,7 +49,7 @@ import {
   runUploadLyricsExtractor,
   triggerBrowserDownload,
 } from "@/lib/api-client";
-import { BLOCK_LABELS, SONG_BLOCK_TYPES, STRICT_BLOCK_ORDER, getServiceBlockOrder } from "@/lib/service-display";
+import { BLOCK_LABELS, SONG_BLOCK_TYPES, getServiceBlockOrder } from "@/lib/service-display";
 import {
   BlockType,
   JobStatus,
@@ -285,6 +285,10 @@ function getBlockByType(service: ServiceDetailRecord, blockType: BlockType) {
   return service.blocks.find((block) => block.blockType === blockType);
 }
 
+function getBlockLabel(block: ServiceDetailRecord["blocks"][number]) {
+  return block.label || BLOCK_LABELS[block.blockType];
+}
+
 function getExtractorSummary(outputJson: unknown) {
   if (!outputJson || typeof outputJson !== "object") {
     return null;
@@ -410,7 +414,7 @@ export default function ServiceBuilderClient({
   const activeSongStep = songStep ?? getSongWorkflowStep(pathname);
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const [activeServiceStep, setActiveServiceStep] = useState<ServiceWorkflowStep>("setup");
-  const [activeServiceBlockType, setActiveServiceBlockType] = useState<BlockType>(STRICT_BLOCK_ORDER[0]);
+  const [activeServiceBlockId, setActiveServiceBlockId] = useState<string | null>(null);
   const [recentConversionNow] = useState(() => Date.now());
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [newServiceModalOpen, setNewServiceModalOpen] = useState(false);
@@ -440,7 +444,6 @@ export default function ServiceBuilderClient({
     label: "",
     token: "",
     color: DEFAULT_SONG_TAG_COLOR,
-    order: 10,
   });
   const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -468,7 +471,7 @@ export default function ServiceBuilderClient({
     onSuccess: async (tag) => {
       await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
       setSectionFormatTag(tag.token);
-      setTagForm({ label: "", token: "", color: DEFAULT_SONG_TAG_COLOR, order: tag.order + 1 });
+      setTagForm({ label: "", token: "", color: DEFAULT_SONG_TAG_COLOR });
       showToast(`${tag.label} tag added.`, "success");
     },
     onError: (error: Error) => {
@@ -997,11 +1000,21 @@ export default function ServiceBuilderClient({
   });
 
   const selectedService = selectedServiceQuery.data ?? null;
-  const selectedServiceBlockOrder = selectedService ? getServiceBlockOrder(selectedService.serviceVariant) : STRICT_BLOCK_ORDER;
-  const effectiveActiveServiceBlockType = selectedServiceBlockOrder.includes(activeServiceBlockType)
-    ? activeServiceBlockType
-    : selectedServiceBlockOrder[0];
-  const activeServiceBlock = selectedService ? getBlockByType(selectedService, effectiveActiveServiceBlockType) : null;
+  const selectedServiceBlocks = selectedService?.blocks.length
+    ? selectedService.blocks
+    : selectedService
+      ? getServiceBlockOrder(selectedService.serviceVariant)
+          .map((blockType, order) => ({
+            ...getBlockByType(selectedService, blockType),
+            blockType,
+            order,
+          }))
+          .filter((block): block is ServiceDetailRecord["blocks"][number] => Boolean(block.id))
+      : [];
+  const effectiveActiveServiceBlock = selectedServiceBlocks.find((block) => block.id === activeServiceBlockId)
+    ?? selectedServiceBlocks[0]
+    ?? null;
+  const activeServiceBlock = effectiveActiveServiceBlock;
   const recentSongConversions = selectedService
     ? selectedService.jobs
         .filter((job) => job.jobType === JobType.TRANSPOSE && isUploadedExtractorJob(job.inputJson))
@@ -1711,16 +1724,15 @@ export default function ServiceBuilderClient({
                         </span>
                       </div>
                       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                        {selectedServiceBlockOrder.map((blockType) => {
-                          const block = getBlockByType(selectedService, blockType);
-                          const active = effectiveActiveServiceBlockType === blockType;
+                        {selectedServiceBlocks.map((block) => {
+                          const active = effectiveActiveServiceBlock?.id === block.id;
                           return (
                             <button
-                              key={blockType}
+                              key={block.id}
                               type="button"
                               onClick={() => {
-                                setActiveServiceBlockType(blockType);
-                                showToast(`${BLOCK_LABELS[blockType]} opened.`);
+                                setActiveServiceBlockId(block.id);
+                                showToast(`${getBlockLabel(block)} opened.`);
                               }}
                               className={`pressable rounded-lg border px-3 py-3 text-left transition ${
                                 active
@@ -1729,11 +1741,11 @@ export default function ServiceBuilderClient({
                               }`}
                             >
                               <span className="block font-[var(--font-plex-mono)] text-[11px] opacity-75">
-                                Block {(block?.order ?? selectedServiceBlockOrder.indexOf(blockType)) + 1}
+                                Block {block.order + 1}
                               </span>
-                              <span className="mt-1 block text-sm font-semibold">{BLOCK_LABELS[blockType]}</span>
+                              <span className="mt-1 block text-sm font-semibold">{getBlockLabel(block)}</span>
                               <span className="mt-2 block text-xs opacity-75">
-                                {block ? `${block.people.length} people / ${block.songs.length} songs / ${block.details.length} details` : "No data yet"}
+                                {`${block.people.length} people / ${block.songs.length} songs / ${block.details.length} details`}
                               </span>
                             </button>
                           );
@@ -1742,8 +1754,7 @@ export default function ServiceBuilderClient({
                     </div>
                   ) : null}
 
-                  {(activeServiceStep === "flow" ? [effectiveActiveServiceBlockType] : selectedServiceBlockOrder).map((blockType) => {
-                    const block = getBlockByType(selectedService, blockType);
+                  {(activeServiceStep === "flow" ? [effectiveActiveServiceBlock].filter(Boolean) : selectedServiceBlocks).map((block) => {
                     if (!block) {
                       return null;
                     }
@@ -1759,7 +1770,7 @@ export default function ServiceBuilderClient({
                               Block {block.order + 1}
                             </p>
                             <h3 className="mt-1 text-xl font-semibold">
-                              {BLOCK_LABELS[block.blockType]}
+                              {getBlockLabel(block)}
                             </h3>
                           </div>
                           <div className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 font-[var(--font-plex-mono)] text-xs text-[var(--color-text-secondary)]">
@@ -2519,7 +2530,6 @@ export default function ServiceBuilderClient({
                                       ...tagForm,
                                       label,
                                       token,
-                                      order: Number(tagForm.order) || songTags.length + 1,
                                     });
                                   }}
                                 >
@@ -2545,21 +2555,12 @@ export default function ServiceBuilderClient({
                                       aria-label="Tag color"
                                     />
                                   </div>
-                                  <div className="grid grid-cols-[1fr_72px] gap-2">
-                                    <input
-                                      value={tagForm.token}
-                                      onChange={(event) => setTagForm((current) => ({ ...current, token: event.target.value }))}
-                                      placeholder="Token"
-                                      className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
-                                    />
-                                    <input
-                                      type="number"
-                                      value={tagForm.order}
-                                      onChange={(event) => setTagForm((current) => ({ ...current, order: Number(event.target.value) }))}
-                                      className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
-                                      aria-label="Tag order"
-                                    />
-                                  </div>
+                                  <input
+                                    value={tagForm.token}
+                                    onChange={(event) => setTagForm((current) => ({ ...current, token: event.target.value }))}
+                                    placeholder="Token"
+                                    className="h-9 min-w-0 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 text-xs font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
+                                  />
                                   <button
                                     type="submit"
                                     disabled={createSongTagMutation.isPending}

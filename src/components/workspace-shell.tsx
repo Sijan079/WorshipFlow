@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ListMusic,
   LogOut,
+  Settings2,
   Sparkles,
   MonitorPlay,
   Users,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
   { href: "/media-tools", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
   { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
+  { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings2 },
 ] as const;
 
 const MEDIA_TOOL_NAV = [

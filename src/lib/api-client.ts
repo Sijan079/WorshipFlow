@@ -13,7 +13,7 @@ import type {
   ServiceServantRole,
   ServiceTemplateType,
 } from "@/lib/service-records";
-import type { ServantGender, ServantGroup } from "@/lib/servants";
+import type { NullableServantGender, NullableServantGroup, ServantGender, ServantGroup } from "@/lib/servants";
 
 export type { LyricsExtractorEditableResponse } from "@/lib/extractor-types";
 
@@ -198,7 +198,6 @@ export type SongTagPresetRecord = {
   label: string;
   token: string;
   color: string;
-  order: number;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -208,16 +207,18 @@ export type ServantRecord = {
   id: string;
   workspaceId: string;
   name: string;
-  gender: ServantGender;
-  group: ServantGroup;
+  gender: NullableServantGender;
+  group: NullableServantGroup;
+  groupCode: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type CreateServantPayload = {
   name: string;
-  gender: ServantGender;
-  group: ServantGroup;
+  gender?: ServantGender | null;
+  group?: ServantGroup | null;
+  groupCode?: string | null;
 };
 
 export type UpdateServantPayload = Partial<CreateServantPayload>;
@@ -226,7 +227,6 @@ export type CreateSongTagPresetPayload = {
   label: string;
   token: string;
   color: string;
-  order: number;
 };
 
 export type UpdateSongTagPresetPayload = Partial<CreateSongTagPresetPayload>;
@@ -234,9 +234,11 @@ export type UpdateSongTagPresetPayload = Partial<CreateSongTagPresetPayload>;
 export type CreateServicePayload = {
   serviceDate: string;
   assignedMinistry?: AssignedMinistry;
+  ministryPresetCode?: string | null;
   sermonVerse?: string;
   status?: ServiceStatus;
   templateType?: ServiceTemplateType;
+  templatePresetCode?: string | null;
   pledgeType?: PledgeType | null;
   bibleVerses?: Array<{
     verse: string;
@@ -256,6 +258,68 @@ export type CreateServicePayload = {
 };
 
 export type UpdateServicePayload = Partial<CreateServicePayload>;
+
+export type EditableSettingsPresetRecord = {
+  id: string;
+  workspaceId: string;
+  label: string;
+  code: string;
+  active: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChecklistItemPresetRecord = {
+  id: string;
+  workspaceId: string;
+  label: string;
+  order: number;
+  active: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceTemplatePresetRecord = EditableSettingsPresetRecord & {
+  templateType: ServiceTemplateType;
+  optionalBlocks: string[];
+  blocks: Array<{
+    label: string;
+    code: string;
+    blockType: string;
+    order: number;
+  }>;
+};
+
+export type CreateEditableSettingsPresetPayload = {
+  label: string;
+  code: string;
+  active: boolean;
+};
+
+export type UpdateEditableSettingsPresetPayload = Partial<CreateEditableSettingsPresetPayload>;
+
+export type CreateChecklistItemPresetPayload = {
+  label: string;
+  order: number;
+  active: boolean;
+};
+
+export type UpdateChecklistItemPresetPayload = Partial<CreateChecklistItemPresetPayload>;
+
+export type CreateServiceTemplatePresetPayload = CreateEditableSettingsPresetPayload & {
+  templateType: ServiceTemplateType;
+  optionalBlocks: string[];
+  blocks: Array<{
+    label: string;
+    code?: string;
+    blockType?: string;
+    order?: number;
+  }>;
+};
+
+export type UpdateServiceTemplatePresetPayload = Partial<CreateServiceTemplatePresetPayload>;
 
 export type CreateParticipantPayload = {
   personName: string;

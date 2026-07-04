@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 import { UpdateServantSchema } from "@/lib/validation";
-import type { ServantGender, ServantGroup } from "@prisma/client";
+import { Prisma, type ServantGender, type ServantGroup } from "@prisma/client";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -13,9 +13,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    const servant = await prisma.servant.findUnique({
-      where: { id, workspaceId },
-    });
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        workspaceId: string;
+        name: string;
+        gender: ServantGender | null;
+        group: ServantGroup | null;
+        groupCode: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT *
+      FROM "Servant"
+      WHERE "id" = ${id} AND "workspaceId" = ${workspaceId}
+      LIMIT 1
+    `);
+    const servant = rows[0];
 
     if (!servant) {
       return NextResponse.json({ error: "Servant not found" }, { status: 404 });
@@ -39,22 +54,53 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
     }
 
-    const servant = await prisma.servant.findUnique({
-      where: { id, workspaceId },
-    });
+    const servantRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        workspaceId: string;
+        name: string;
+        gender: ServantGender | null;
+        group: ServantGroup | null;
+        groupCode: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT *
+      FROM "Servant"
+      WHERE "id" = ${id} AND "workspaceId" = ${workspaceId}
+      LIMIT 1
+    `);
+    const servant = servantRows[0];
 
     if (!servant) {
       return NextResponse.json({ error: "Servant not found" }, { status: 404 });
     }
 
-    const updatedServant = await prisma.servant.update({
-      where: { id, workspaceId },
-      data: {
-        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-        ...(parsed.data.gender !== undefined ? { gender: parsed.data.gender as ServantGender } : {}),
-        ...(parsed.data.group !== undefined ? { group: parsed.data.group as ServantGroup } : {}),
-      },
-    });
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        workspaceId: string;
+        name: string;
+        gender: ServantGender | null;
+        group: ServantGroup | null;
+        groupCode: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      UPDATE "Servant"
+      SET
+        "name" = ${parsed.data.name ?? servant.name},
+        "gender" = ${parsed.data.gender !== undefined ? parsed.data.gender : servant.gender},
+        "group" = ${parsed.data.group !== undefined ? parsed.data.group : servant.group},
+        "groupCode" = ${parsed.data.groupCode !== undefined ? parsed.data.groupCode : servant.groupCode},
+        "updatedAt" = NOW()
+      WHERE "id" = ${id} AND "workspaceId" = ${workspaceId}
+      RETURNING *
+    `);
+
+    const updatedServant = rows[0];
 
     return NextResponse.json(updatedServant);
   } catch (error: unknown) {
@@ -67,17 +113,26 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    const servant = await prisma.servant.findUnique({
-      where: { id, workspaceId },
-    });
+    const rows = await prisma.$queryRaw<
+      Array<{ id: string }>
+    >(Prisma.sql`
+      SELECT "id"
+      FROM "Servant"
+      WHERE "id" = ${id} AND "workspaceId" = ${workspaceId}
+      LIMIT 1
+    `);
+    const servant = rows[0];
 
     if (!servant) {
       return NextResponse.json({ error: "Servant not found" }, { status: 404 });
     }
 
-    await prisma.servant.delete({
-      where: { id, workspaceId },
-    });
+    await prisma.$executeRaw(
+      Prisma.sql`
+        DELETE FROM "Servant"
+        WHERE "id" = ${id} AND "workspaceId" = ${workspaceId}
+      `,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

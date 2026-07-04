@@ -3,7 +3,9 @@ import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
 import { getServiceBlockOrder, serviceDetailInclude } from "@/lib/service-data";
+import { BLOCK_LABELS } from "@/lib/service-display";
 import { getActiveWorkspaceId } from "@/lib/security-context";
+import { validateTemplateBlocks } from "@/lib/settings-presets";
 import {
   type AssignedMinistry,
   mapAssignedMinistryToLegacyMinistryName,
@@ -77,15 +79,26 @@ export async function POST(request: Request) {
       assignedMinistry,
       bibleVerses,
       hymnals,
+      ministryPresetCode,
       pledgeType,
       sermonVerse,
       servantAssignments,
       serviceDate,
       status,
+      templatePresetCode,
       templateType,
     } = result.data;
-    const ministryName = mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
-    const serviceVariant = mapTemplateTypeToServiceVariant(templateType as ServiceTemplateType);
+    const [ministryPreset, templatePreset] = await Promise.all([
+      ministryPresetCode
+        ? prisma.ministryPreset.findFirst({ where: { workspaceId, code: ministryPresetCode } })
+        : Promise.resolve(null),
+      templatePresetCode
+        ? prisma.serviceTemplatePreset.findFirst({ where: { workspaceId, code: templatePresetCode } })
+        : Promise.resolve(null),
+    ]);
+    const resolvedTemplateType = (templatePreset?.templateType ?? templateType) as ServiceTemplateType;
+    const ministryName = ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
+    const serviceVariant = mapTemplateTypeToServiceVariant(resolvedTemplateType);
 
     const newService = await prisma.$transaction(async (tx) => {
       const service = await tx.worshipService.create({
@@ -93,23 +106,33 @@ export async function POST(request: Request) {
           workspaceId,
           serviceDate,
           assignedMinistry: assignedMinistry as AssignedMinistry,
+          ministryPresetCode: ministryPreset?.code ?? ministryPresetCode ?? null,
           sermonVerse,
           ministryName,
           status,
           serviceVariant,
-          templateType: templateType as ServiceTemplateType,
+          templateType: resolvedTemplateType,
+          templatePresetCode: templatePreset?.code ?? templatePresetCode ?? null,
           pledgeType: pledgeType as PledgeType | null | undefined,
         },
       });
 
-      // Create service blocks in strict order.
-      const blockOrder = getServiceBlockOrder(serviceVariant);
+      const templateBlocks = templatePreset?.blocks && Array.isArray(templatePreset.blocks) && templatePreset.blocks.length > 0
+        ? validateTemplateBlocks(templatePreset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>)
+        : getServiceBlockOrder(serviceVariant).map((blockType, order) => ({
+            label: BLOCK_LABELS[blockType],
+            code: blockType,
+            blockType,
+            order,
+          }));
       await Promise.all(
-        blockOrder.map((blockType, index) =>
+        templateBlocks.map((block, index) =>
           tx.worshipServiceBlock.create({
             data: {
               serviceId: service.id,
-              blockType,
+              blockType: block.blockType,
+              label: block.label,
+              code: block.code,
               order: index,
             },
           })

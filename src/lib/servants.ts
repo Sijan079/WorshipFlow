@@ -17,14 +17,23 @@ export const SERVANT_GROUP_OPTIONS = [
 
 export type ServantGender = (typeof SERVANT_GENDER_OPTIONS)[number]["value"];
 export type ServantGroup = (typeof SERVANT_GROUP_OPTIONS)[number]["value"];
+export type NullableServantGender = ServantGender | null;
+export type NullableServantGroup = ServantGroup | null;
 
 export const ServantGenderSchema = z.enum(SERVANT_GENDER_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 export const ServantGroupSchema = z.enum(SERVANT_GROUP_OPTIONS.map((option) => option.value) as [string, ...string[]]);
+const ServantGroupCodeSchema = z
+  .string()
+  .trim()
+  .min(1, "Group code is required")
+  .max(48, "Group code is too long")
+  .regex(/^[A-Z][A-Z0-9_]*$/, "Use uppercase letters, numbers, and underscores");
 
 export const ServantSchema = z.object({
   name: z.string().trim().min(1, "Servant name is required"),
-  gender: ServantGenderSchema,
-  group: ServantGroupSchema,
+  gender: ServantGenderSchema.nullable().optional(),
+  group: ServantGroupSchema.nullable().optional(),
+  groupCode: ServantGroupCodeSchema.nullable().optional(),
 });
 
 export const UpdateServantSchema = ServantSchema.partial().refine(
@@ -32,18 +41,34 @@ export const UpdateServantSchema = ServantSchema.partial().refine(
   "At least one field is required",
 );
 
-export function formatServantGroupLabel(group: ServantGroup) {
+export function formatServantGroupLabel(group: NullableServantGroup) {
+  if (!group) {
+    return "Not set";
+  }
+
   return SERVANT_GROUP_OPTIONS.find((option) => option.value === group)?.label ?? group;
 }
 
-export function formatServantGenderLabel(gender: ServantGender) {
+export function formatServantGenderLabel(gender: NullableServantGender) {
+  if (!gender) {
+    return "Not set";
+  }
+
   return SERVANT_GENDER_OPTIONS.find((option) => option.value === gender)?.label ?? gender;
+}
+
+export function normalizeServantName(value: string) {
+  return value.trim().replace(/\s+/g, " ").replace(/^(Bro\.|Sis\.|Ptr\.)\s+/i, "").trim();
+}
+
+export function normalizeServantNameForComparison(value: string) {
+  return normalizeServantName(value).toLocaleLowerCase();
 }
 
 export function formatServantDisplayName(servant: {
   name: string;
-  gender: ServantGender;
-  group: ServantGroup;
+  gender: NullableServantGender;
+  group: NullableServantGroup;
 }) {
   const name = servant.name.trim();
 
@@ -55,5 +80,13 @@ export function formatServantDisplayName(servant: {
     return `Ptr. ${name}`;
   }
 
-  return servant.gender === "MALE" ? `Bro. ${name}` : `Sis. ${name}`;
+  if (servant.gender === "MALE") {
+    return `Bro. ${name}`;
+  }
+
+  if (servant.gender === "FEMALE") {
+    return `Sis. ${name}`;
+  }
+
+  return name;
 }
