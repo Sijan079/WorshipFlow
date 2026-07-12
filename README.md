@@ -33,13 +33,21 @@ WorshipFlow is not a church management system.
 
 It is a worship preparation OS for the people arranging, formatting, assigning, exporting, and operating the service.
 
-## Documentation
+## Planned Features
 
-Project documentation lives under `docs/`:
+1.1
+- Settings page' UI/UX fix; tabbed pages (General, Templates, Tags, Checklist).
+- connect Settings page' checklist to Dashboard checklist but maintain its immutability in Dashboard; only way to edit is through settings.
 
-- `docs/specs/` - version-controlled feature specs.
-- `docs/specs/media-tools/` - individual specs for Phone Transfer, QR Generator, and Background Generator.
-- `docs/specs/service-flow/` - worship service list, edit, parser, and block-flow behavior.
-- `docs/deployment/` - deployment notes, including Vercel planning.
-- `docs/development/` - local development workflows.
-- `docs/product/` and `docs/design/` - product and design support notes.
+- General tab contains: AI usage chart (and how many credits do we have left), and Access Control (might have to introduce account log-ins, and no longer have a general app username and pass), Integrations (Users will have to create their OpenAI accounts and connect them here to use the AI functions of the app).
+
+1.2
+- Account/User model overhaul; users belong to a new model, 'Church Organization', which would house all of the data that we currently have.
+- Security: Users would create their accounts, and select which 'Church Organizations' they currently belong or have been given access to, and enter from there.
+
+- Church Organizations: before a church org. is created, they must submit a request to register, which would take X amount of days to be processed; require images, GMaps location and lead pastor or church email in the registration form. 
+- We give users access through the Access Control section in the Settings page (users must create an account first before given access).
+
+1.3
+- UI/UX overhaul; animations 
+
