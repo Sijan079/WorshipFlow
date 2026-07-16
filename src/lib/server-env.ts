@@ -51,9 +51,12 @@ export function getEnvironmentReport() {
     database: Boolean(env.DATABASE_URL),
     accessGate: Boolean(env.APP_ACCESS_PASSWORD),
     aiExtractor: Boolean(env.OPENAI_API_KEY),
+    backgroundGeneration: Boolean(env.OPENAI_API_KEY),
     mediaGeneration: Boolean(env.OPENAI_API_KEY || env.GEMINI_API_KEY),
     supabaseRealtime: Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
     supabasePrivateStorage: Boolean(env.SUPABASE_URL && env.SUPABASE_SECRET_KEY && env.SUPABASE_PRIVATE_BUCKET),
     vercelEnv: env.VERCEL_ENV ?? null,
   };
 }
+
+export type EnvironmentReport = ReturnType<typeof getEnvironmentReport>;

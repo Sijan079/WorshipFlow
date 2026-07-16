@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 import {
   AudioLines,
   AlertTriangle,
@@ -79,6 +80,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
   const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
   const [dismissedWarningKey, setDismissedWarningKey] = useState<InProgressWarningKey | null>(null);
   const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
+  const activeMobileNavRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     const syncHash = () => setCurrentHash(window.location.hash);
@@ -87,6 +89,10 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
 
     return () => window.removeEventListener("hashchange", syncHash);
   }, []);
+
+  useEffect(() => {
+    activeMobileNavRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
 
   async function logout() {
     await fetch("/api/auth/logout", {
@@ -99,14 +105,20 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
 
   return (
     <div className="min-h-screen bg-[var(--surface-app)] text-[var(--text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <a
+        href="#workspace-content"
+        className="sr-only fixed left-4 top-4 z-[100] rounded-md bg-[var(--action-primary-bg)] px-4 py-3 font-semibold text-[var(--action-primary-ink)] focus:not-sr-only"
+      >
+        Skip to workspace content
+      </a>
       <aside className="hidden min-h-screen border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-4 py-4 lg:flex lg:flex-col">
-        <div className="mb-10 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]">
+        <div className="ui-stage-enter mb-10 flex items-center gap-3 px-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)] shadow-[var(--elevation-subtle)]">
               {formatterMode ? <Sparkles className="h-5 w-5" /> : <ListMusic className="h-5 w-5" />}
           </div>
           <div>
-            <Link href="/dashboard" className="block text-2xl font-bold leading-none text-[var(--text-accent)]">
-              Tech Suite
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center text-xl font-bold leading-none text-[var(--text-accent)]">
+              Worship Production OS
             </Link>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               {formatterMode ? "Song Formatter" : "Production Hub"}
@@ -125,7 +137,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
             return (
               <div key={`${href}-${label}`}>
                 <div
-                  className={`flex items-center rounded-lg border-l-4 ${
+                  className={`flex items-center rounded-lg border-l-4 transition-colors ${
                     active
                       ? "border-l-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
                       : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
@@ -133,7 +145,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                 >
                   <Link
                     href={href}
-                    className="pressable flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm font-semibold"
+                    className="pressable-subtle flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm font-semibold"
                     aria-current={active && !isMediaTools ? "page" : undefined}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -143,7 +155,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                     <button
                       type="button"
                       onClick={() => setMediaToolsOpen((current) => !current)}
-                      className="pressable mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel)]"
+                      className="pressable-subtle mr-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel)]"
                       aria-label={mediaToolsOpen ? "Collapse media tools" : "Expand media tools"}
                       aria-expanded={mediaToolsOpen}
                     >
@@ -152,15 +164,21 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                   ) : null}
                 </div>
 
+                <AnimatePresence initial={false}>
                 {showMediaChildren ? (
-                  <div className="ml-7 mt-1 flex flex-col gap-1 border-l border-[var(--border-default)] pl-3">
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="ml-7 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3"
+                  >
                     {MEDIA_TOOL_NAV.map((item) => {
                       const childActive = pathname === item.href;
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
-                          className={`pressable rounded-md px-3 py-2 text-xs font-semibold ${
+                          className={`pressable-subtle rounded-md px-3 py-2 text-xs font-semibold ${
                             childActive
                               ? "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
                               : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
@@ -171,15 +189,16 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                         </Link>
                       );
                     })}
-                  </div>
+                  </motion.div>
                 ) : null}
+                </AnimatePresence>
               </div>
             );
           })}
         </nav>
 
         <div className="mt-auto border-t border-[var(--border-default)] pt-4">
-          <div className="ui-surface-panel p-3">
+          <div className="ui-stage-enter ui-surface-panel p-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--action-primary-bg)] font-bold text-[var(--action-primary-ink)]">
                 {formatterMode ? "AU" : "CH"}
@@ -197,7 +216,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
             <button
               type="button"
               onClick={logout}
-              className="pressable mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border-default)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+              className="pressable-subtle mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--border-default)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out
@@ -216,14 +235,15 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
               <button
                 type="button"
                 onClick={logout}
-                className="pressable inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)]"
+                className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)]"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>
-          <nav className="flex gap-2 overflow-x-auto border-t border-[var(--border-default)] px-3 py-2" aria-label="Production workspace">
+          <div className="relative border-t border-[var(--border-default)] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-10 after:bg-gradient-to-l after:from-[var(--surface-panel-alt)] after:to-transparent">
+          <nav className="flex gap-2 overflow-x-auto px-3 py-2 pr-10" aria-label="Production workspace">
             {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
               const active =
                 href === "/services"
@@ -233,7 +253,8 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                 <Link
                   key={`${href}-${shortLabel}`}
                   href={href}
-                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
+                  ref={active ? activeMobileNavRef : undefined}
+                  className={`flex min-h-11 shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
                     active
                       ? "border-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-primary)] shadow-[var(--elevation-subtle)]"
                       : "border-[var(--border-default)] text-[var(--text-secondary)]"
@@ -246,47 +267,33 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
               );
             })}
           </nav>
+          </div>
         </header>
 
-        <main className="mx-auto min-h-screen max-w-[1540px] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
-      </div>
-
-      {showInProgressWarning ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--surface-overlay)] px-4 pt-20" role="alertdialog" aria-modal="true" aria-labelledby="in-progress-warning-title">
-          <div className="ui-modal w-full max-w-md p-4">
-            <div className="flex items-start gap-3">
+        {showInProgressWarning ? (
+          <div className="mx-auto max-w-[1540px] px-4 pt-4 lg:px-6" role="status">
+            <div className="flex items-start gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-strong)] p-3">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--state-warning-soft)] text-[var(--text-warning)]">
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 id="in-progress-warning-title" className="text-base font-semibold text-[var(--text-primary)]">
-                  {warningTitle} is in progress
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  This part of the site is not fully working or has not been developed yet, so do not expect that you can use it already.
-                </p>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{warningTitle} is still in development</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">Some actions may be unavailable or incomplete.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
-                aria-label="Dismiss warning"
+                className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+                aria-label="Dismiss development notice"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable ui-btn-primary px-3 py-2 text-sm font-semibold"
-              >
-                Continue
-              </button>
-            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+
+        <main id="workspace-content" className="ui-stage-enter mx-auto min-h-screen max-w-[1540px] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+      </div>
     </div>
   );
 }

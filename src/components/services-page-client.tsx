@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "motion/react";
 import {
   apiFetch,
   type CreateServantPayload,
@@ -25,7 +26,6 @@ import {
   PLEDGE_TYPE_OPTIONS,
   SERVICE_HYMNAL_ROLES,
   SERVICE_SERVANT_ROLES,
-  SERVICE_TEMPLATE_OPTIONS,
   type AssignedMinistry,
   type PledgeType,
   type ServiceHymnalRole,
@@ -35,6 +35,8 @@ import {
 import { ServiceStatus } from "@/lib/service-constants";
 import { formatServantDisplayName, normalizeServantName, normalizeServantNameForComparison } from "@/lib/servants";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionSelect } from "@/components/ui/production-select";
 
 type ServiceFormState = {
   assignedMinistry: string;
@@ -193,18 +195,10 @@ function buildMinistryOptions(records: EditableSettingsPresetRecord[] = []): Min
 }
 
 function buildTemplateOptions(records: ServiceTemplatePresetRecord[] = []): TemplateOption[] {
-  if (records.length > 0) {
-    return records.filter((record) => record.active).map((record) => ({
-      value: record.code,
-      label: record.label,
-      templateType: record.templateType,
-    }));
-  }
-
-  return SERVICE_TEMPLATE_OPTIONS.map((option) => ({
-    value: option.value,
-    label: option.label,
-    templateType: option.value,
+  return records.map((record) => ({
+    value: record.code,
+    label: record.label,
+    templateType: record.templateType,
   }));
 }
 
@@ -389,15 +383,15 @@ function UnlistedServantsModal({
   setSelectedNames: (names: string[]) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="technical-label">ADD TO TEAMS</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Unlisted servants found</h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Unlisted servants found</DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               Select which names should be added to Teams before this service is saved.
-            </p>
+            </DialogDescription>
           </div>
           <button
             type="button"
@@ -431,7 +425,7 @@ function UnlistedServantsModal({
                         : [...selectedNames, name],
                     )
                   }
-                  className="h-4 w-4"
+                  className="ui-checkbox h-4 w-4"
                 />
                 <span className="min-w-0 flex-1 truncate">{name}</span>
               </label>
@@ -458,8 +452,8 @@ function UnlistedServantsModal({
             Add selected and save
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -622,20 +616,13 @@ function ServiceFormFields({
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="text-sm text-[var(--text-secondary)]">
-          Assigned Ministry
-          <select
-            value={normalizedForm.assignedMinistry}
-            onChange={(event) => onChange({ ...normalizedForm, assignedMinistry: event.target.value })}
-            className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
-          >
-            {ministryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ProductionSelect
+          label="Assigned Ministry"
+          value={normalizedForm.assignedMinistry}
+          onValueChange={(value) => onChange({ ...normalizedForm, assignedMinistry: value })}
+          options={ministryOptions}
+          triggerClassName="bg-[var(--surface-panel)]"
+        />
 
         <label className="text-sm text-[var(--text-secondary)]">
           Date
@@ -648,26 +635,24 @@ function ServiceFormFields({
           {errors.serviceDate ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.serviceDate}</p> : null}
         </label>
 
-        <label className="text-sm text-[var(--text-secondary)]">
-          Template
-          <select
-            value={normalizedForm.templateType}
-            onChange={(event) =>
-              onChange({
-                ...normalizedForm,
-                templateType: event.target.value,
-                pledgeType: isFirstSunday(event.target.value, templateOptions) ? normalizedForm.pledgeType : "",
-              })
-            }
-            className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
-          >
-            {templateOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ProductionSelect
+          label="Template"
+          value={normalizedForm.templateType}
+          onValueChange={(value) => onChange({
+            ...normalizedForm,
+            templateType: value,
+            pledgeType: isFirstSunday(value, templateOptions) ? normalizedForm.pledgeType : "",
+          })}
+          options={templateOptions.map((option) => ({ value: option.value, label: option.label }))}
+          triggerClassName="bg-[var(--surface-panel)]"
+          disabled={templateOptions.length === 0}
+        />
+
+        {templateOptions.length === 0 ? (
+          <p className="-mt-2 text-sm text-[var(--state-warning)] md:col-span-2">
+            Add a saved template under <a href="/settings" className="font-semibold underline underline-offset-4">Settings → Templates</a> before creating a service.
+          </p>
+        ) : null}
 
         <label className="text-sm text-[var(--text-secondary)]">
           Sermon Verse
@@ -1142,6 +1127,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
   }
 
   function prepareServiceSave(action: "create" | "update", form: ServiceFormState, serviceId?: string) {
+    if (action === "create" && !templateOptions.some((option) => option.value === form.templateType)) {
+      showToast("Add and select a saved template under Settings → Templates before creating a service.");
+      return;
+    }
+
     const errors = validateServiceForm(form);
     if (action === "create") {
       setCreateErrors(errors);
@@ -1261,13 +1251,13 @@ export default function ServicesPageClient({ initialServices }: { initialService
   }
 
   return (
-    <main className="min-h-full space-y-8 py-3 lg:px-2">
-      <section className="space-y-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold leading-tight text-[var(--color-brand-ink)] md:text-5xl">
+    <div className="min-h-full space-y-6 py-1 lg:px-2">
+      <section>
+        <div className="max-w-3xl">
+          <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
             Worship Services
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[var(--color-text-secondary)] md:text-lg md:leading-8">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
             Build each worship service as a clear record first, then let the template drive the approved block flow.
           </p>
         </div>
@@ -1278,6 +1268,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
+                <span className="sr-only">Filter by service date</span>
                 <input
                   type="date"
                   value={dateFilter}
@@ -1286,20 +1277,13 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 />
               </label>
 
-              <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
-                <select
-                  value={ministryFilter}
-                  onChange={(event) => setMinistryFilter(event.target.value)}
-                  className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-[var(--color-brand-ink)]"
-                >
-                  <option value="">All ministries</option>
-                  {ministryOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ProductionSelect
+                ariaLabel="Filter by ministry"
+                value={ministryFilter}
+                onValueChange={setMinistryFilter}
+                options={[{ value: "", label: "All ministries" }, ...ministryOptions]}
+                className="min-w-[180px] max-w-[220px] flex-1"
+              />
             </div>
 
             <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
@@ -1309,7 +1293,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   setSelectedServiceIds([]);
                   void servicesQuery.refetch();
                 }}
-                className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
                 aria-label="Refresh services"
               >
                 <RefreshCcw className="h-4 w-4" />
@@ -1319,7 +1303,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 type="button"
                 onClick={() => setDeleteConfirmOpen(true)}
                 disabled={selectedServiceIds.length === 0 || deleteServicesMutation.isPending}
-                className={`pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
+                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
                   selectedServiceIds.length > 0
                     ? "border-[#F43F5E] bg-[#F43F5E] text-white"
                     : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
@@ -1391,7 +1375,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                             checked={isSelected}
                             onChange={() => toggleServiceSelection(service.id)}
                             aria-label={`Select ${service.dateLabel}`}
-                            className="h-5 w-5 appearance-none rounded-[4px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] align-middle shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] checked:border-[var(--color-brand-accent)] checked:bg-[var(--color-brand-accent)] checked:bg-[image:linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] focus:outline-none focus:ring-2 focus:ring-[rgba(139,92,246,0.35)]"
+                            className="ui-checkbox h-5 w-5"
                           />
                         </td>
                         <td className="px-4 py-4 align-top text-sm font-semibold text-[var(--color-brand-ink)]">
@@ -1407,15 +1391,21 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           <button
                             type="button"
                             onClick={() => toggleExpandedService(service)}
-                            className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel-alt)]"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel-alt)]"
                             aria-label={isExpanded ? "Collapse service" : "Expand service"}
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </button>
                         </td>
                       </tr>
+                      <AnimatePresence initial={false}>
                       {isExpanded ? (
-                        <tr className="bg-[color:color-mix(in_srgb,#0EA5E9_14%,var(--color-brand-panel))]">
+                        <motion.tr
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          className="bg-[color:color-mix(in_srgb,#0EA5E9_14%,var(--color-brand-panel))]"
+                        >
                           <td colSpan={6} className="border-t border-[var(--color-brand-border)] px-5 py-5">
                             <div className="space-y-5">
                               <div className="flex flex-col gap-3 border-b border-[var(--color-brand-border)] pb-4 md:flex-row md:items-center md:justify-between">
@@ -1482,8 +1472,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </motion.tr>
                       ) : null}
+                      </AnimatePresence>
                     </tbody>
                   );
                 })}
@@ -1493,15 +1484,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
         )}
       </section>
 
-      {createModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-sm">
+      <Dialog open={createModalOpen} onOpenChange={(open) => !open && setCreateModalOpen(false)}>
+        {createModalOpen ? (
+          <DialogContent className="max-w-4xl">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--color-brand-ink)]">Create worship service</h2>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">Create worship service</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
                   The date defaults to the Sunday of the following week.
-                </p>
+                </DialogDescription>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1536,27 +1527,31 @@ export default function ServicesPageClient({ initialServices }: { initialService
               <button
                 type="button"
                 onClick={submitCreateForm}
-                disabled={createServiceMutation.isPending}
+                disabled={
+                  createServiceMutation.isPending
+                  || serviceTemplatesQuery.isLoading
+                  || !templateOptions.some((option) => option.value === createForm.templateType)
+                }
                 className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-60"
               >
                 {createServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Create Service
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </DialogContent>
+        ) : null}
+      </Dialog>
 
-      {createModalOpen && createParserOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-sm">
+      <Dialog open={createModalOpen && createParserOpen} onOpenChange={(open) => !open && setCreateParserOpen(false)}>
+        {createModalOpen && createParserOpen ? (
+          <DialogContent className="max-w-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="technical-label">PARSE SERVICE TEXT</p>
-                <h2 className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">Paste WS participants text</h2>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                <DialogTitle className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">Paste WS participants text</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
                   This fills the add-service form with date, ministry, verses, servants, and hymnals.
-                </p>
+                </DialogDescription>
               </div>
               <button
                 type="button"
@@ -1593,20 +1588,20 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 Parse Into Form
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </DialogContent>
+        ) : null}
+      </Dialog>
 
-      {deleteConfirmOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-sm">
+      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(false)}>
+        {deleteConfirmOpen ? (
+          <DialogContent className="max-w-md">
             <p className="technical-label">DELETE SELECTED</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">
+            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">
               Delete {selectedServiceIds.length} service{selectedServiceIds.length === 1 ? "" : "s"}?
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
               This will permanently remove the selected worship service records from the workspace.
-            </p>
+            </DialogDescription>
 
             <div className="mt-5 flex justify-end gap-3">
               <button
@@ -1626,9 +1621,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 Delete Selected
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </DialogContent>
+        ) : null}
+      </Dialog>
 
       {pendingServiceSave ? (
         <UnlistedServantsModal
@@ -1643,6 +1638,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
       ) : null}
 
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
-    </main>
+    </div>
   );
 }

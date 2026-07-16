@@ -3,6 +3,10 @@
  */
 @import "tailwindcss";
 @import "../../tokens.css";
+@import "tw-animate-css";
+/* ---break---
+ */
+@custom-variant dark (&:is(.dark *));
 
 @theme {
   --color-brand-bg: var(--surface-app);
@@ -28,11 +32,6 @@
   --color-text-muted: var(--text-muted);
 }
 
-:root {
-  --background: var(--surface-app);
-  --foreground: var(--text-primary);
-}
-
 html,
 body {
   overflow-x: clip;
@@ -40,7 +39,6 @@ body {
 
 body {
   background-color: var(--background);
-  color: var(--foreground);
   font-family: var(--type-body-font), sans-serif;
   color-scheme: dark;
 }
@@ -77,7 +75,9 @@ textarea {
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out);
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 button:focus-visible,
@@ -144,6 +144,10 @@ textarea:focus-visible {
   animation: toast-in var(--dur-base) var(--ease-out) both;
 }
 
+.ui-stage-enter {
+  animation: panel-in 220ms var(--ease-out) both;
+}
+
 .pressable {
   transform: translateY(0);
   transition:
@@ -161,6 +165,23 @@ textarea:focus-visible {
 .pressable:active:not(:disabled) {
   transform: translateY(1px);
   filter: brightness(0.96);
+}
+
+.pressable-subtle {
+  transform: scale(1);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.pressable-subtle:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.01);
+}
+
+.pressable-subtle:active:not(:disabled) {
+  transform: scale(0.985);
 }
 
 .ui-surface-panel {
@@ -219,11 +240,55 @@ textarea:focus-visible {
   color: var(--state-danger);
 }
 
+.ui-checkbox {
+  appearance: none;
+  background-color: var(--surface-panel-alt);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 0.875rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.ui-checkbox:checked {
+  background-color: var(--action-primary-bg);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m3.5 8 3 3 6-6' fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+  border-color: var(--action-primary-bg-hover);
+}
+
+.ui-color-cell {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+}
+
+.ui-color-cell::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ui-color-cell::-webkit-color-swatch {
+  border: 0;
+}
+
+.ui-color-cell::-moz-color-swatch {
+  border: 0;
+}
+
 .ui-modal {
   border: 1px solid var(--border-strong);
   background: var(--surface-panel-strong);
   border-radius: var(--radius-container);
   box-shadow: var(--elevation-modal);
+  animation: panel-in 220ms var(--ease-out) both;
+}
+
+.ui-modal-backdrop {
+  animation: toast-in 180ms var(--ease-out) both;
 }
 
 .ui-meta-text {
@@ -248,6 +313,10 @@ textarea:focus-visible {
     linear-gradient(180deg, color-mix(in oklab, var(--surface-panel-strong) 28%, transparent), transparent 42%),
     var(--surface-panel);
   border-radius: var(--radius-card);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .production-panel-strong {
@@ -255,6 +324,52 @@ textarea:focus-visible {
   background: var(--surface-panel-strong);
   border-radius: var(--radius-card);
   box-shadow: var(--elevation-subtle);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.production-panel:hover,
+.production-panel-strong:hover {
+  border-color: color-mix(in oklab, var(--border-focus) 45%, var(--border-default));
+}
+
+.ui-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+}
+
+.ui-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ui-collapse > * {
+  overflow: hidden;
+}
+
+.ui-nav-children {
+  overflow: hidden;
+  transform-origin: top;
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.ui-nav-children[data-open="false"] {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.ui-nav-children[data-open="true"] {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .production-stripe {
@@ -307,7 +422,75 @@ textarea:focus-visible {
   }
 
   .animate-fade-in,
-  .animate-toast-in {
+  .animate-toast-in,
+  .ui-stage-enter,
+  .ui-modal,
+  .ui-modal-backdrop {
     transform: none;
   }
+
+  .ui-collapse,
+  .ui-nav-children,
+  .pressable-subtle,
+  .production-panel,
+  .production-panel-strong {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+}
+
+:root {
+  --background: var(--surface-app);
+  --foreground: var(--text-primary);
+  --card: var(--surface-panel);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-panel-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--action-primary-bg);
+  --primary-foreground: var(--action-primary-ink);
+  --secondary: var(--surface-panel-strong);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-panel-alt);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-panel-strong);
+  --accent-foreground: var(--text-accent);
+  --destructive: var(--state-danger);
+  --border: var(--border-default);
+  --input: var(--surface-panel-alt);
+  --ring: var(--border-focus);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+button:has(> svg:only-child) {
+  background: transparent;
+  border-color: transparent;
 }

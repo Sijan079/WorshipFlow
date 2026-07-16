@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { createExtractorJob, processExtractorJob, processImmediateUploadExtractor } from "@/lib/extractor-workflow";
-import { JobStatus } from "@prisma/client";
-import { LyricsExtractorJobInputSchema } from "@/lib/extractor-types";
+import { processImmediateUploadExtractor } from "@/lib/extractor-workflow";
 import {
   EXTRACTOR_UPLOAD_TYPES,
   UPLOAD_LIMITS,
+  validateDocumentSignature,
   validateUploadFile,
 } from "@/lib/upload-security";
 import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
@@ -46,17 +45,22 @@ export async function POST(request: Request, { params }: RouteParams) {
       const songTitle = String(formData.get("songTitle") ?? "").trim() || undefined;
 
       if (!(file instanceof File) || file.size === 0) {
-        return NextResponse.json({ error: "Choose one DOCX, PDF, or TXT file." }, { status: 400 });
+        return NextResponse.json({ error: "Choose one DOCX or PDF file." }, { status: 400 });
       }
 
       const uploadError = validateUploadFile(file, {
         allowedMimeTypes: EXTRACTOR_UPLOAD_TYPES,
-        allowedExtensions: [".docx", ".pdf", ".txt"],
+        allowedExtensions: [".docx", ".pdf"],
         maxBytes: UPLOAD_LIMITS.extractorBytes,
       });
 
       if (uploadError) {
         return NextResponse.json({ error: uploadError }, { status: 400 });
+      }
+
+      const signatureError = await validateDocumentSignature(file);
+      if (signatureError) {
+        return NextResponse.json({ error: signatureError }, { status: 400 });
       }
 
       try {
@@ -69,33 +73,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    const body = await request.json();
-    const parsed = LyricsExtractorJobInputSchema.safeParse(body);
-
-    if (!parsed.success || parsed.data.sourceMode !== "paste") {
-      return NextResponse.json({ error: "Paste-mode extractor input is invalid." }, { status: 400 });
-    }
-
-    const job = await createExtractorJob(serviceId, parsed.data);
-
-    try {
-      const result = await processExtractorJob(serviceId, job.id, parsed.data);
-      return NextResponse.json(result);
-    } catch (error: unknown) {
-      const message = getErrorMessage(error, "Lyrics extraction failed");
-      const status = message === "Temporary automation upload is unavailable or expired." ? 410 : 500;
-
-      await prisma.automationJob.update({
-        where: { id: job.id },
-        data: {
-          status: JobStatus.FAILED,
-          completedAt: new Date(),
-          outputJson: { error: message },
-        },
-      });
-
-      return NextResponse.json({ error: message }, { status });
-    }
+    return NextResponse.json({ error: "Upload one DOCX or PDF file." }, { status: 415 });
   } catch (error: unknown) {
     console.error("POST /api/services/[id]/extractor error:", error);
     return NextResponse.json(

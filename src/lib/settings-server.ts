@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import {
   DEFAULT_CHECKLIST_ITEMS,
+  DEFAULT_CHECKLIST_NAME,
   DEFAULT_MINISTRY_PRESETS,
   DEFAULT_SERVICE_TEMPLATE_PRESETS,
   DEFAULT_SERVANT_GROUP_PRESETS,
@@ -9,65 +10,97 @@ import {
 
 type SettingsClient = Pick<
   PrismaClient,
-  "ministryPreset" | "servantGroupPreset" | "checklistItemPreset" | "serviceTemplatePreset"
+  "workspace" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset"
 > | Prisma.TransactionClient;
 
-export async function seedMinistryPresets(client: SettingsClient, workspaceId: string) {
-  const count = await client.ministryPreset.count({ where: { workspaceId } });
-  if (count > 0) return;
+async function seedDefaults<T extends { workspaceId: string }>(
+  delegate: {
+    count(args: { where: { workspaceId: string } }): Promise<number>;
+    createMany(args: { data: T[]; skipDuplicates: true }): Promise<unknown>;
+  },
+  workspaceId: string,
+  defaults: Omit<T, "workspaceId">[],
+) {
+  if (await delegate.count({ where: { workspaceId } })) return false;
 
-  await client.ministryPreset.createMany({
-    data: DEFAULT_MINISTRY_PRESETS.map((preset) => ({ ...preset, workspaceId })),
+  await delegate.createMany({
+    data: defaults.map((preset) => ({ ...preset, workspaceId } as T)),
     skipDuplicates: true,
   });
+  return true;
+}
+
+export async function seedMinistryPresets(client: SettingsClient, workspaceId: string) {
+  await seedDefaults(client.ministryPreset, workspaceId, DEFAULT_MINISTRY_PRESETS);
 }
 
 export async function seedServantGroupPresets(client: SettingsClient, workspaceId: string) {
-  const count = await client.servantGroupPreset.count({ where: { workspaceId } });
-  if (count > 0) return;
-
-  await client.servantGroupPreset.createMany({
-    data: DEFAULT_SERVANT_GROUP_PRESETS.map((preset) => ({ ...preset, workspaceId })),
-    skipDuplicates: true,
-  });
+  await seedDefaults(client.servantGroupPreset, workspaceId, DEFAULT_SERVANT_GROUP_PRESETS);
 }
 
-export async function seedChecklistItemPresets(client: SettingsClient, workspaceId: string) {
-  const count = await client.checklistItemPreset.count({ where: { workspaceId } });
-  if (count > 0) return;
-
-  await client.checklistItemPreset.createMany({
-    data: DEFAULT_CHECKLIST_ITEMS.map((preset) => ({ ...preset, workspaceId })),
-    skipDuplicates: true,
+export async function seedChecklistPresets(client: SettingsClient, workspaceId: string) {
+  const workspace = await client.workspace.findUniqueOrThrow({
+    where: { id: workspaceId },
+    select: { activeChecklistId: true },
   });
+  let preset = await client.checklistPreset.findFirst({
+    where: { workspaceId, isDefault: true },
+    select: { id: true },
+  });
+
+  if (!preset) {
+    preset = await client.checklistPreset.create({
+      data: {
+        workspaceId,
+        name: DEFAULT_CHECKLIST_NAME,
+        isDefault: true,
+        items: { create: DEFAULT_CHECKLIST_ITEMS },
+      },
+      select: { id: true },
+    });
+  }
+
+  const activeChecklist = workspace.activeChecklistId
+    ? await client.checklistPreset.findFirst({
+        where: { id: workspace.activeChecklistId, workspaceId },
+        select: { id: true },
+      })
+    : null;
+  if (!activeChecklist) {
+    await client.workspace.update({ where: { id: workspaceId }, data: { activeChecklistId: preset.id } });
+  }
 }
 
 export async function seedServiceTemplatePresets(client: SettingsClient, workspaceId: string) {
-  const count = await client.serviceTemplatePreset.count({ where: { workspaceId } });
-  if (count > 0) {
-    const presets = await client.serviceTemplatePreset.findMany({ where: { workspaceId } });
-    await Promise.all(
-      presets.map((preset) => {
-        if (Array.isArray(preset.blocks) && preset.blocks.length > 0) {
-          return Promise.resolve();
-        }
+  const workspace = await client.workspace.findUniqueOrThrow({
+    where: { id: workspaceId },
+    select: { serviceTemplatesInitialized: true },
+  });
 
-        const defaultPreset = DEFAULT_SERVICE_TEMPLATE_PRESETS.find((item) => item.code === preset.code);
-        if (!defaultPreset) {
-          return Promise.resolve();
-        }
-
-        return client.serviceTemplatePreset.update({
-          where: { id: preset.id, workspaceId },
-          data: { blocks: defaultPreset.blocks },
-        });
-      }),
-    );
-    return;
+  if (!workspace.serviceTemplatesInitialized) {
+    await seedDefaults(client.serviceTemplatePreset, workspaceId, DEFAULT_SERVICE_TEMPLATE_PRESETS);
+    await client.workspace.update({
+      where: { id: workspaceId },
+      data: { serviceTemplatesInitialized: true },
+    });
   }
 
-  await client.serviceTemplatePreset.createMany({
-    data: DEFAULT_SERVICE_TEMPLATE_PRESETS.map((preset) => ({ ...preset, workspaceId })),
-    skipDuplicates: true,
-  });
+  const presets = await client.serviceTemplatePreset.findMany({ where: { workspaceId } });
+  await Promise.all(
+    presets.map((preset) => {
+      if (Array.isArray(preset.blocks) && preset.blocks.length > 0) {
+        return Promise.resolve();
+      }
+
+      const defaultPreset = DEFAULT_SERVICE_TEMPLATE_PRESETS.find((item) => item.code === preset.code);
+      if (!defaultPreset) {
+        return Promise.resolve();
+      }
+
+      return client.serviceTemplatePreset.update({
+        where: { id: preset.id, workspaceId },
+        data: { blocks: defaultPreset.blocks },
+      });
+    }),
+  );
 }

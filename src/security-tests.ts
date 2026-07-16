@@ -13,6 +13,7 @@ import { runServicesSecurityTests } from "./lib/services-security.test.ts";
 import { runServiceTextAnalysisTests } from "./lib/service-text-analysis.test.ts";
 import { runSettingsPresetTests } from "./lib/settings-presets.test.ts";
 import { runWorkspaceModulesTests } from "./lib/workspace-modules.test.ts";
+import { runUploadSecurityTests } from "./lib/upload-security.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -30,6 +31,7 @@ runServicesSecurityTests();
 runServiceTextAnalysisTests();
 runSettingsPresetTests();
 runWorkspaceModulesTests();
+await runUploadSecurityTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

@@ -1,54 +1,20 @@
-import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getErrorMessage } from "@/lib/errors";
-import { getActiveWorkspaceId } from "@/lib/security-context";
 import { UpdateEditablePresetSchema } from "@/lib/settings-presets";
+import { createSettingsCollectionHandlers, type SettingsListDelegate } from "@/lib/settings-routes";
 
-type RouteParams = {
-  params: Promise<{ id: string }>;
-};
-
-export async function PUT(request: Request, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-    const workspaceId = await getActiveWorkspaceId(prisma);
-    const parsed = UpdateEditablePresetSchema.safeParse(await request.json());
-
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
-    }
-
-    const preset = await prisma.ministryPreset.update({
-      where: { id, workspaceId },
-      data: parsed.data,
-    });
-
-    return NextResponse.json(preset);
-  } catch (error: unknown) {
-    console.error("PUT /api/settings/ministries/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to update ministry preset") }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-    const workspaceId = await getActiveWorkspaceId(prisma);
-    const preset = await prisma.ministryPreset.findUnique({ where: { id, workspaceId } });
-
-    if (!preset) {
-      return NextResponse.json({ error: "Ministry preset not found" }, { status: 404 });
-    }
-
-    if (preset.isDefault) {
-      return NextResponse.json({ error: "Default ministry presets cannot be deleted" }, { status: 400 });
-    }
-
-    await prisma.ministryPreset.delete({ where: { id, workspaceId } });
-
-    return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("DELETE /api/settings/ministries/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete ministry preset") }, { status: 500 });
-  }
-}
+export const { PUT, DELETE } = createSettingsCollectionHandlers({
+  delegate: prisma.ministryPreset as unknown as SettingsListDelegate,
+  seed: async () => undefined,
+  createSchema: UpdateEditablePresetSchema,
+  updateSchema: UpdateEditablePresetSchema,
+  orderBy: [],
+  path: "/api/settings/ministries",
+  messages: {
+    load: "Failed to load ministry presets",
+    create: "Failed to create ministry preset",
+    notFound: "Ministry preset not found",
+    defaultDelete: "Default ministry presets cannot be deleted",
+    update: "Failed to update ministry preset",
+    delete: "Failed to delete ministry preset",
+  },
+});

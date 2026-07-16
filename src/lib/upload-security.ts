@@ -7,7 +7,6 @@ export const UPLOAD_LIMITS = {
 export const EXTRACTOR_UPLOAD_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
 ] as const;
 
 type UploadValidationOptions = {
@@ -40,6 +39,31 @@ export function validateUploadFile(file: File, options: UploadValidationOptions)
   return null;
 }
 
+export async function validateDocumentSignature(file: File) {
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  const lowerName = file.name.toLowerCase();
+  const isPdf = header.length >= 5 && String.fromCharCode(...header) === "%PDF-";
+  const isZip = header.length >= 4 && header[0] === 0x50 && header[1] === 0x4b && (
+    (header[2] === 0x03 && header[3] === 0x04) ||
+    (header[2] === 0x05 && header[3] === 0x06) ||
+    (header[2] === 0x07 && header[3] === 0x08)
+  );
+
+  if (lowerName.endsWith(".pdf") && !isPdf) return "The uploaded PDF has an invalid file signature.";
+  if (lowerName.endsWith(".docx")) {
+    if (!isZip) return "The uploaded DOCX has an invalid file signature.";
+    try {
+      const archive = await JSZip.loadAsync(await file.arrayBuffer());
+      if (!archive.file("[Content_Types].xml") || !archive.file("word/document.xml")) {
+        return "The uploaded DOCX has an invalid document structure.";
+      }
+    } catch {
+      return "The uploaded DOCX has an invalid document structure.";
+    }
+  }
+  return null;
+}
+
 export function validateUploadTotal(files: File[], maxBytes: number) {
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
   if (totalBytes > maxBytes) {
@@ -53,3 +77,4 @@ function formatBytes(bytes: number) {
   const megabytes = bytes / 1024 / 1024;
   return `${Math.round(megabytes)} MB`;
 }
+import JSZip from "jszip";

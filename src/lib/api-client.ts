@@ -4,7 +4,6 @@ import type {
   LyricsExtractorAiRetryDescriptor,
   LyricsExtractorDocxRequest,
   LyricsExtractorEditableResponse,
-  LyricsExtractorJobInput,
 } from "@/lib/extractor-types";
 import type {
   AssignedMinistry,
@@ -39,8 +38,11 @@ type Serialized<T> = T extends Date
       ? { [Key in keyof T]: Serialized<T[Key]> }
       : T;
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const url = `${BASE_URL}${path}`;
+function buildUrl(path: string) {
+  return `${BASE_URL}${path}`;
+}
+
+function buildHeaders(options?: RequestInit) {
   const headers = { ...(options?.headers || {}) } as Record<string, string>;
 
   // If it's a FormData body, let the browser set the Content-Type automatically (including boundary)
@@ -48,28 +50,41 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(url, {
+  return headers;
+}
+
+async function fetchOrThrow(path: string, options?: RequestInit) {
+  const response = await fetch(buildUrl(path), {
     ...options,
-    headers,
+    headers: buildHeaders(options),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(errorData.error || `Request failed with status ${response.status}`, response.status);
+  if (response.ok) {
+    return response;
   }
 
+  const errorData = await response.json().catch(() => ({}));
+  throw new ApiError(errorData.error || `Request failed with status ${response.status}`, response.status);
+}
+
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetchOrThrow(path, options);
   return response.json() as Promise<T>;
 }
 
+async function postExtractorRequest(path: string, body: BodyInit | Record<string, unknown>) {
+  const isBinaryBody = body instanceof FormData;
+  const response = await fetchOrThrow(path, {
+    method: "POST",
+    body: isBinaryBody ? body : JSON.stringify(body),
+    headers: isBinaryBody ? undefined : { "Content-Type": "application/json" },
+  });
+
+  return response as Response & { ok: true };
+}
+
 async function downloadBinaryResponse(path: string, options?: RequestInit) {
-  const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(errorData.error || `Request failed with status ${response.status}`, response.status);
-  }
-
+  const response = await fetchOrThrow(path, options);
   const blob = await response.blob();
   const contentDisposition = response.headers.get("Content-Disposition") ?? "";
   const fileNameMatch = /filename="([^"]+)"/i.exec(contentDisposition);
@@ -80,15 +95,8 @@ async function downloadBinaryResponse(path: string, options?: RequestInit) {
   };
 }
 
-async function executeExtractorRequest(path: string, options?: RequestInit): Promise<LyricsExtractorEditableResponse> {
-  const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(errorData.error || `Request failed with status ${response.status}`, response.status);
-  }
-
+async function executeExtractorRequest(path: string, body: BodyInit | Record<string, unknown>) {
+  const response = await postExtractorRequest(path, body);
   return response.json() as Promise<LyricsExtractorEditableResponse>;
 }
 
@@ -104,29 +112,7 @@ export async function runUploadLyricsExtractor(params: {
   }
 
   const path = params.serviceId ? `/api/services/${params.serviceId}/extractor` : "/api/extractor";
-  return executeExtractorRequest(path, {
-    method: "POST",
-    body: formData,
-  });
-}
-
-export async function runPasteLyricsExtractor(params: {
-  serviceId?: string;
-  songTitle?: string;
-  pastedText: string;
-}) {
-  const path = params.serviceId ? `/api/services/${params.serviceId}/extractor` : "/api/extractor";
-  return executeExtractorRequest(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sourceMode: "paste",
-      songTitle: params.songTitle?.trim() || undefined,
-      pastedText: params.pastedText,
-    } satisfies LyricsExtractorJobInput),
-  });
+  return executeExtractorRequest(path, formData);
 }
 
 export async function runAiLyricsExtractorRetry(params: {
@@ -134,13 +120,7 @@ export async function runAiLyricsExtractorRetry(params: {
   retryToken: LyricsExtractorAiRetryDescriptor["retryToken"];
 }) {
   const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/ai` : "/api/extractor/ai";
-  return executeExtractorRequest(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ retryToken: params.retryToken }),
-  });
+  return executeExtractorRequest(path, { retryToken: params.retryToken });
 }
 
 export async function runAiLyricsReformat(params: {
@@ -150,14 +130,8 @@ export async function runAiLyricsReformat(params: {
 }) {
   const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/ai` : "/api/extractor/ai";
   return executeExtractorRequest(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text: params.text,
-      songTitle: params.songTitle?.trim() || undefined,
-    }),
+    text: params.text,
+    songTitle: params.songTitle?.trim() || undefined,
   });
 }
 
@@ -169,13 +143,11 @@ export async function generateLyricsDocx(params: {
   const path = params.serviceId ? `/api/services/${params.serviceId}/extractor/docx` : "/api/extractor/docx";
   return downloadBinaryResponse(path, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       songTitle: params.songTitle?.trim() || undefined,
       text: params.text,
     } satisfies LyricsExtractorDocxRequest),
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -270,15 +242,25 @@ export type EditableSettingsPresetRecord = {
   updatedAt: string;
 };
 
-export type ChecklistItemPresetRecord = {
+export type ChecklistPresetItemRecord = {
   id: string;
-  workspaceId: string;
+  checklistId: string;
   label: string;
   order: number;
   active: boolean;
-  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ChecklistPresetRecord = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  items: ChecklistPresetItemRecord[];
 };
 
 export type ServiceTemplatePresetRecord = EditableSettingsPresetRecord & {
@@ -300,13 +282,18 @@ export type CreateEditableSettingsPresetPayload = {
 
 export type UpdateEditableSettingsPresetPayload = Partial<CreateEditableSettingsPresetPayload>;
 
-export type CreateChecklistItemPresetPayload = {
+export type ChecklistPresetItemPayload = {
+  id?: string;
   label: string;
-  order: number;
   active: boolean;
 };
 
-export type UpdateChecklistItemPresetPayload = Partial<CreateChecklistItemPresetPayload>;
+export type CreateChecklistPresetPayload = { name: string };
+export type UpdateChecklistPresetPayload = {
+  name: string;
+  items: ChecklistPresetItemPayload[];
+};
+export type ActivateChecklistPresetPayload = { checklistId: string };
 
 export type CreateServiceTemplatePresetPayload = CreateEditableSettingsPresetPayload & {
   templateType: ServiceTemplateType;

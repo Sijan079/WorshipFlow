@@ -130,6 +130,8 @@ model Workspace {
   id        String   @id @default(uuid())
   slug      String   @unique
   name      String
+  serviceTemplatesInitialized Boolean @default(false)
+  activeChecklistId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,7 +141,8 @@ model Workspace {
   tagPresets SongTagPreset[]
   ministryPresets MinistryPreset[]
   servantGroupPresets ServantGroupPreset[]
-  checklistItemPresets ChecklistItemPreset[]
+  checklistPresets ChecklistPreset[] @relation("WorkspaceChecklistPresets")
+  activeChecklist ChecklistPreset? @relation("ActiveChecklist", fields: [activeChecklistId], references: [id], onDelete: SetNull)
   serviceTemplatePresets ServiceTemplatePreset[]
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
@@ -305,20 +308,35 @@ model ServantGroupPreset {
   @@unique([workspaceId, code])
 }
 
-model ChecklistItemPreset {
+model ChecklistPreset {
   id          String   @id @default(uuid())
   workspaceId String
-  label       String
-  order       Int      @default(0)
-  active      Boolean  @default(true)
+  name        String
   isDefault   Boolean  @default(false)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation("WorkspaceChecklistPresets", fields: [workspaceId], references: [id], onDelete: Cascade)
+  activeForWorkspaces Workspace[] @relation("ActiveChecklist")
+  items       ChecklistItemPreset[]
 
-  @@index([workspaceId, order])
+  @@index([workspaceId, name])
+}
+
+model ChecklistItemPreset {
+  id          String   @id @default(uuid())
+  checklistId String
+  label       String
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  checklist   ChecklistPreset @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId, order])
 }
 
 model ServiceTemplatePreset {

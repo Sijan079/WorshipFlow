@@ -19,6 +19,8 @@ import {
   type ServantGender,
   type ServantGroup,
 } from "@/lib/servants";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionSelect } from "@/components/ui/production-select";
 
 type ServantFormState = CreateServantPayload;
 type ServantFormErrors = Partial<Record<keyof ServantFormState, string>>;
@@ -126,17 +128,17 @@ function BulkAssignModal({
   selectedCount: number;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="technical-label">BULK ASSIGN</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
+            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
               Update {selectedCount} servant{selectedCount === 1 ? "" : "s"}
-            </h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               Leave a field untouched if you do not want to change it for the selected rows.
-            </p>
+            </DialogDescription>
           </div>
           <button
             type="button"
@@ -149,39 +151,27 @@ function BulkAssignModal({
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="block text-sm text-[var(--text-secondary)]">
-            Gender
-            <select
-              value={form.gender}
-              onChange={(event) => onChange({ ...form, gender: (event.target.value || "") as BulkAssignFormState["gender"] })}
-              className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-            >
-              <option value="">Leave unchanged</option>
-              <option value="null">Set to Not set</option>
-              {SERVANT_GENDER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ProductionSelect
+            label="Gender"
+            value={form.gender}
+            onValueChange={(value) => onChange({ ...form, gender: value as BulkAssignFormState["gender"] })}
+            options={[
+              { value: "", label: "Leave unchanged" },
+              { value: "null", label: "Set to Not set" },
+              ...SERVANT_GENDER_OPTIONS,
+            ]}
+          />
 
-          <label className="block text-sm text-[var(--text-secondary)]">
-            Group
-            <select
-              value={form.groupCode}
-              onChange={(event) => onChange({ ...form, groupCode: event.target.value })}
-              className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-            >
-              <option value="">Leave unchanged</option>
-              <option value="null">Set to Not set</option>
-              {groupOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ProductionSelect
+            label="Group"
+            value={form.groupCode}
+            onValueChange={(value) => onChange({ ...form, groupCode: value })}
+            options={[
+              { value: "", label: "Leave unchanged" },
+              { value: "null", label: "Set to Not set" },
+              ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
+            ]}
+          />
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -195,8 +185,8 @@ function BulkAssignModal({
             Apply changes
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -220,17 +210,17 @@ function ServantModal({
   servant: ServantRecord | null;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="technical-label">{servant ? "EDIT SERVANT" : "ADD SERVANT"}</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
+            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
               {servant ? form.name || "Edit servant" : "Create servant"}
-            </h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               Keep the profile lightweight for service assignment and filtering.
-            </p>
+            </DialogDescription>
           </div>
           <button
             type="button"
@@ -255,28 +245,17 @@ function ServantModal({
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm text-[var(--text-secondary)]">
-              Gender
-              <select
-                value={form.gender ?? ""}
-                onChange={(event) => onChange({ ...form, gender: (event.target.value || null) as NullableServantGender })}
-                className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-              >
-                <option value="">Not set</option>
-                {SERVANT_GENDER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ProductionSelect
+              label="Gender"
+              value={form.gender ?? ""}
+              onValueChange={(value) => onChange({ ...form, gender: (value || null) as NullableServantGender })}
+              options={[{ value: "", label: "Not set" }, ...SERVANT_GENDER_OPTIONS]}
+            />
 
-            <label className="block text-sm text-[var(--text-secondary)]">
-              Group
-              <select
-                value={form.groupCode ?? form.group ?? ""}
-                onChange={(event) => {
-                  const value = event.target.value;
+            <ProductionSelect
+              label="Group"
+              value={form.groupCode ?? form.group ?? ""}
+              onValueChange={(value) => {
                   const option = groupOptions.find((item) => item.value === value);
                   onChange({
                     ...form,
@@ -284,16 +263,11 @@ function ServantModal({
                     groupCode: value || null,
                   });
                 }}
-                className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-              >
-                <option value="">Not set</option>
-                {groupOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              options={[
+                { value: "", label: "Not set" },
+                ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
+              ]}
+            />
           </div>
         </div>
 
@@ -308,8 +282,8 @@ function ServantModal({
             {servant ? "Save changes" : "Create servant"}
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -515,13 +489,13 @@ export default function TeamsPageClient() {
   const showTableSkeleton = servantsQuery.isLoading || servantsQuery.isFetching;
 
   return (
-    <main className="min-h-full space-y-8 py-3 lg:px-2">
-      <section className="space-y-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold leading-tight text-[var(--color-brand-ink)] md:text-5xl">
+    <div className="min-h-full space-y-6 py-1 lg:px-2">
+      <section>
+        <div className="max-w-3xl">
+          <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
             Teams
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[var(--color-text-secondary)] md:text-lg md:leading-8">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
             Keep a clean roster of worship servants so service assignments can be picked fast without losing the freedom to type one-off names.
           </p>
         </div>
@@ -532,6 +506,7 @@ export default function TeamsPageClient() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <label className="relative min-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
+                <span className="sr-only">Search servants</span>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" />
                 <input
                   type="text"
@@ -542,20 +517,16 @@ export default function TeamsPageClient() {
                 />
               </label>
 
-              <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
-                <select
-                  value={groupFilter}
-                  onChange={(event) => setGroupFilter(event.target.value)}
-                  className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-[var(--color-brand-ink)]"
-                >
-                  <option value="">All groups</option>
-                  {groupOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ProductionSelect
+                ariaLabel="Filter by group"
+                value={groupFilter}
+                onValueChange={setGroupFilter}
+                options={[
+                  { value: "", label: "All groups" },
+                  ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
+                ]}
+                className="min-w-[180px] max-w-[220px] flex-1"
+              />
             </div>
 
             <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
@@ -565,7 +536,7 @@ export default function TeamsPageClient() {
                   setSelectedServantIds([]);
                   void servantsQuery.refetch();
                 }}
-                className="rounded-md border border-[var(--color-brand-border)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
                 aria-label="Refresh servants"
               >
                 <RefreshCcw className="h-4 w-4" />
@@ -575,7 +546,7 @@ export default function TeamsPageClient() {
                 type="button"
                 onClick={openBulkAssignModal}
                 disabled={selectedServantIds.length === 0 || bulkAssignMutation.isPending}
-                className={`pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
+                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
                   selectedServantIds.length > 0
                     ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)] text-[var(--color-accent-ink)]"
                     : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
@@ -590,7 +561,7 @@ export default function TeamsPageClient() {
                 type="button"
                 onClick={() => void deleteSelectedServants()}
                 disabled={selectedServantIds.length === 0 || deleteServantMutation.isPending}
-                className={`pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
+                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
                   selectedServantIds.length > 0
                     ? "border-[#F43F5E] bg-[#F43F5E] text-white"
                     : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
@@ -653,7 +624,7 @@ export default function TeamsPageClient() {
                         onChange={() => toggleServantSelection(servant.id)}
                         onClick={(event) => event.stopPropagation()}
                         aria-label={`Select ${servant.name}`}
-                        className="h-5 w-5 appearance-none rounded-[4px] border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] align-middle shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] checked:border-[var(--color-brand-accent)] checked:bg-[var(--color-brand-accent)] checked:bg-[image:linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] focus:outline-none focus:ring-2 focus:ring-[rgba(139,92,246,0.35)]"
+                        className="ui-checkbox h-5 w-5"
                       />
                     </td>
                     <td
@@ -706,6 +677,6 @@ export default function TeamsPageClient() {
           selectedCount={selectedServantIds.length}
         />
       ) : null}
-    </main>
+    </div>
   );
 }
