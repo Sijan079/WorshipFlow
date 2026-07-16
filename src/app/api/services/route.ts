@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
-import { getServiceBlockOrder, serviceDetailInclude } from "@/lib/service-data";
-import { BLOCK_LABELS } from "@/lib/service-display";
+import { serviceDetailInclude } from "@/lib/service-data";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 import { validateTemplateBlocks } from "@/lib/settings-presets";
 import {
@@ -96,6 +95,9 @@ export async function POST(request: Request) {
         ? prisma.serviceTemplatePreset.findFirst({ where: { workspaceId, code: templatePresetCode } })
         : Promise.resolve(null),
     ]);
+    if (!templatePresetCode || !templatePreset) {
+      return NextResponse.json({ error: "Select a valid saved service template." }, { status: 400 });
+    }
     const resolvedTemplateType = (templatePreset?.templateType ?? templateType) as ServiceTemplateType;
     const ministryName = ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
     const serviceVariant = mapTemplateTypeToServiceVariant(resolvedTemplateType);
@@ -117,14 +119,9 @@ export async function POST(request: Request) {
         },
       });
 
-      const templateBlocks = templatePreset?.blocks && Array.isArray(templatePreset.blocks) && templatePreset.blocks.length > 0
-        ? validateTemplateBlocks(templatePreset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>)
-        : getServiceBlockOrder(serviceVariant).map((blockType, order) => ({
-            label: BLOCK_LABELS[blockType],
-            code: blockType,
-            blockType,
-            order,
-          }));
+      const templateBlocks = validateTemplateBlocks(
+        templatePreset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>,
+      );
       await Promise.all(
         templateBlocks.map((block, index) =>
           tx.worshipServiceBlock.create({

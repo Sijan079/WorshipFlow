@@ -5,6 +5,7 @@ import { createTemporaryAutomationBatch } from "@/lib/temporary-automation-store
 import {
   EXTRACTOR_UPLOAD_TYPES,
   UPLOAD_LIMITS,
+  validateDocumentSignature,
   validateUploadFile,
   validateUploadTotal,
 } from "@/lib/upload-security";
@@ -61,6 +62,11 @@ export async function POST(request: Request, { params }: RouteParams) {
 
       if (uploadError) {
         return NextResponse.json({ error: uploadError }, { status: 400 });
+      }
+
+      const signatureError = await validateDocumentSignature(file);
+      if (signatureError) {
+        return NextResponse.json({ error: signatureError }, { status: 400 });
       }
     }
 

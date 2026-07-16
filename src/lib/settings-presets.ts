@@ -60,7 +60,7 @@ export const DEFAULT_SERVICE_TEMPLATE_PRESETS = [
     optionalBlocks: [],
     blocks: createDefaultTemplateBlocks(STANDARD_BLOCK_ORDER),
     active: true,
-    isDefault: true,
+    isDefault: false,
   },
   {
     label: "1st Sunday",
@@ -69,16 +69,18 @@ export const DEFAULT_SERVICE_TEMPLATE_PRESETS = [
     optionalBlocks: [...APPROVED_TEMPLATE_OPTIONAL_BLOCKS],
     blocks: createDefaultTemplateBlocks(EXTENDED_BLOCK_ORDER),
     active: true,
-    isDefault: true,
+    isDefault: false,
   },
 ];
 
 export const DEFAULT_CHECKLIST_ITEMS = [
-  { label: "Confirm sermon verse", order: 0, active: true, isDefault: true },
-  { label: "Assign service servants", order: 1, active: true, isDefault: true },
-  { label: "Prepare worship songs", order: 2, active: true, isDefault: true },
-  { label: "Stage booth media", order: 3, active: true, isDefault: true },
+  { label: "Confirm sermon verse", order: 0, active: true },
+  { label: "Assign service servants", order: 1, active: true },
+  { label: "Prepare worship songs", order: 2, active: true },
+  { label: "Stage booth media", order: 3, active: true },
 ];
+
+export const DEFAULT_CHECKLIST_NAME = "Before every worship service";
 
 export function normalizePresetCode(value: string) {
   const code = value
@@ -92,6 +94,14 @@ export function normalizePresetCode(value: string) {
 
 export function sortSettingsByLabel<T extends { label: string }>(items: T[]) {
   return [...items].sort((left, right) => left.label.localeCompare(right.label));
+}
+
+export function moveTemplateBlock<T>(blocks: T[], from: number, to: number) {
+  if (from === to || from < 0 || to < 0 || from >= blocks.length || to >= blocks.length) return blocks;
+  const next = [...blocks];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
 }
 
 export function inferTemplateBlockType(label: string): BlockType {
@@ -155,10 +165,27 @@ export const EditablePresetSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const ChecklistItemPresetSchema = z.object({
+export const ChecklistPresetItemPayloadSchema = z.object({
+  id: z.string().trim().min(1).optional(),
   label: z.string().trim().min(1, "Label is required").max(120, "Label is too long"),
-  order: z.number().int().min(0).default(0),
   active: z.boolean().default(true),
+});
+
+export const CreateChecklistPresetSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(80, "Name is too long"),
+});
+
+export const UpdateChecklistPresetSchema = CreateChecklistPresetSchema.extend({
+  items: z.array(ChecklistPresetItemPayloadSchema).max(100, "Too many checklist items"),
+}).superRefine((value, context) => {
+  const ids = value.items.flatMap((item) => item.id ? [item.id] : []);
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({ code: "custom", path: ["items"], message: "Checklist item IDs must be unique" });
+  }
+});
+
+export const ActivateChecklistPresetSchema = z.object({
+  checklistId: z.string().trim().min(1, "Checklist is required"),
 });
 
 export const ServiceTemplatePresetSchema = EditablePresetSchema.extend({
@@ -180,12 +207,17 @@ export const UpdateEditablePresetSchema = EditablePresetSchema.partial().refine(
   "At least one field is required",
 );
 
-export const UpdateChecklistItemPresetSchema = ChecklistItemPresetSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  "At least one field is required",
-);
-
 export const UpdateServiceTemplatePresetSchema = ServiceTemplatePresetSchema.partial().refine(
   (value) => Object.keys(value).length > 0,
   "At least one field is required",
 );
+
+export const AlwaysActiveServiceTemplatePresetSchema = ServiceTemplatePresetSchema.transform((value) => ({
+  ...value,
+  active: true,
+}));
+
+export const AlwaysActiveUpdateServiceTemplatePresetSchema = UpdateServiceTemplatePresetSchema.transform((value) => ({
+  ...value,
+  active: true,
+}));

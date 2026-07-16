@@ -35,11 +35,18 @@
 
 # local agent artifacts
 /.agents/
+/.agents.disabled/
 /.hallmark/
 /.sixth/
+/.superpowers/
 /docs/superpowers/
 /docs/**/plans/
 /skills-lock.json
+
+# local review and backup artifacts
+/prisma-*.tgz
+/docs/videos/*.mp4
+/supabase_backups/
 
 # local helper scripts
 /dev-pap-test.bat

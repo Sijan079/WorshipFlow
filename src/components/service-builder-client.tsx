@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "motion/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   CloudUpload,
@@ -24,7 +25,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import {
   apiFetch,
@@ -45,7 +46,6 @@ import {
   generateLyricsDocx,
   runAiLyricsExtractorRetry,
   runAiLyricsReformat,
-  runPasteLyricsExtractor,
   runUploadLyricsExtractor,
   triggerBrowserDownload,
 } from "@/lib/api-client";
@@ -67,6 +67,8 @@ import QRGeneratorTool from "@/components/qr-generator-tool";
 import BackgroundGeneratorTool from "@/components/background-generator-tool";
 import ResizeImageTool from "@/components/resize-image-tool";
 import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-modules";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionSelect } from "@/components/ui/production-select";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -418,15 +420,14 @@ export default function ServiceBuilderClient({
   const [recentConversionNow] = useState(() => Date.now());
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [newServiceModalOpen, setNewServiceModalOpen] = useState(false);
+  const [automationJobType, setAutomationJobType] = useState<JobType>(JobType.FREESHOW_GENERATE);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [serviceAnalysisText, setServiceAnalysisText] = useState("");
   const [serviceAnalysisDraft, setServiceAnalysisDraft] = useState<AnalyzedServiceDraft | null>(null);
-  const [extractorSourceMode, setExtractorSourceMode] = useState<"upload" | "paste">("upload");
   const [extractorStatus, setExtractorStatus] = useState<string | null>(null);
   const [extractorSelectedFile, setExtractorSelectedFile] = useState<File | null>(null);
   const [extractorFileLabel, setExtractorFileLabel] = useState<string | null>(null);
   const [extractorSongTitle, setExtractorSongTitle] = useState("");
-  const [extractorPastedText, setExtractorPastedText] = useState("");
   const [extractorAiRetry, setExtractorAiRetry] = useState<LyricsExtractorAiRetryDescriptor | null>(null);
   const [directAiReformatUsed, setDirectAiReformatUsed] = useState(false);
   const [extractorDraftText, setExtractorDraftText] = useState("");
@@ -888,46 +889,6 @@ export default function ServiceBuilderClient({
     },
   });
 
-  const pasteExtractorMutation = useMutation({
-    mutationFn: async ({
-      serviceId,
-      pastedText,
-      songTitle,
-    }: {
-      serviceId?: string;
-      pastedText: string;
-      songTitle?: string;
-      useAi?: boolean;
-    }) => {
-      return applyExtractorResult(await runPasteLyricsExtractor({ serviceId, pastedText, songTitle }));
-    },
-    onSuccess: async (result, variables) => {
-      if (variables.serviceId) {
-        await invalidateServices();
-      }
-      setFeedback(
-        result.retry
-          ? "Pasted lyrics were normalized with warnings. Review the draft before generating DOCX."
-          : "Pasted lyrics were normalized into the editor."
-      );
-      showToast(result.retry ? "Pasted lyrics normalized with warnings." : "Pasted lyrics normalized.", result.retry ? "info" : "success");
-      if (variables.useAi && result.retry) {
-        setExtractorStatus("Running AI cleanup...");
-        aiExtractorRetryMutation.mutate({
-          serviceId: variables.serviceId,
-          retryToken: result.retry.retryToken,
-        });
-        return;
-      }
-      router.push("/songs/format");
-    },
-    onError: (error: Error) => {
-      setExtractorStatus("Extraction failed.");
-      setFeedback(error.message);
-      showToast(error.message);
-    },
-  });
-
   const aiExtractorRetryMutation = useMutation({
     mutationFn: async ({ serviceId, retryToken }: { serviceId?: string; retryToken: string }) => {
       return applyExtractorResult(await runAiLyricsExtractorRetry({ serviceId, retryToken }));
@@ -1020,8 +981,7 @@ export default function ServiceBuilderClient({
         .filter((job) => job.jobType === JobType.TRANSPOSE && isUploadedExtractorJob(job.inputJson))
         .slice(0, 5)
     : [];
-  const isFormatterProcessing =
-    uploadExtractorMutation.isPending || pasteExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
+  const isFormatterProcessing = uploadExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
   const editorSections = editorDraftSections;
 
   const commitEditorSections = (nextSections: TaggedDraftSection[], options: SerializeTaggedDraftOptions = {}) => {
@@ -1101,26 +1061,6 @@ export default function ServiceBuilderClient({
 
     setFeedback(null);
     setExtractorAiRetry(null);
-
-    if (extractorSourceMode === "paste") {
-      const pastedText = extractorPastedText.trim();
-      if (!pastedText) {
-        setFeedback("Paste lyrics before processing.");
-        showToast("Paste lyrics before processing.");
-        return;
-      }
-
-      setExtractorDraftText("");
-      setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
-      showToast(useAi ? "Processing pasted lyrics with AI assist." : "Processing pasted lyrics locally.");
-      pasteExtractorMutation.mutate({
-        serviceId: selectedService?.id,
-        pastedText,
-        songTitle: extractorSongTitle || undefined,
-        useAi,
-      });
-      return;
-    }
 
     if (!extractorSelectedFile) {
       setFeedback("Select a song file before processing.");
@@ -1344,12 +1284,15 @@ export default function ServiceBuilderClient({
       </aside>
         ) : null}
 
+      <Dialog open={newServiceModalOpen} onOpenChange={setNewServiceModalOpen}>
       {newServiceModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-brand-ink)]/50 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-lg rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-5 shadow-sm">
+          <DialogContent className="max-w-lg">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Create worship service</h2>
+                <DialogTitle className="text-xl font-semibold">Create worship service</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Add the service details and choose the flow template.
+                </DialogDescription>
               </div>
               <button
                 type="button"
@@ -1399,16 +1342,22 @@ export default function ServiceBuilderClient({
                 {...createServiceForm.register("theme")}
               />
             </label>
-            <label className="block text-sm text-[var(--color-text-secondary)]">
-              Template
-              <select
-                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
-                {...createServiceForm.register("serviceVariant")}
-              >
-                <option value={ServiceVariant.STANDARD}>Standard Worship Service</option>
-                <option value={ServiceVariant.EXTENDED}>Extended Worship Service</option>
-              </select>
-            </label>
+            <Controller
+              control={createServiceForm.control}
+              name="serviceVariant"
+              render={({ field }) => (
+                <ProductionSelect
+                  label="Template"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  options={[
+                    { value: ServiceVariant.STANDARD, label: "Standard Worship Service" },
+                    { value: ServiceVariant.EXTENDED, label: "Extended Worship Service" },
+                  ]}
+                  triggerClassName="bg-[var(--color-brand-panel)]"
+                />
+              )}
+            />
             <button
               type="submit"
               disabled={createServiceMutation.isPending}
@@ -1422,12 +1371,12 @@ export default function ServiceBuilderClient({
               Create service
             </button>
           </form>
-          </div>
-        </div>
+          </DialogContent>
       ) : null}
+      </Dialog>
 
       {module === "services" ? (
-        <main className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           <section className="production-panel overflow-hidden">
             {feedback ? (
               <div className="border-b border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
@@ -1528,19 +1477,19 @@ export default function ServiceBuilderClient({
                           {...serviceHeaderForm.register("theme")}
                         />
                       </label>
-                      <label className="text-sm text-[var(--color-text-secondary)]">
-                        Status
-                        <select
-                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
-                          {...serviceHeaderForm.register("status")}
-                        >
-                          {Object.values(ServiceStatus).map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <Controller
+                        control={serviceHeaderForm.control}
+                        name="status"
+                        render={({ field }) => (
+                          <ProductionSelect
+                            label="Status"
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            options={Object.values(ServiceStatus).map((status) => ({ value: status, label: status }))}
+                            triggerClassName="bg-[var(--color-brand-panel)]"
+                          />
+                        )}
+                      />
                       <div className="md:col-span-2">
                         <button
                           type="submit"
@@ -2109,93 +2058,42 @@ export default function ServiceBuilderClient({
               </div>
             )}
           </section>
-        </main>
+        </div>
       ) : null}
 
-      <aside className={`${module === "services" ? "hidden" : "flex"} w-full flex-1 flex-col gap-4`}>
+      <div className={`${module === "services" ? "hidden" : "flex"} w-full flex-1 flex-col gap-4`}>
         {module === "songs" ? (
           <div className="space-y-5">
             <>
                 {activeSongStep === "upload" ? (
-                  <section className="space-y-10 py-3 lg:px-2">
-                    <div className="mx-auto max-w-3xl text-center">
-                      <h2 className="text-5xl font-bold leading-tight text-[var(--color-brand-ink)]">
+                  <section className="space-y-6 py-1 lg:px-2">
+                    <div className="max-w-3xl">
+                      <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
                         Song Formatter
-                      </h2>
-                      <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-[var(--color-brand-ink)]">
-                        Instant church-ready formatting for any song file. Upload your chord sheets or lyrics and let our AI engine structure them for ProPresenter, Planning Center, or PDF lead sheets.
+                      </h1>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+                        Upload a PDF or DOCX, review the structure, then export a church-ready song file.
                       </p>
                     </div>
 
                     <div className="mx-auto max-w-6xl">
-                      <div className="group flex min-h-[300px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-10 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:border-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)]">
-                        {extractorSourceMode === "paste" ? (
-                          <div className="w-full max-w-5xl text-left">
-                            <div className="mb-4 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-xl font-bold text-[var(--color-brand-ink)]">Paste lyrics</p>
-                                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                                  Paste a chord sheet or lyric text. It is processed temporarily and not stored.
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setExtractorSourceMode("upload");
-                                  setExtractorStatus(null);
-                                  showToast("Upload mode selected.");
-                                }}
-                                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-4 py-2 text-sm font-bold text-[var(--color-brand-ink)]"
-                              >
-                                Back to file
-                              </button>
-                            </div>
-                            <textarea
-                              value={extractorPastedText}
-                              onChange={(event) => setExtractorPastedText(event.target.value)}
-                              rows={10}
-                              placeholder="Paste your chord sheet here. This text is processed temporarily and not stored."
-                              className="max-h-[320px] min-h-[220px] w-full resize-y overflow-y-auto rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-4 py-3 text-sm leading-6 text-[var(--color-brand-ink)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-focus)]"
-                            />
-                          </div>
-                        ) : (
+                      <label className="group flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-6 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:border-[var(--color-focus)] hover:bg-[var(--color-brand-panel-strong)] focus-within:border-[var(--color-focus)] focus-within:ring-2 focus-within:ring-[var(--color-focus)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--color-brand-panel)]">
                           <>
                             <span className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-brand-panel-strong)] text-[var(--color-focus)] transition group-hover:scale-105">
                               <CloudUpload className="h-10 w-10" />
                             </span>
-                            <span className="text-2xl font-bold text-[var(--color-brand-ink)]">
-                              Drag & drop your song files
+                            <span className="text-xl font-semibold text-[var(--color-brand-ink)] md:text-2xl">
+                              Choose or drop a song file
                             </span>
                             <span className="mt-2 text-base font-semibold text-[var(--color-text-secondary)]">
-                              PDF, TXT, or DOCX up to 25MB
+                              PDF or DOCX up to 15MB
                             </span>
-                            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setExtractorSourceMode("upload");
-                                  setExtractorAiRetry(null);
-                                  setExtractorStatus(null);
-                                  extractorFileInputRef.current?.click();
-                                }}
-                                className="pressable inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-elevated)] px-8 py-3 text-sm font-bold text-[var(--color-brand-ink)]"
-                              >
-                                <Upload className="h-4 w-4" />
-                                Select File
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setExtractorSourceMode("paste");
-                                  setExtractorAiRetry(null);
-                                  setExtractorStatus(null);
-                                  showToast("Paste mode selected.");
-                                }}
-                                className="text-sm font-semibold italic text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]"
-                              >
-                                or copy/paste lyrics
-                              </button>
-                            </div>
+                            {!extractorFileLabel ? (
+                              <span className="ui-btn-primary mt-6 inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold">
+                                <Upload className="h-4 w-4" aria-hidden="true" />
+                                Choose PDF or DOCX
+                              </span>
+                            ) : null}
                             {extractorFileLabel ? (
                               <span className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--color-focus)] bg-[var(--color-brand-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]">
                                 <FileText className="h-4 w-4 text-[var(--color-focus)]" />
@@ -2203,13 +2101,16 @@ export default function ServiceBuilderClient({
                               </span>
                             ) : null}
                           </>
-                        )}
                         <input
                           ref={extractorFileInputRef}
                           name="file"
                           type="file"
-                          accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
+                          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
                           className="sr-only"
+                          onClick={() => {
+                            setExtractorAiRetry(null);
+                            setExtractorStatus(null);
+                          }}
                           onChange={(event) => {
                             const file = event.target.files?.[0];
                             if (!file) {
@@ -2220,7 +2121,6 @@ export default function ServiceBuilderClient({
                               return;
                             }
 
-                            setExtractorSourceMode("upload");
                             setFeedback(null);
                             setExtractorAiRetry(null);
                             setExtractorSelectedFile(file);
@@ -2232,26 +2132,36 @@ export default function ServiceBuilderClient({
                             event.currentTarget.value = "";
                           }}
                         />
-                      </div>
+                      </label>
 
-                      <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                        <button
-                          type="button"
-                          onClick={() => processFormatterSource(false)}
-                          disabled={isFormatterProcessing}
-                          className="ui-btn-primary pressable min-w-48 px-10 py-4 text-sm font-bold disabled:opacity-60"
-                        >
-                          Process Locally
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => processFormatterSource(true)}
-                          disabled={isFormatterProcessing}
-                          className="pressable min-w-48 rounded-xl border border-[var(--color-brand-border)] bg-transparent px-10 py-4 text-sm font-bold text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel)] disabled:opacity-60"
-                        >
-                          Process with AI
-                        </button>
-                      </div>
+                      <AnimatePresence>
+                        {extractorSelectedFile ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.18 }}
+                            className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => processFormatterSource(false)}
+                              disabled={isFormatterProcessing}
+                              className="ui-btn-primary pressable min-w-48 px-10 py-4 text-sm font-bold disabled:opacity-60"
+                            >
+                              Process Locally
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => processFormatterSource(true)}
+                              disabled={isFormatterProcessing}
+                              className="pressable min-w-48 rounded-xl border border-[var(--color-brand-border)] bg-transparent px-10 py-4 text-sm font-bold text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel)] disabled:opacity-60"
+                            >
+                              Process with AI
+                            </button>
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
                       {extractorStatus || isFormatterProcessing ? (
                         <div className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
                           {isFormatterProcessing ? (
@@ -2288,9 +2198,6 @@ export default function ServiceBuilderClient({
                               Recent Conversions
                             </h3>
                           </div>
-                          <button type="button" className="text-xs font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-focus)]">
-                            View All
-                          </button>
                         </div>
                         <div className="mt-4 space-y-2">
                           {recentSongConversions.length > 0 ? (
@@ -2448,25 +2355,19 @@ export default function ServiceBuilderClient({
                                   </button>
                                 ))}
                               </div>
-                              <label className="mt-3 block">
-                                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
-                                  Apply to tag
-                                </span>
-                                <select
-                                  value={sectionFormatTag}
-                                  onChange={(event) => setSectionFormatTag(event.target.value)}
-                                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-3 text-sm font-semibold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
-                                >
-                                  {songTags.map((tag) => (
-                                    <option key={tag.id} value={tag.token}>
-                                      {tag.label}
-                                    </option>
-                                  ))}
-                                  {songTags.some((tag) => tag.token === sectionFormatTag) ? null : (
-                                    <option value={sectionFormatTag}>{sectionFormatTag}</option>
-                                  )}
-                                </select>
-                              </label>
+                              <ProductionSelect
+                                label="Apply to tag"
+                                value={sectionFormatTag}
+                                onValueChange={setSectionFormatTag}
+                                options={[
+                                  ...songTags.map((tag) => ({ value: tag.token, label: tag.label })),
+                                  ...(songTags.some((tag) => tag.token === sectionFormatTag)
+                                    ? []
+                                    : [{ value: sectionFormatTag, label: sectionFormatTag }]),
+                                ]}
+                                className="mt-3"
+                                triggerClassName="bg-[var(--color-brand-bg)] font-semibold"
+                              />
                               <div className="mt-3 flex items-center justify-between border-t border-[var(--color-brand-border)] pt-3">
                                 <span className="text-xs font-semibold text-[var(--color-brand-ink)]">Smart Splitting</span>
                                 <span className="flex h-5 w-10 items-center justify-end rounded-full bg-[var(--color-brand-accent)] p-1">
@@ -2714,16 +2615,16 @@ export default function ServiceBuilderClient({
                                       >
                                         ::
                                       </button>
-                                      <select
+                                      <ProductionSelect
+                                        ariaLabel={`Section ${index + 1} tag`}
                                         value={tag}
-                                        onChange={(event) => updateEditorSection(index, { ...section, tag: event.target.value })}
-                                        className="h-8 rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-strong)] px-2 text-xs font-bold text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-focus)]"
-                                      >
-                                        {songTags.map((item) => (
-                                          <option key={item.id} value={item.token}>{item.label}</option>
-                                        ))}
-                                        {!matchingTag ? <option value={tag}>{tag}</option> : null}
-                                      </select>
+                                        onValueChange={(value) => updateEditorSection(index, { ...section, tag: value })}
+                                        options={[
+                                          ...songTags.map((item) => ({ value: item.token, label: item.label })),
+                                          ...(!matchingTag ? [{ value: tag, label: tag }] : []),
+                                        ]}
+                                        triggerClassName="h-8 w-auto min-w-28 bg-[var(--color-brand-panel-strong)] px-2 text-xs font-bold"
+                                      />
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
@@ -2847,11 +2748,11 @@ export default function ServiceBuilderClient({
 
         {module === MEDIA_TOOLS_MODULE ? (
           <div className="space-y-5">
-            <div className="mx-auto max-w-3xl py-3 text-center">
-              <h2 className="text-5xl font-bold leading-tight text-[var(--color-brand-ink)]">
+            <div className="max-w-3xl py-1">
+              <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
                 {mediaHeaderCopy.title}
-              </h2>
-              <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-[var(--color-brand-ink)]">
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
                 {mediaHeaderCopy.description}
               </p>
             </div>
@@ -2931,17 +2832,16 @@ export default function ServiceBuilderClient({
                     event.currentTarget.reset();
                   }}
                 >
-                  <select
+                  <ProductionSelect
+                    ariaLabel="Automation job type"
                     name="jobType"
-                    className="w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
-                    defaultValue={JobType.FREESHOW_GENERATE}
-                  >
-                    {Object.values(JobType).filter((jobType) => jobType !== JobType.TRANSPOSE).map((jobType) => (
-                      <option key={jobType} value={jobType}>
-                        {jobType}
-                      </option>
-                    ))}
-                  </select>
+                    value={automationJobType}
+                    onValueChange={setAutomationJobType}
+                    options={Object.values(JobType)
+                      .filter((jobType) => jobType !== JobType.TRANSPOSE)
+                      .map((jobType) => ({ value: jobType, label: jobType }))}
+                    triggerClassName="bg-[var(--color-brand-panel)]"
+                  />
                   <textarea
                     name="inputJson"
                     rows={4}
@@ -3007,7 +2907,7 @@ export default function ServiceBuilderClient({
             )}
           </section>
         ) : null}
-      </aside>
+      </div>
       </div>
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
     </div>

@@ -1,5 +1,6 @@
 import { readFile } from "fs/promises";
 import JSZip from "jszip";
+import { PDFParse } from "pdf-parse";
 import type { ExtractorConfidenceLevel, ExtractorWarningCode } from "@/lib/extractor-types";
 
 function normalizeExtractedText(text: string) {
@@ -742,6 +743,20 @@ async function extractDocxText(path: string) {
   return text;
 }
 
+async function extractPdfText(path: string) {
+  const parser = new PDFParse({ data: new Uint8Array(await readFile(path)) });
+
+  try {
+    const text = normalizeExtractedText((await parser.getText()).text);
+    if (!text) {
+      throw new Error("No text could be extracted from the PDF. Scanned image-only PDFs are not supported.");
+    }
+    return text;
+  } finally {
+    await parser.destroy();
+  }
+}
+
 export async function extractTextFromTemporaryFile(path: string, mimeType: string) {
   const normalizedMimeType = mimeType.toLowerCase();
 
@@ -756,17 +771,13 @@ export async function extractTextFromTemporaryFile(path: string, mimeType: strin
   }
 
   if (normalizedMimeType.includes("pdf")) {
-    throw new Error("PDF extraction is not available in the deployed web app yet. Upload DOCX/TXT or paste lyrics instead.");
-  }
-
-  if (normalizedMimeType.includes("text/plain")) {
     return {
-      parser: "txt" as const,
-      ...normalizeLyricsText(await readFile(path, "utf8")),
+      parser: "pdf" as const,
+      ...normalizeLyricsText(await extractPdfText(path)),
     };
   }
 
-  throw new Error("Only DOCX, PDF, and TXT uploads are supported for lyrics extraction.");
+  throw new Error("Only DOCX and PDF uploads are supported for lyrics extraction.");
 }
 
 export function extractTextFromPasteInput(text: string) {

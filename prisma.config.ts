@@ -18,6 +18,7 @@ export default defineConfig({
     directUrl: directDatabaseUrl,
   },
   migrations: {
+    path: "prisma/migrations-current",
     seed: "npx tsx prisma/seed.ts",
   },
 });

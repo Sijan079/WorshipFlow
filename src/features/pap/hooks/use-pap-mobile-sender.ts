@@ -72,7 +72,7 @@ export function usePAPMobileSender() {
         setProgress((currentProgress) => currentProgress.filter((item) => item.batchId !== batchId));
       }
     },
-    [deviceName, state]
+    [deviceName]
   );
 
   return {

@@ -5,6 +5,7 @@ import NextImage from "next/image";
 import { Check, Clipboard, Copy, Download, FileImage, Link2, QrCode } from "lucide-react";
 import QRCode from "qrcode";
 import { triggerBrowserDownload } from "@/lib/api-client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ToastTone = "info" | "success";
 
@@ -278,35 +279,43 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
       <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.82fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="technical-label">Preset</span>
-              <select
+            <div>
+              <label className="technical-label" id="qr-preset-label">Preset</label>
+              <Select
                 value={presetId}
-                onChange={(event) => applyPreset(event.target.value as QRPresetId)}
-                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
+                onValueChange={(value) => applyPreset(value as QRPresetId)}
               >
-                {QR_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger aria-labelledby="qr-preset-label" className="mt-1 h-10 w-full border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
+                  {QR_PRESETS.map((preset) => (
+                    <SelectItem key={preset.id} value={preset.id} className="min-h-9 px-2 py-2 pr-8 font-medium">
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <label className="block">
-              <span className="technical-label">Output Size</span>
-              <select
+            <div>
+              <label className="technical-label" id="qr-size-label">Output Size</label>
+              <Select
                 value={sizePreset}
-                onChange={(event) => setSizePreset(event.target.value as QRSizePreset)}
-                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
+                onValueChange={(value) => setSizePreset(value as QRSizePreset)}
               >
-                {Object.entries(SIZE_PRESETS).map(([id, preset]) => (
-                  <option key={id} value={id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger aria-labelledby="qr-size-label" className="mt-1 h-10 w-full border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
+                  {Object.entries(SIZE_PRESETS).map(([id, preset]) => (
+                    <SelectItem key={id} value={id} className="min-h-9 px-2 py-2 pr-8 font-medium">
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <label className="block">
@@ -325,17 +334,21 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="technical-label">Export Mode</span>
-              <select
+            <div>
+              <label className="technical-label" id="qr-export-mode-label">Export Mode</label>
+              <Select
                 value={exportMode}
-                onChange={(event) => setExportMode(event.target.value as QRExportMode)}
-                className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
+                onValueChange={(value) => setExportMode(value as QRExportMode)}
               >
-                <option value="card">Labeled Card</option>
-                <option value="qr">QR Only</option>
-              </select>
-            </label>
+                <SelectTrigger aria-labelledby="qr-export-mode-label" className="mt-1 h-10 w-full border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
+                  <SelectItem value="card" className="min-h-9 px-2 py-2 pr-8 font-medium">Labeled Card</SelectItem>
+                  <SelectItem value="qr" className="min-h-9 px-2 py-2 pr-8 font-medium">QR Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <label className="block">
               <span className="technical-label">Filename</span>

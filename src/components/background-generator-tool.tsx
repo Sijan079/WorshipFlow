@@ -15,6 +15,7 @@ import {
   type BackgroundGenerationRequestPayload,
   type GeneratedOutputRecord,
 } from "@/lib/api-client";
+import { ProductionSelect } from "@/components/ui/production-select";
 
 type BackgroundGeneratorToolProps = {
   showToast: (message: string, tone?: "success" | "info") => void;
@@ -670,21 +671,15 @@ function SelectField<T extends string>({
   onChange: (value: T | "") => void;
 }) {
   return (
-    <label className="block">
-      <span className="ui-technical-label mb-2 block">{label}</span>
-      <select
-        className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)]"
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-      >
-        <option value="">Select {label.toLowerCase()}</option>
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ProductionSelect
+      label={label}
+      value={value}
+      onValueChange={onChange}
+      options={[
+        { value: "" as T, label: `Select ${label.toLowerCase()}` },
+        ...options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel })),
+      ]}
+    />
   );
 }
 

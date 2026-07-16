@@ -1,7 +1,16 @@
 "use client";
 
-import { Camera, Download, Maximize2, RefreshCw, Trash2, X } from "lucide-react";
+import { Camera, Download, Maximize2, MoreHorizontal, RefreshCw, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PAP_INBOX_RETENTION_MS } from "../pap-constants";
 import type { PAPServerScreenshot } from "../types";
 import { usePAPInbox } from "../hooks/use-pap-inbox";
@@ -72,28 +81,51 @@ export default function PAPDesktopClient({
           </div>
         )}
         <div className={`flex gap-2 ${hideHeader ? "w-full justify-end" : ""}`}>
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="lg"
             onClick={() => {
               showToast("Inbox refreshed.");
               void pap.refreshInbox();
             }}
-            className="pressable ui-btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+            className="pressable h-10 px-4 font-semibold"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void pap.clearFiles();
-              showToast("Inbox cleared.");
-            }}
-            className="pressable ui-btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
-          >
-            <Trash2 className="h-4 w-4" />
-            Clear Inbox
-          </button>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                className="pressable text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+                aria-label="Inbox actions"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              className="min-w-52 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]"
+            >
+              <DropdownMenuLabel className="technical-label px-2 py-1.5">Inbox actions</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[var(--rule-default)]" />
+              <DropdownMenuItem
+                variant="destructive"
+                className="gap-2 px-2 py-2 font-semibold"
+                onSelect={() => {
+                  void pap.clearFiles();
+                  showToast("Inbox cleared.");
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear Inbox
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

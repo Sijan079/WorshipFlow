@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import {
+  AlwaysActiveServiceTemplatePresetSchema,
+  AlwaysActiveUpdateServiceTemplatePresetSchema,
+  ActivateChecklistPresetSchema,
+  CreateChecklistPresetSchema,
   DEFAULT_CHECKLIST_ITEMS,
   DEFAULT_MINISTRY_PRESETS,
   DEFAULT_SERVICE_TEMPLATE_PRESETS,
   DEFAULT_SERVANT_GROUP_PRESETS,
   inferTemplateBlockType,
+  moveTemplateBlock,
   normalizePresetCode,
   sortSettingsByLabel,
+  UpdateChecklistPresetSchema,
   validateTemplateBlocks,
 } from "./settings-presets.ts";
 
@@ -26,6 +32,7 @@ export function runSettingsPresetTests() {
     DEFAULT_SERVICE_TEMPLATE_PRESETS.map((preset) => preset.code),
     ["REGULAR", "FIRST_SUNDAY"],
   );
+  assert.ok(DEFAULT_SERVICE_TEMPLATE_PRESETS.every((preset) => preset.active && !preset.isDefault));
   assert.deepEqual(
     DEFAULT_SERVICE_TEMPLATE_PRESETS[0].blocks.map((block) => block.label),
     [
@@ -41,6 +48,25 @@ export function runSettingsPresetTests() {
     ],
   );
   assert.ok(DEFAULT_CHECKLIST_ITEMS.some((item) => item.label === "Confirm sermon verse"));
+  assert.equal(CreateChecklistPresetSchema.parse({ name: "  Sunday prep  " }).name, "Sunday prep");
+  assert.equal(ActivateChecklistPresetSchema.parse({ checklistId: "checklist-1" }).checklistId, "checklist-1");
+  assert.deepEqual(
+    UpdateChecklistPresetSchema.parse({
+      name: "Sunday prep",
+      items: [{ id: "item-1", label: "  Test microphones  ", active: true }],
+    }).items,
+    [{ id: "item-1", label: "Test microphones", active: true }],
+  );
+  assert.equal(
+    UpdateChecklistPresetSchema.safeParse({
+      name: "Sunday prep",
+      items: [
+        { id: "item-1", label: "One", active: true },
+        { id: "item-1", label: "Two", active: true },
+      ],
+    }).success,
+    false,
+  );
 
   assert.deepEqual(
     validateTemplateBlocks([{ label: "Message", order: 0 }]),
@@ -48,6 +74,19 @@ export function runSettingsPresetTests() {
   );
   assert.equal(inferTemplateBlockType("Praise Set"), "PRAISE_AND_WORSHIP");
   assert.equal(inferTemplateBlockType("Custom Moment"), "DETAILS");
+  assert.deepEqual(moveTemplateBlock(["Call", "Sermon", "Offering"], 0, 2), ["Sermon", "Offering", "Call"]);
+  assert.equal(
+    AlwaysActiveServiceTemplatePresetSchema.parse({
+      label: "Evening Worship",
+      code: "EVENING_WORSHIP",
+      active: false,
+      templateType: "REGULAR",
+      optionalBlocks: [],
+      blocks: [{ label: "Sermon" }],
+    }).active,
+    true,
+  );
+  assert.equal(AlwaysActiveUpdateServiceTemplatePresetSchema.parse({ active: false }).active, true);
   assert.deepEqual(
     sortSettingsByLabel([
       { label: "Youth" },

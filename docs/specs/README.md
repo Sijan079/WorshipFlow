@@ -9,3 +9,6 @@ Each feature should have a dedicated folder with at least:
 
 Media Tools are split by individual tool so each workflow can evolve without
 blurring ownership.
+
+Release-level proposals live in version folders. The proposed Worship Flow
+1.1 scope and its review specs are in [`v1.1/`](./v1.1/).
