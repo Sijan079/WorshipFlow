@@ -489,8 +489,3 @@ textarea:focus-visible {
     @apply bg-background text-foreground;
   }
 }
-
-button:has(> svg:only-child) {
-  background: transparent;
-  border-color: transparent;
-}

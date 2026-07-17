@@ -105,6 +105,10 @@ Implementation rules:
   component, and motion decisions.
 - Keep UI work focused on service-order clarity, production status visibility,
   and low-friction task completion under pressure.
+- Redesigns must not look like generic AI-generated product UI. Start from the
+  real worship-production task and existing information architecture; avoid
+  ornamental gradients, glow, filler metrics, badge spam, repeated eyebrow
+  labels, and equal card grids that do not express a real hierarchy.
 - Prefer CSS and Tailwind transitions first, use Motion only when state or
   layout changes need help staying understandable, and consider native browser
   or Next.js View Transitions only later for major page navigation.

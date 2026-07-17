@@ -93,41 +93,35 @@ function formatServiceDate(dateString: string) {
   return SERVICE_DATE_FORMATTER.format(new Date(dateString));
 }
 
-function ServicesTableSkeleton() {
+function formatServiceStatus(status: string) {
+  return status.toLowerCase().replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
+}
+
+function getServiceStatusColor(status: string) {
+  if (status === ServiceStatus.READY) return "var(--state-ready)";
+  if (status === ServiceStatus.ARCHIVED) return "var(--state-idle)";
+  return "var(--state-warning)";
+}
+
+function ServicesListSkeleton() {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse">
-        <thead className="bg-[var(--color-brand-panel-strong)]">
-          <tr className="text-left">
-            <th className="w-12 px-4 py-3" />
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Date</th>
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Ministry</th>
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Sermon Verse</th>
-            <th className="w-14 px-2 py-3" />
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <tr key={`service-skeleton-${index}`} className="border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
-              <td className="px-4 py-4 align-top">
-                <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4 align-top">
-                <div className="h-5 w-28 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4 align-top">
-                <div className="h-5 w-24 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4 align-top">
-                <div className="h-5 w-36 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-2 py-3 align-top">
-                <div className="h-9 w-9 animate-pulse rounded-md bg-[var(--color-brand-panel-alt)]" />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div aria-label="Loading worship services" className="divide-y divide-[var(--rule-default)]" role="status">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={`service-skeleton-${index}`}
+          className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px]"
+        >
+          <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--surface-panel-strong)]" />
+          <div className="space-y-2">
+            <div className="h-5 w-36 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+            <div className="h-4 w-24 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:hidden" />
+          </div>
+          <div className="hidden h-5 w-28 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
+          <div className="hidden h-5 w-36 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
+          <div className="hidden h-5 w-16 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
+          <div className="h-10 w-10 animate-pulse rounded-md bg-[var(--surface-panel-strong)]" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -272,13 +266,21 @@ function hasDuplicateOfferingPeople(offeringPeople: [string, string]) {
 }
 
 function validateServiceForm(form: ServiceFormState): ServiceFormErrors {
-  if (hasDuplicateOfferingPeople(normalizeServiceForm(form).offeringPeople)) {
-    return {
-      OFFERING: "Offering servants cannot be the same person.",
-    };
+  const errors: ServiceFormErrors = {};
+
+  if (!form.serviceDate) {
+    errors.serviceDate = "Service date is required.";
   }
 
-  return {};
+  if (!form.sermonVerse.trim()) {
+    errors.sermonVerse = "Sermon verse is required.";
+  }
+
+  if (hasDuplicateOfferingPeople(normalizeServiceForm(form).offeringPeople)) {
+    errors.OFFERING = "Offering servants cannot be the same person.";
+  }
+
+  return errors;
 }
 
 function buildServicePayload(
@@ -309,7 +311,8 @@ function buildServicePayload(
       });
 
       return assignments;
-    }, []);
+    }, [])
+    .filter((assignment) => assignment.personName.length > 0);
 
   return {
     serviceDate: new Date(normalizedForm.serviceDate).toISOString(),
@@ -329,7 +332,8 @@ function buildServicePayload(
       .map((role) => ({
         role: role.value,
         title: normalizedForm.hymnals[role.value].trim(),
-      })),
+      }))
+      .filter((hymnal) => hymnal.title.length > 0),
   };
 }
 
@@ -387,8 +391,7 @@ function UnlistedServantsModal({
       <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="technical-label">ADD TO TEAMS</p>
-            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Unlisted servants found</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Unlisted servants found</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               Select which names should be added to Teams before this service is saved.
             </DialogDescription>
@@ -614,8 +617,13 @@ function ServiceFormFields({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:items-start">
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Service and scripture</h2>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
         <ProductionSelect
           label="Assigned Ministry"
           value={normalizedForm.assignedMinistry}
@@ -645,8 +653,33 @@ function ServiceFormFields({
           })}
           options={templateOptions.map((option) => ({ value: option.value, label: option.label }))}
           triggerClassName="bg-[var(--surface-panel)]"
+          className={firstSunday ? undefined : "md:col-span-2"}
           disabled={templateOptions.length === 0}
         />
+
+        {firstSunday ? (
+          <fieldset>
+            <legend className="technical-label mb-1 block">Tipan / Pahayag</legend>
+            <div className="inline-flex h-10 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-1">
+              {PLEDGE_TYPE_OPTIONS.map((option) => (
+                <label key={option.value} className="flex-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pledgeType"
+                    value={option.value}
+                    checked={form.pledgeType === option.value}
+                    onChange={() => onChange({ ...normalizedForm, pledgeType: option.value })}
+                    className="peer sr-only"
+                  />
+                  <span className="inline-flex h-8 w-full items-center justify-center rounded-md px-3 text-sm font-medium text-[var(--text-secondary)] peer-checked:bg-[var(--action-primary-bg)] peer-checked:text-[var(--action-primary-ink)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--border-focus)]">
+                    {option.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {errors.pledgeType ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.pledgeType}</p> : null}
+          </fieldset>
+        ) : null}
 
         {templateOptions.length === 0 ? (
           <p className="-mt-2 text-sm text-[var(--state-warning)] md:col-span-2">
@@ -654,8 +687,23 @@ function ServiceFormFields({
           </p>
         ) : null}
 
-        <label className="text-sm text-[var(--text-secondary)]">
-          Sermon Verse
+      </div>
+
+      <section className="border-t border-[var(--rule-default)] pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Bible verses</h3>
+          <button
+            type="button"
+            onClick={() => onChange({ ...normalizedForm, bibleVerses: [...normalizedForm.bibleVerses, ""] })}
+            className="pressable inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[var(--border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add verse
+          </button>
+        </div>
+
+        <label className="mt-4 block text-sm text-[var(--text-secondary)]">
+          Sermon verse
           <div className="relative mt-1">
             <input
               type="text"
@@ -681,43 +729,11 @@ function ServiceFormFields({
           </div>
           {errors.sermonVerse ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.sermonVerse}</p> : null}
         </label>
-      </div>
 
-      {firstSunday ? (
-        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-          <p className="technical-label">PLEDGE OF FAITH / COVENANT</p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {PLEDGE_TYPE_OPTIONS.map((option) => (
-              <label key={option.value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                <input
-                  type="radio"
-                  name="pledgeType"
-                  value={option.value}
-                  checked={form.pledgeType === option.value}
-                  onChange={() => onChange({ ...normalizedForm, pledgeType: option.value })}
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-          {errors.pledgeType ? <p className="mt-2 text-xs text-[var(--state-danger)]">{errors.pledgeType}</p> : null}
-        </div>
-      ) : null}
-
-      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="technical-label">BIBLE VERSES</p>
-          <button
-            type="button"
-            onClick={() => onChange({ ...normalizedForm, bibleVerses: [...normalizedForm.bibleVerses, ""] })}
-            className="pressable rounded-md border border-[var(--border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]"
-          >
-            Add verse
-          </button>
-        </div>
-        <div className="mt-3 space-y-3">
+        <p className="mt-5 text-xs font-medium text-[var(--text-muted)]">Additional verses</p>
+        <div className="mt-2 divide-y divide-[var(--rule-default)]">
           {normalizedForm.bibleVerses.map((verse, index) => (
-            <div key={`verse-${index}`} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3">
+            <div key={`verse-${index}`} className="py-3 first:pt-0 last:pb-0">
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <input
@@ -755,9 +771,11 @@ function ServiceFormFields({
                         bibleVerses: normalizedForm.bibleVerses.filter((_, itemIndex) => itemIndex !== index),
                       })
                     }
-                    className="pressable rounded-md border border-[var(--border-default)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]"
+                    aria-label={`Remove Bible verse ${index + 1}`}
+                    title="Remove verse"
+                    className="pressable inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-danger)]"
                   >
-                    Remove
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 ) : null}
               </div>
@@ -765,11 +783,16 @@ function ServiceFormFields({
           ))}
           {errors.bibleVerses ? <p className="text-xs text-[var(--state-danger)]">{errors.bibleVerses}</p> : null}
         </div>
+        </section>
       </div>
 
-      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-        <p className="technical-label">SERVANTS</p>
-        <p className="mt-1 text-xs text-[var(--text-secondary)]">Pick from Teams suggestions or type a one-off name manually.</p>
+      <div className="space-y-6 lg:border-l lg:border-[var(--rule-default)] lg:pl-8">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">People and music</h2>
+        </div>
+
+      <section>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Servants</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {SERVICE_SERVANT_ROLES.filter((role) => firstSunday || !("firstSundayOnly" in role && role.firstSundayOnly)).map((role) => (
             <label
@@ -812,10 +835,10 @@ function ServiceFormFields({
             </label>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-        <p className="technical-label">HYMNALS</p>
+      <section className="border-t border-[var(--rule-default)] pt-5">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Hymnals</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {SERVICE_HYMNAL_ROLES.filter((role) => firstSunday || !("firstSundayOnly" in role && role.firstSundayOnly)).map((role) => (
             <label key={role.value} className="text-sm text-[var(--text-secondary)]">
@@ -838,6 +861,7 @@ function ServiceFormFields({
             </label>
           ))}
         </div>
+      </section>
       </div>
     </div>
   );
@@ -845,43 +869,37 @@ function ServiceFormFields({
 
 function ReadOnlyServiceDetails({ service }: { service: ServiceListItem }) {
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">DATE</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {formatServiceDate(service.serviceDate)}
-          </p>
-        </div>
-        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">MINISTRY</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {service.ministryLabel}
-          </p>
-        </div>
-        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">SERMON VERSE</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {service.sermonVerse || "Not set"}
-          </p>
-        </div>
-        <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">TEMPLATE</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-brand-ink)]">
-            {service.templateLabel}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <dl className="grid border-y border-[var(--rule-default)] sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Date", formatServiceDate(service.serviceDate)],
+          ["Ministry", service.ministryLabel],
+          ["Sermon verse", service.sermonVerse || "Not set"],
+          ["Template", service.templateLabel],
+        ].map(([label, value], index) => (
+          <div
+            key={label}
+            className={`py-3 sm:px-4 ${index > 0 ? "border-t border-[var(--rule-default)] sm:border-t-0" : ""} ${
+              index % 2 === 1 ? "sm:border-l sm:border-[var(--rule-default)]" : ""
+            } ${index > 1 ? "sm:border-t sm:border-[var(--rule-default)] xl:border-t-0" : ""} ${
+              index > 0 ? "xl:border-l xl:border-[var(--rule-default)]" : ""
+            }`}
+          >
+            <dt className="technical-label">{label}</dt>
+            <dd className="mt-1.5 text-sm font-medium text-[var(--text-primary)]">{value}</dd>
+          </div>
+        ))}
+      </dl>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
+      <div className="grid gap-x-8 gap-y-6 xl:grid-cols-[1.1fr_1fr_1fr]">
+        <section>
           <div className="flex items-center justify-between gap-3">
-            <p className="technical-label">BIBLE VERSES</p>
-            <span className="text-xs text-[var(--color-text-secondary)]">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">Bible verses</h4>
+            <span className="font-mono text-xs text-[var(--text-muted)]">
               {service.bibleVerses?.length ?? 0} linked
             </span>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
             {service.bibleVerses?.length ? (
               service.bibleVerses.map((entry) => (
                 <a
@@ -889,47 +907,46 @@ function ReadOnlyServiceDetails({ service }: { service: ServiceListItem }) {
                   href={buildBibleGatewayUrl(entry.verse)}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm text-[var(--color-brand-ink)] hover:border-[var(--color-brand-accent)]"
+                  className="flex items-center justify-between gap-3 py-2.5 text-sm text-[var(--text-primary)] transition-colors hover:text-[var(--text-accent)]"
                 >
                   {entry.verse}
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                 </a>
               ))
             ) : (
-              <p className="text-sm text-[var(--color-text-secondary)]">No Bible verses yet.</p>
+              <p className="py-3 text-sm text-[var(--text-muted)]">No Bible verses yet.</p>
             )}
           </div>
         </section>
 
-        <section className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">SERVANTS</p>
-          <div className="mt-3 space-y-2">
+        <section>
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Servants</h4>
+          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
             {SERVICE_SERVANT_ROLES.filter((role) =>
               service.templateType === "FIRST_SUNDAY" || !("firstSundayOnly" in role && role.firstSundayOnly)
             ).map((role) => {
-              const value = role.value === "OFFERING"
-                ? service.servantAssignments?.find((entry) => entry.role === role.value)?.personName
-                : service.servantAssignments?.find((entry) => entry.role === role.value)?.personName;
+              const value = service.servantAssignments?.find((entry) => entry.role === role.value)?.personName;
               return (
-                <div key={role.value} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-[var(--color-text-secondary)]">{role.label}</span>
-                  <span className="text-right font-medium text-[var(--color-brand-ink)]">{value || "Not set"}</span>
+                <div key={role.value} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                  <span className="text-[var(--text-muted)]">{role.label}</span>
+                  <span className="text-right font-medium text-[var(--text-primary)]">{value || "Not set"}</span>
                 </div>
               );
             })}
           </div>
         </section>
 
-        <section className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">HYMNALS</p>
-          <div className="mt-3 space-y-2">
+        <section>
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Hymnals</h4>
+          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
             {SERVICE_HYMNAL_ROLES.filter((role) =>
               service.templateType === "FIRST_SUNDAY" || !("firstSundayOnly" in role && role.firstSundayOnly)
             ).map((role) => {
               const value = service.hymnals?.find((entry) => entry.role === role.value)?.title;
               return (
-                <div key={role.value} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-[var(--color-text-secondary)]">{role.label}</span>
-                  <span className="text-right font-medium text-[var(--color-brand-ink)]">{value || "Not set"}</span>
+                <div key={role.value} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                  <span className="text-[var(--text-muted)]">{role.label}</span>
+                  <span className="text-right font-medium text-[var(--text-primary)]">{value || "Not set"}</span>
                 </div>
               );
             })}
@@ -938,17 +955,13 @@ function ReadOnlyServiceDetails({ service }: { service: ServiceListItem }) {
       </div>
 
       {service.templateType === "FIRST_SUNDAY" ? (
-        <section className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] p-4">
-          <p className="technical-label">FIRST SUNDAY DETAILS</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <div className="rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2">
-              <span className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                Pledge
-              </span>
-              <p className="mt-1 text-sm font-medium text-[var(--color-brand-ink)]">
-                {service.pledgeType === "PLEDGE_OF_FAITH" ? "Pledge of Faith" : service.pledgeType === "COVENANT" ? "Covenant" : "Not set"}
-              </p>
-            </div>
+        <section className="border-t border-[var(--rule-default)] pt-4">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">First Sunday details</h4>
+          <div className="mt-3 flex items-baseline justify-between gap-4 text-sm sm:justify-start sm:gap-12">
+            <span className="text-[var(--text-muted)]">Tipan / Pahayag</span>
+            <span className="font-medium text-[var(--text-primary)]">
+              {PLEDGE_TYPE_OPTIONS.find((option) => option.value === service.pledgeType)?.label ?? "Not set"}
+            </span>
           </div>
         </section>
       ) : null}
@@ -1057,6 +1070,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
       setCreateModalOpen(false);
       setCreateForm(createBlankServiceForm());
       setCreateErrors({});
+    },
+    onError: () => {
+      showToast("Service could not be created. Review the form and try again.");
     },
   });
 
@@ -1252,82 +1268,98 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
   return (
     <div className="min-h-full space-y-6 py-1 lg:px-2">
-      <section>
-        <div className="max-w-3xl">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
           <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
             Worship Services
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
-            Build each worship service as a clear record first, then let the template drive the approved block flow.
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+            Prepare each service record, its people, and its source material before building the service order.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="pressable inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] sm:self-auto"
+        >
+          <Plus className="h-4 w-4" />
+          Add service
+        </button>
       </section>
 
-      <section className="production-panel mx-auto max-w-7xl overflow-hidden">
-        <div className="border-b border-[var(--color-brand-border)] px-5 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-              <label className="min-w-[180px] max-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
-                <span className="sr-only">Filter by service date</span>
+      <section className="w-full">
+        <div className="border-y border-[var(--rule-default)] py-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">Service register</h2>
+              <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
+                {filteredServices.length} of {services.length} services
+              </p>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end xl:justify-end">
+              <label className="min-w-[180px] flex-1 text-xs font-medium text-[var(--text-muted)] sm:max-w-[220px]">
+                <span className="mb-1.5 block">Service date</span>
                 <input
                   type="date"
                   value={dateFilter}
                   onChange={(event) => setDateFilter(event.target.value)}
-                  className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-[var(--color-brand-ink)]"
+                  className="block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
               </label>
 
-              <ProductionSelect
-                ariaLabel="Filter by ministry"
-                value={ministryFilter}
-                onValueChange={setMinistryFilter}
-                options={[{ value: "", label: "All ministries" }, ...ministryOptions]}
-                className="min-w-[180px] max-w-[220px] flex-1"
-              />
-            </div>
+              <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+                <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Ministry</span>
+                <ProductionSelect
+                  ariaLabel="Filter by ministry"
+                  value={ministryFilter}
+                  onValueChange={setMinistryFilter}
+                  options={[{ value: "", label: "All ministries" }, ...ministryOptions]}
+                />
+              </div>
 
-            <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+              {dateFilter || ministryFilter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFilter("");
+                    setMinistryFilter("");
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  Clear filters
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => {
                   setSelectedServiceIds([]);
                   void servicesQuery.refetch();
                 }}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
                 aria-label="Refresh services"
               >
                 <RefreshCcw className="h-4 w-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(true)}
-                disabled={selectedServiceIds.length === 0 || deleteServicesMutation.isPending}
-                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
-                  selectedServiceIds.length > 0
-                    ? "border-[#F43F5E] bg-[#F43F5E] text-white"
-                    : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
-                }`}
-                aria-label="Delete selected services"
-                title="Delete selected services"
-              >
-                {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(true)}
-                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]"
-              >
-                <Plus className="h-4 w-4" />
-                Add Service
-              </button>
+              {selectedServiceIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  disabled={deleteServicesMutation.isPending}
+                  className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--state-danger)] px-3 text-sm font-semibold text-[var(--text-danger)] disabled:opacity-50"
+                >
+                  {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete {selectedServiceIds.length}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
 
         {showTableSkeleton ? (
-          <ServicesTableSkeleton />
+          <ServicesListSkeleton />
         ) : filteredServices.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
             <h3 className="text-lg font-semibold text-[var(--color-brand-ink)]">No matching services</h3>
@@ -1336,40 +1368,37 @@ export default function ServicesPageClient({ initialServices }: { initialService
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead className="bg-[var(--color-brand-panel-strong)]">
-                <tr className="text-left">
-                  <th className="w-12 px-4 py-3" />
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                    Ministry
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                    Sermon Verse
-                  </th>
-                  <th className="w-14 px-2 py-3" />
-                </tr>
-              </thead>
-                {filteredServices.map((service) => {
-                  const isExpanded = expandedServiceId === service.id;
-                  const isEditing = editingServiceId === service.id;
-                  const isSelected = selectedServiceIds.includes(service.id);
+          <div>
+            <div
+              aria-hidden="true"
+              className="hidden grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
+            >
+              <span />
+              <span>Service</span>
+              <span>Template</span>
+              <span>Sermon verse</span>
+              <span>Status</span>
+              <span />
+            </div>
+            <ul className="divide-y divide-[var(--rule-default)]">
+              {filteredServices.map((service) => {
+                const isExpanded = expandedServiceId === service.id;
+                const isEditing = editingServiceId === service.id;
+                const isSelected = selectedServiceIds.includes(service.id);
 
-                  return (
-                    <tbody key={service.id}>
-                      <tr
-                        className={
-                          isExpanded
-                            ? "bg-[color:color-mix(in_srgb,#0EA5E9_14%,var(--color-brand-panel))]"
-                            : isSelected
-                            ? "bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--color-brand-panel))]"
-                            : "bg-[var(--color-brand-panel)]"
-                        }
-                      >
-                        <td className="px-4 py-4 align-top">
+                return (
+                  <li
+                    key={service.id}
+                    className={
+                      isExpanded
+                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_5%,transparent)]"
+                        : isSelected
+                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
+                        : "bg-transparent"
+                    }
+                  >
+                    <div className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px] lg:items-center">
+                      <div className="pt-0.5 lg:pt-0">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1377,121 +1406,139 @@ export default function ServicesPageClient({ initialServices }: { initialService
                             aria-label={`Select ${service.dateLabel}`}
                             className="ui-checkbox h-5 w-5"
                           />
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm font-semibold text-[var(--color-brand-ink)]">
-                          {service.dateLabel}
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm text-[var(--color-text-secondary)]">
-                          {service.ministryLabel}
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm text-[var(--color-text-secondary)]">
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{service.dateLabel}</p>
+                        <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{service.ministryLabel}</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--text-muted)] lg:hidden">
+                          <span>{service.templateLabel}</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              aria-hidden="true"
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: getServiceStatusColor(service.status) }}
+                            />
+                            {formatServiceStatus(service.status)}
+                          </span>
+                        </div>
+                        <p className="mt-2 truncate text-sm text-[var(--text-secondary)] lg:hidden">
                           {service.sermonVerse || "No sermon verse"}
-                        </td>
-                        <td className="px-2 py-3 align-top">
+                        </p>
+                      </div>
+                      <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">{service.templateLabel}</p>
+                      <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">
+                        {service.sermonVerse || "No sermon verse"}
+                      </p>
+                      <span className="hidden items-center gap-2 text-xs font-medium text-[var(--text-secondary)] lg:inline-flex">
+                        <span
+                          aria-hidden="true"
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: getServiceStatusColor(service.status) }}
+                        />
+                        {formatServiceStatus(service.status)}
+                      </span>
+                      <div>
                           <button
                             type="button"
                             onClick={() => toggleExpandedService(service)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-brand-ink)] hover:bg-[var(--color-brand-panel-alt)]"
+                            aria-expanded={isExpanded}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
                             aria-label={isExpanded ? "Collapse service" : "Expand service"}
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </button>
-                        </td>
-                      </tr>
-                      <AnimatePresence initial={false}>
+                      </div>
+                    </div>
+                    <AnimatePresence initial={false}>
                       {isExpanded ? (
-                        <motion.tr
+                        <motion.div
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          className="bg-[color:color-mix(in_srgb,#0EA5E9_14%,var(--color-brand-panel))]"
+                          className="ml-4 border-l-2 border-[var(--action-primary-bg)] px-4 py-5 lg:ml-8 lg:px-6"
                         >
-                          <td colSpan={6} className="border-t border-[var(--color-brand-border)] px-5 py-5">
-                            <div className="space-y-5">
-                              <div className="flex flex-col gap-3 border-b border-[var(--color-brand-border)] pb-4 md:flex-row md:items-center md:justify-between">
-                                <div>
-                                  <p className="technical-label">{isEditing ? "EDIT SERVICE" : "SERVICE DETAILS"}</p>
-                                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-brand-ink)]">
-                                    {service.dateLabel}
-                                  </h3>
-                                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                                    {service.ministryLabel}
-                                    {" / "}
-                                    {service.templateLabel}
-                                  </p>
-                                </div>
-
-                                {isEditing ? (
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingServiceId(null);
-                                        setEditForm(createFormFromService(service));
-                                        setEditErrors({});
-                                      }}
-                                      className="pressable inline-flex h-10 box-border items-center justify-center gap-2 rounded-lg border border-[#F43F5E] bg-[#F43F5E] px-4 text-sm font-semibold leading-none text-white"
-                                    >
-                                      <X className="h-4 w-4" />
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={submitEditForm}
-                                      disabled={updateServiceMutation.isPending}
-                                      className="pressable inline-flex h-10 box-border items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 text-sm font-semibold leading-none text-[var(--color-brand-ink)] disabled:opacity-60"
-                                    >
-                                      {updateServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                      Save Changes
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditingService(service)}
-                                    className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
-                                  >
-                                    <Edit3 className="h-4 w-4" />
-                                    Edit Service
-                                  </button>
-                                )}
+                          <div className="space-y-5">
+                            <div className="flex flex-col gap-3 border-b border-[var(--rule-default)] pb-4 md:flex-row md:items-center md:justify-between">
+                              <div>
+                                <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                                  {isEditing ? "Edit service" : "Service details"}
+                                </h3>
+                                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                  {service.dateLabel}
+                                  {" / "}
+                                  {service.ministryLabel}
+                                </p>
                               </div>
 
                               {isEditing ? (
-                                <ServiceFormFields
-                                  form={editForm}
-                                  errors={editErrors}
-                                  ministryOptions={ministryOptions}
-                                  onChange={setEditForm}
-                                  onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
-                                  servants={servantsQuery.data ?? []}
-                                  templateOptions={templateOptions}
-                                />
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingServiceId(null);
+                                      setEditForm(createFormFromService(service));
+                                      setEditErrors({});
+                                    }}
+                                    className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-secondary)]"
+                                  >
+                                    <X className="h-4 w-4" />
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={submitEditForm}
+                                    disabled={updateServiceMutation.isPending}
+                                    className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+                                  >
+                                    {updateServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Save changes
+                                  </button>
+                                </div>
                               ) : (
-                                <ReadOnlyServiceDetails service={service} />
+                                <button
+                                  type="button"
+                                  onClick={() => startEditingService(service)}
+                                  className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                                >
+                                  <Edit3 className="h-4 w-4" />
+                                  Edit service
+                                </button>
                               )}
                             </div>
-                          </td>
-                        </motion.tr>
+
+                            {isEditing ? (
+                              <ServiceFormFields
+                                form={editForm}
+                                errors={editErrors}
+                                ministryOptions={ministryOptions}
+                                onChange={setEditForm}
+                                onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
+                                servants={servantsQuery.data ?? []}
+                                templateOptions={templateOptions}
+                              />
+                            ) : (
+                              <ReadOnlyServiceDetails service={service} />
+                            )}
+                          </div>
+                        </motion.div>
                       ) : null}
-                      </AnimatePresence>
-                    </tbody>
-                  );
-                })}
-              
-            </table>
+                    </AnimatePresence>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </section>
 
       <Dialog open={createModalOpen} onOpenChange={(open) => !open && setCreateModalOpen(false)}>
         {createModalOpen ? (
-          <DialogContent className="max-w-4xl">
-            <div className="mb-4 flex items-center justify-between gap-4">
+          <DialogContent className="max-w-6xl overflow-hidden p-0">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--rule-default)] px-5 py-4">
               <div>
                 <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">Create worship service</DialogTitle>
                 <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                  The date defaults to the Sunday of the following week.
+                  Defaults to next Sunday.
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -1501,29 +1548,33 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
                 >
                   <WandSparkles className="h-4 w-4" />
-                  Parse Text
+                  Parse text
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
-                  className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)]"
+                  aria-label="Close create service modal"
+                  title="Close"
+                  className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] text-[var(--color-text-secondary)]"
                 >
-                  Close
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <ServiceFormFields
-              form={createForm}
-              errors={createErrors}
-              ministryOptions={ministryOptions}
-              onChange={setCreateForm}
-              onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
-              servants={servantsQuery.data ?? []}
-              templateOptions={templateOptions}
-            />
+            <div className="max-h-[calc(90vh-10rem)] overflow-y-auto px-5 py-5">
+              <ServiceFormFields
+                form={createForm}
+                errors={createErrors}
+                ministryOptions={ministryOptions}
+                onChange={setCreateForm}
+                onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
+                servants={servantsQuery.data ?? []}
+                templateOptions={templateOptions}
+              />
+            </div>
 
-            <div className="mt-5 flex justify-end">
+            <div className="flex justify-end border-t border-[var(--rule-default)] bg-[var(--surface-panel-strong)] px-5 py-4">
               <button
                 type="button"
                 onClick={submitCreateForm}
@@ -1547,18 +1598,19 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <DialogContent className="max-w-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="technical-label">PARSE SERVICE TEXT</p>
-                <DialogTitle className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">Paste WS participants text</DialogTitle>
+                <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">Paste service participants</DialogTitle>
                 <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                  This fills the add-service form with date, ministry, verses, servants, and hymnals.
+                  Fill the service form from pasted text.
                 </DialogDescription>
               </div>
               <button
                 type="button"
                 onClick={() => setCreateParserOpen(false)}
-                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)]"
+                aria-label="Close text parser"
+                title="Close"
+                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] text-[var(--color-text-secondary)]"
               >
-                Close
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -1595,8 +1647,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(false)}>
         {deleteConfirmOpen ? (
           <DialogContent className="max-w-md">
-            <p className="technical-label">DELETE SELECTED</p>
-            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--color-brand-ink)]">
+            <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">
               Delete {selectedServiceIds.length} service{selectedServiceIds.length === 1 ? "" : "s"}?
             </DialogTitle>
             <DialogDescription className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">

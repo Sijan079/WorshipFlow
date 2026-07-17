@@ -12,8 +12,8 @@ export const SERVICE_TEMPLATE_OPTIONS = [
 ] as const;
 
 export const PLEDGE_TYPE_OPTIONS = [
-  { value: "PLEDGE_OF_FAITH", label: "Pledge of Faith" },
-  { value: "COVENANT", label: "Covenant" },
+  { value: "COVENANT", label: "Tipan" },
+  { value: "PLEDGE_OF_FAITH", label: "Pahayag" },
 ] as const;
 
 export const SERVICE_SERVANT_ROLES = [

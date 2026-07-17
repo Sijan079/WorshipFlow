@@ -16,6 +16,27 @@ The UI should help a worship and production team understand, at a glance:
 Every layout, component, and transition should reduce hesitation under
 pressure, not add personality for its own sake.
 
+## Anti-AI-Slop Redesign Rule
+
+Every redesign starts with the operator's real task, the existing information
+architecture, and live domain data. It should feel purpose-built for worship
+service preparation, not assembled from a generic SaaS dashboard recipe.
+
+- Do not add workflow heroes, decorative gradients or glow, fake metrics,
+  placeholder analytics, ornamental status dots, filler copy, or badge spam.
+- Do not default to equal card grids when a list, description group, or
+  deliberate hierarchy communicates the information more directly.
+- Do not repeat eyebrow labels, headings, and descriptions that say the same
+  thing.
+- Use semantic tokens instead of introducing one-off colors, shadows, or
+  radii.
+- Keep motion functional and restrained. A transition must explain a state or
+  spatial change.
+- Treat loading, empty, error, keyboard, focus, mobile, and reduced-motion
+  behavior as part of the design, not as cleanup.
+- Preserve domain language and strict stored service order. Visual novelty
+  never outranks operational clarity.
+
 ## Brand Direction
 
 - Dark, focused production-OS feel for live worship preparation

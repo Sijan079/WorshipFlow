@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Worship Production OS",
+  title: "WorshipFlow",
   description: "Worship service production workflows for church tech teams.",
 };
 
