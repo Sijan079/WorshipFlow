@@ -13,6 +13,7 @@ or existing local folder structure.
 - Phone Transfer
 - QR Generator
 - Background Generator
+- Resize Image
 
 Each tool has its own spec folder under `docs/specs/media-tools/`.
 
@@ -24,6 +25,7 @@ The Media Tools sidebar item owns a subgroup for individual tool URLs:
 - `/media-tools/phone-transfer`
 - `/media-tools/qr-generator`
 - `/media-tools/background-generator`
+- `/media-tools/resize-image`
 
 The `/media-tools` route acts as the tool selector page.
 
@@ -33,11 +35,10 @@ Persistent service asset uploads are intentionally deprecated. PAP should bridge
 phone captures into the booth; users then download or move files into the
 church's existing desktop storage.
 
-Media conversion is disabled in the web app. The project should not ship a web
-converter that could imply downloading, extracting, or transforming media from
-third-party services in ways that may conflict with their terms. Any future
-conversion work should be local-first, rights-aware, and explicitly scoped to
-files the church is allowed to process.
+Generic media conversion remains disabled in the web app. The local-only
+[Resize Image](./resize-image/spec.md) tool is intentionally narrower: it
+processes only an image the operator selects from their device and never
+downloads or extracts third-party media.
 
 Background Generator currently uses a three-stage image-only workflow:
 

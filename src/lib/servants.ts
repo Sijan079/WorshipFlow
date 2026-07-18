@@ -65,6 +65,21 @@ export function normalizeServantNameForComparison(value: string) {
   return normalizeServantName(value).toLocaleLowerCase();
 }
 
+export function getServantInitials(value: string) {
+  const parts = normalizeServantName(value).split(/\s+/).filter(Boolean);
+  const suffix = /^(?:Jr\.?|Sr\.?|I|II|III|IV|V|VI|VII|VIII|IX|X)$/i;
+
+  while (parts.length > 1 && suffix.test(parts[parts.length - 1])) {
+    parts.pop();
+  }
+
+  if (parts.length === 0) {
+    return "?";
+  }
+
+  return `${parts[0][0]}${parts.length > 1 ? parts[parts.length - 1][0] : ""}`.toUpperCase();
+}
+
 export function formatServantDisplayName(servant: {
   name: string;
   gender: NullableServantGender;

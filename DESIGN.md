@@ -114,9 +114,9 @@ Components should consume tokens by intent, not raw color family.
   `--surface-panel-strong`, `--surface-panel-elevated`, `--surface-overlay`,
   `--surface-overlay-strong`
 - Text: `--text-primary`, `--text-secondary`, `--text-muted`,
-  `--text-inverse`, `--text-accent`, `--text-destructive`
+  `--text-inverse`, `--text-accent`, `--text-danger`
 - Borders and rules: `--border-default`, `--border-strong`,
-  `--border-focus`, `--rule-subtle`, `--rule-strong`
+  `--border-focus`, `--rule-default`, `--rule-strong`
 - Actions and states: `--action-primary-bg`, `--action-primary-bg-hover`,
   `--action-primary-ink`, `--state-success`, `--state-warning`,
   `--state-danger`, `--state-live`, `--state-ready`, `--state-idle`
@@ -177,6 +177,26 @@ Components should consume tokens by intent, not raw color family.
 - Each settings section places its Add action beside the section heading; do not append an inline add row or trailing add button to the collection.
 - Opening Add may reveal a compact creation form directly below the section header.
 - Keep row actions limited to operations that affect only that row, such as status, expand, reorder, or delete.
+
+### Operational Lists
+
+- Prefer an open ledger with aligned columns and horizontal rules for dense,
+  repeated records.
+- Do not wrap a page-level list in a card unless the boundary introduces a
+  separate task or context.
+- Expanded rows should remain visually connected to their source row through
+  indentation or one purposeful accent rule.
+
+### Modals
+
+- Use the shared Radix-based `Dialog` component for focus trapping, Escape
+  handling, and focus return.
+- Keep one modal surface. Group long forms with headings, spacing, and rules
+  instead of nested cards.
+- Keep primary and secondary actions visually distinct and visible while an
+  operation is pending.
+- Use icon-only close or remove actions only with an accessible label and a
+  practical hit target.
 
 ## Screen Set
 

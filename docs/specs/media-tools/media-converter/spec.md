@@ -15,3 +15,7 @@ that may conflict with their terms.
 Any future converter should be local-first, rights-aware, and explicitly scoped
 to files the church is allowed to process. A future Tauri/Rust desktop adapter
 is a better fit than a hosted web workflow.
+
+The browser-based [Resize Image](../resize-image/spec.md) tool is not this
+generic converter. It only resizes an operator-selected local image and does
+not fetch, extract, or persist third-party media.

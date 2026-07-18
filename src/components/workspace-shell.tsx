@@ -124,7 +124,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
       >
         Skip to workspace content
       </a>
-      <aside className="sticky top-0 hidden h-screen border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-4 py-4 lg:flex lg:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[280px] border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-4 py-4 lg:flex lg:flex-col">
         <div className="ui-stage-enter mb-4 border-b border-[var(--border-default)] px-2 pb-4">
           <div>
             <Link
@@ -255,7 +255,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
         </div>
       </aside>
 
-      <div className="min-w-0">
+      <div className="min-w-0 lg:col-start-2">
         <header className="border-b border-[var(--border-default)] bg-[var(--surface-canvas)] lg:hidden">
           <div className="px-4 py-2.5">
             <div className="flex items-center justify-between gap-3">

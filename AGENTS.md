@@ -109,6 +109,9 @@ Implementation rules:
   real worship-production task and existing information architecture; avoid
   ornamental gradients, glow, filler metrics, badge spam, repeated eyebrow
   labels, and equal card grids that do not express a real hierarchy.
+- The current login is a temporary workspace access gate. Do not present mock
+  user, church, or organization identities before a proper account model is
+  explicitly designed.
 - Prefer CSS and Tailwind transitions first, use Motion only when state or
   layout changes need help staying understandable, and consider native browser
   or Next.js View Transitions only later for major page navigation.

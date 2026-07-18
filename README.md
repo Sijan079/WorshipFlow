@@ -1,53 +1,151 @@
 # WorshipFlow
 
-**A production workspace for preparing worship services with clarity, order, and calm.**
+WorshipFlow is a production workspace for preparing one real worship service
+at a time. It helps church worship and technical teams preserve the intended
+service order, assign people and songs, prepare booth media, and persist the
+outputs needed to run the service.
 
-WorshipFlow helps church tech and worship teams turn service preparation into a focused production flow. It brings the service plan, song library, formatter, media tools, and live output utilities into one booth-ready workspace.
+It is not a general church-management, scheduling, messaging, or social
+platform.
 
-## What It Does
+## Current Workflows
 
-### Service Flow
-Build worship services in the correct running order, assign people to blocks, attach songs, and keep every part of the service easy to scan before Sunday. The services workspace supports compact row-based review, inline detail expansion, and WS text parsing for faster service setup.
+### Worship Services
 
-### Song Formatter
-Upload or paste worship lyrics, process them locally or with AI assistance, then refine the result in a block-based editor built for verses, choruses, bridges, repeats, and export-ready structure.
+- Create regular and First Sunday service records from saved templates
+- Copy active template blocks into each new service in strict stored order
+- Review services in a responsive, open-ledger register
+- Edit service details, scripture, Tipan or Pahayag, servants, and hymnals
+- Parse participant text into the service composer
+- Add songs, people, details, assets, jobs, and generated outputs to a service
 
-### Song Library
-Keep worship songs organized with metadata, keys, tempo, language, and service usage context.
+### Songs
 
-### Media Tools
-Prepare production assets with tools for Phone Transfer, QR generation, and Background Generator workflows.
+- Upload or paste lyrics
+- Extract and normalize lyrics locally or with optional AI assistance
+- Edit verse, chorus, bridge, and repeat blocks
+- Maintain a song repository with musical and language metadata
 
-### Live Outputs
-Support captions, translations, automation jobs, generated outputs, and future live production workflows from the same operational surface.
+### Production Media
 
-## The Feel
+- Transfer phone screenshots to the booth
+- Generate QR codes
+- Upload or paste images, trim unused borders, and resize them locally for
+  phone and tablet screens
+- Generate worship backgrounds when an AI provider is configured
+- Persist generated files and automation job status
 
-Dark, focused, and built for the booth.
+### Workspace Setup
 
-WorshipFlow is designed less like a generic admin dashboard and more like a technical workspace: steady navigation, dense but readable panels, practical controls, and screens shaped around real worship-production tasks.
+- Review servants in a responsive roster with initials, search, group filters,
+  selection, and bulk assignment
+- Configure ministries, service templates, song tags, and checklists
+- Use the dark, operator-first Production Grade Interface across desktop and
+  mobile layouts
 
-## Purpose
+## Domain Rules
 
-WorshipFlow is not a church management system.
+`WorshipService` is the core domain object. One record represents one real
+worship service.
 
-It is a worship preparation OS for the people arranging, formatting, assigning, exporting, and operating the service.
+New services copy all active blocks from the selected template. After
+creation, the service owns that stored order. UI code must render that order
+and must not replace it with a global hard-coded lineup.
 
-## Planned Features
+See [AGENTS.md](AGENTS.md) for product and architecture guardrails and
+[DESIGN.md](DESIGN.md) for the visual system.
 
-1.1
-- Settings page' UI/UX fix; tabbed pages (General, Templates, Tags, Checklist).
-- connect Settings page' checklist to Dashboard checklist but maintain its immutability in Dashboard; only way to edit is through settings.
+## Stack
 
-- General tab contains: AI usage chart (and how many credits do we have left), and Access Control (might have to introduce account log-ins, and no longer have a general app username and pass), Integrations (Users will have to create their OpenAI accounts and connect them here to use the AI functions of the app).
+- Next.js 16 App Router, React 19, and TypeScript
+- Tailwind CSS 4 with semantic tokens from `tokens.css`
+- Radix UI primitives and shared local UI components
+- TanStack Query for client state and server cache
+- React Hook Form and Zod validation
+- Prisma ORM with PostgreSQL
+- Optional OpenAI and Supabase integrations
 
-1.2
-- Account/User model overhaul; users belong to a new model, 'Church Organization', which would house all of the data that we currently have.
-- Security: Users would create their accounts, and select which 'Church Organizations' they currently belong or have been given access to, and enter from there.
+## Local Setup
 
-- Church Organizations: before a church org. is created, they must submit a request to register, which would take X amount of days to be processed; require images, GMaps location and lead pastor or church email in the registration form. 
-- We give users access through the Access Control section in the Settings page (users must create an account first before given access).
+Requirements:
 
-1.3
-- UI/UX overhaul; animations 
+- Node.js
+- PostgreSQL or Supabase Postgres
 
+Install dependencies:
+
+```powershell
+npm install
+Copy-Item .env.example .env
+```
+
+Set both `DATABASE_URL` and `DIRECT_DATABASE_URL` in `.env`, then prepare the
+database:
+
+```powershell
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+Start the local app:
+
+```powershell
+npm run dev
+```
+
+The default local URL is `http://localhost:3000`.
+
+## Environment
+
+Required:
+
+- `DATABASE_URL`: pooled application connection
+- `DIRECT_DATABASE_URL`: direct connection for Prisma migrations
+
+Optional:
+
+- `APP_ACCESS_USER`, `APP_ACCESS_PASSWORD`, and
+  `APP_ACCESS_SESSION_SECRET`: temporary workspace access gate
+- `OPENAI_API_KEY`: AI-assisted lyric cleanup and image generation
+- `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: realtime features
+- `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and
+  `SUPABASE_PRIVATE_BUCKET`: private generated-output storage
+
+See `.env.example` for the complete list.
+
+## Authentication Status
+
+Authentication is currently a temporary workspace-wide access gate, not a
+user-account system. The UI intentionally does not present mock user, church,
+or organization identities. A proper account model remains deferred until its
+scope and security requirements are designed.
+
+## Commands
+
+```powershell
+npm run dev       # Local development
+npm run build     # Prisma generation and production build
+npm run lint      # ESLint
+npm test          # Security and domain checks
+```
+
+## Design Rules
+
+The interface is a dark worship-production workspace, not a generic SaaS
+dashboard. Use semantic tokens, real domain data, restrained motion, visible
+focus states, and purposeful containment.
+
+Avoid ornamental gradients, glow, fake metrics, badge spam, repeated eyebrow
+copy, unnecessary card grids, and nested modal surfaces. Prefer typography,
+spacing, alignment, and dividers before adding another container.
+
+## Near-Term Direction
+
+- Continue the page-by-page UI and accessibility overhaul
+- Connect configured checklists to service preparation without making the
+  dashboard an alternate editing surface
+- Finish service-order, song, media-handoff, automation, and generated-output
+  workflows
+- Design proper accounts separately before introducing organization or access
+  management UI

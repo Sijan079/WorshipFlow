@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useDeferredValue, useMemo, useState } from "react";
-import { Loader2, Plus, RefreshCcw, Search, Settings2, Trash2, X } from "lucide-react";
+import { Loader2, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, UsersRound, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiFetch,
@@ -13,6 +13,7 @@ import {
 import {
   formatServantGenderLabel,
   formatServantGroupLabel,
+  getServantInitials,
   SERVANT_GENDER_OPTIONS,
   SERVANT_GROUP_OPTIONS,
   type NullableServantGender,
@@ -75,37 +76,22 @@ function validateServantForm(form: ServantFormState): ServantFormErrors {
   return errors;
 }
 
-function TeamsTableSkeleton() {
+function TeamsListSkeleton() {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse">
-        <thead className="bg-[var(--color-brand-panel-strong)]">
-          <tr className="text-left">
-            <th className="w-12 px-4 py-3" />
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Name</th>
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Gender</th>
-            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Group</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <tr key={`team-skeleton-${index}`} className="border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]">
-              <td className="px-4 py-4 align-top">
-                <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4">
-                <div className="h-5 w-36 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4">
-                <div className="h-5 w-20 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-              <td className="px-4 py-4">
-                <div className="h-5 w-24 animate-pulse rounded bg-[var(--color-brand-panel-alt)]" />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div aria-label="Loading team roster" className="divide-y divide-[var(--rule-default)]" role="status">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={`team-skeleton-${index}`}
+          className="grid grid-cols-[24px_40px_minmax(0,1fr)_44px] items-center gap-3 px-4 py-4 lg:grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px]"
+        >
+          <div className="h-5 w-5 animate-pulse rounded-[var(--radius-xs)] bg-[var(--surface-panel-strong)]" />
+          <div className="h-10 w-10 animate-pulse rounded-full bg-[var(--surface-panel-strong)]" />
+          <div className="h-5 w-36 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+          <div className="hidden h-5 w-20 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
+          <div className="hidden h-7 w-28 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-panel-strong)] lg:block" />
+          <div className="h-10 w-10 animate-pulse rounded-md bg-[var(--surface-panel-strong)]" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -486,169 +472,197 @@ export default function TeamsPageClient() {
 
   const servants = servantsQuery.data ?? [];
   const pending = createServantMutation.isPending || updateServantMutation.isPending;
-  const showTableSkeleton = servantsQuery.isLoading || servantsQuery.isFetching;
+  const showListSkeleton = servantsQuery.isLoading || servantsQuery.isFetching;
+  const filtersActive = Boolean(search.trim() || groupFilter);
 
   return (
     <div className="min-h-full space-y-6 py-1 lg:px-2">
-      <section>
-        <div className="max-w-3xl">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
           <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
             Teams
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
-            Keep a clean roster of worship servants so service assignments can be picked fast without losing the freedom to type one-off names.
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+            Keep the servant roster ready for fast, accurate worship service assignments.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="pressable inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] sm:self-auto"
+        >
+          <Plus className="h-4 w-4" />
+          Add servant
+        </button>
       </section>
 
-      <section className="production-panel mx-auto max-w-7xl overflow-hidden">
-        <div className="border-b border-[var(--color-brand-border)] px-5 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-              <label className="relative min-w-[220px] flex-1 text-sm text-[var(--color-text-secondary)]">
-                <span className="sr-only">Search servants</span>
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+      <section className="w-full">
+        <div className="border-y border-[var(--rule-default)] py-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
+                <UsersRound className="h-4 w-4 text-[var(--text-accent)]" />
+                Team roster
+              </h2>
+              <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
+                {servants.length} {filtersActive ? "matching " : ""}servant{servants.length === 1 ? "" : "s"}
+              </p>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end xl:justify-end">
+              <label className="min-w-[220px] flex-1 sm:max-w-[280px]">
+                <span className="sr-only">Search team</span>
+                <span className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search servant name"
-                  className="block w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] py-2 pl-10 pr-3 text-[var(--color-brand-ink)]"
+                    className="block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] py-2 pl-10 pr-3 text-sm text-[var(--text-primary)]"
                 />
+                </span>
               </label>
 
-              <ProductionSelect
-                ariaLabel="Filter by group"
-                value={groupFilter}
-                onValueChange={setGroupFilter}
-                options={[
-                  { value: "", label: "All groups" },
-                  ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
-                ]}
-                className="min-w-[180px] max-w-[220px] flex-1"
-              />
-            </div>
+              <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+                <ProductionSelect
+                  ariaLabel="Filter by group"
+                  value={groupFilter}
+                  onValueChange={setGroupFilter}
+                  options={[
+                    { value: "", label: "All groups" },
+                    ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
+                  ]}
+                />
+              </div>
 
-            <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+              {filtersActive ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setGroupFilter("");
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  Clear filters
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => {
                   setSelectedServantIds([]);
                   void servantsQuery.refetch();
                 }}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--color-brand-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-brand-panel-alt)] hover:text-[var(--color-brand-ink)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
                 aria-label="Refresh servants"
               >
                 <RefreshCcw className="h-4 w-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={openBulkAssignModal}
-                disabled={selectedServantIds.length === 0 || bulkAssignMutation.isPending}
-                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
-                  selectedServantIds.length > 0
-                    ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)] text-[var(--color-accent-ink)]"
-                    : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
-                }`}
-                aria-label="Bulk assign selected servants"
-                title="Bulk assign selected servants"
-              >
-                {bulkAssignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void deleteSelectedServants()}
-                disabled={selectedServantIds.length === 0 || deleteServantMutation.isPending}
-                className={`pressable inline-flex h-11 w-11 items-center justify-center rounded-lg border p-0 disabled:opacity-50 ${
-                  selectedServantIds.length > 0
-                    ? "border-[#F43F5E] bg-[#F43F5E] text-white"
-                    : "border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] text-[var(--color-brand-ink)]"
-                }`}
-                aria-label="Delete selected servants"
-                title="Delete selected servants"
-              >
-                {deleteServantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)]"
-              >
-                <Plus className="h-4 w-4" />
-                Add Servant
-              </button>
+              {selectedServantIds.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={openBulkAssignModal}
+                    disabled={bulkAssignMutation.isPending}
+                    className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-50"
+                  >
+                    {bulkAssignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
+                    Assign {selectedServantIds.length}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteSelectedServants()}
+                    disabled={deleteServantMutation.isPending}
+                    className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--state-danger)] px-3 text-sm font-semibold text-[var(--text-danger)] disabled:opacity-50"
+                  >
+                    {deleteServantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Delete {selectedServantIds.length}
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
 
-        {showTableSkeleton ? (
-          <TeamsTableSkeleton />
+        {showListSkeleton ? (
+          <TeamsListSkeleton />
         ) : servants.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
-            <h3 className="text-lg font-semibold text-[var(--color-brand-ink)]">No matching servants</h3>
+            <UsersRound className="h-8 w-8 text-[var(--text-muted)]" />
+            <h3 className="mt-3 text-lg font-semibold text-[var(--text-primary)]">No matching servants</h3>
             <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
               Adjust your filters or add a servant to start building the directory.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead className="bg-[var(--color-brand-panel-strong)]">
-                <tr className="text-left">
-                  <th className="w-12 px-4 py-3" />
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Name</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Gender</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Group</th>
-                </tr>
-              </thead>
-              <tbody>
-                {servants.map((servant) => {
-                  const isSelected = selectedServantIds.includes(servant.id);
+          <div>
+            <div
+              aria-hidden="true"
+              className="hidden grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px] items-center gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
+            >
+              <span />
+              <span />
+              <span>Servant</span>
+              <span>Gender</span>
+              <span>Group</span>
+              <span />
+            </div>
+            <ul className="divide-y divide-[var(--rule-default)]">
+              {servants.map((servant) => {
+                const isSelected = selectedServantIds.includes(servant.id);
+                const groupLabel = getGroupLabel(servant, groupOptions);
 
-                  return (
-                  <tr
+                return (
+                  <li
                     key={servant.id}
                     className={
                       isSelected
-                        ? "border-t border-[var(--color-brand-border)] bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--color-brand-panel))]"
-                        : "border-t border-[var(--color-brand-border)] bg-[var(--color-brand-panel)]"
+                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
+                        : "bg-transparent"
                     }
                   >
-                    <td className="px-4 py-4 align-top">
+                    <div className="grid grid-cols-[24px_40px_minmax(0,1fr)_44px] items-center gap-3 px-4 py-4 lg:grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px]">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleServantSelection(servant.id)}
-                        onClick={(event) => event.stopPropagation()}
                         aria-label={`Select ${servant.name}`}
                         className="ui-checkbox h-5 w-5"
                       />
-                    </td>
-                    <td
-                      className="cursor-pointer px-4 py-4 text-sm font-semibold text-[var(--color-brand-ink)]"
-                      onClick={() => openEditModal(servant)}
-                    >
-                      {servant.name}
-                    </td>
-                    <td
-                      className="cursor-pointer px-4 py-4 text-sm text-[var(--color-text-secondary)]"
-                      onClick={() => openEditModal(servant)}
-                    >
-                      {formatServantGenderLabel(servant.gender)}
-                    </td>
-                    <td
-                      className="cursor-pointer px-4 py-4 text-sm text-[var(--color-text-secondary)]"
-                      onClick={() => openEditModal(servant)}
-                    >
-                      {getGroupLabel(servant, groupOptions)}
-                    </td>
-                  </tr>
-                )})}
-              </tbody>
-            </table>
+                      <span
+                        aria-hidden="true"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-panel-strong)] text-sm font-semibold text-[var(--text-accent)]"
+                      >
+                        {getServantInitials(servant.name)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{servant.name}</p>
+                        <p className="mt-1 truncate text-xs text-[var(--text-muted)] lg:hidden">
+                          {formatServantGenderLabel(servant.gender)} · {groupLabel}
+                        </p>
+                      </div>
+                      <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">
+                        {formatServantGenderLabel(servant.gender)}
+                      </p>
+                      <span className="hidden w-fit max-w-full truncate rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] lg:block">
+                        {groupLabel}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(servant)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
+                        aria-label={`Edit ${servant.name}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </section>

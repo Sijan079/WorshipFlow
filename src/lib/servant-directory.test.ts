@@ -8,6 +8,7 @@ import {
   formatServantDisplayName,
   formatServantGroupLabel,
   formatServantGenderLabel,
+  getServantInitials,
   normalizeServantName,
   normalizeServantNameForComparison,
 } from "./servants.ts";
@@ -41,6 +42,9 @@ export function runServantDirectoryTests() {
   assert.equal(normalizeServantName("  Bro.   John   Cruz  "), "John Cruz");
   assert.equal(normalizeServantName("Ptr. Joel Reyes"), "Joel Reyes");
   assert.equal(normalizeServantNameForComparison("Sis. Maria Santos"), "maria santos");
+  assert.equal(getServantInitials("Artsijan Yu"), "AY");
+  assert.equal(getServantInitials("Romeo de Guzman III"), "RG");
+  assert.equal(getServantInitials("Sis. Abigail"), "A");
 
   const valid = ServantSchema.safeParse({
     name: "  Sis. Abigail  ",
