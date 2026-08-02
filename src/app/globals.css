@@ -37,6 +37,11 @@ body {
   overflow-x: clip;
 }
 
+.landing-editorial-title {
+  font-size: clamp(4rem, 7.4vw, 8rem);
+  text-wrap: balance;
+}
+
 body {
   background-color: var(--background);
   font-family: var(--type-body-font), sans-serif;
@@ -216,6 +221,23 @@ textarea:focus-visible {
   border-radius: var(--radius-control);
   color: var(--action-primary-ink);
   box-shadow: var(--elevation-subtle);
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+@keyframes workflow-marquee {
+  to {
+    transform: translate3d(-33.333333%, 0, 0);
+  }
+}
+
+.landing-workflow-track {
+  animation: workflow-marquee 28s linear infinite;
+}
+
+.landing-workflow-viewport:hover .landing-workflow-track,
+.landing-workflow-viewport:focus .landing-workflow-track {
+  animation-play-state: paused;
 }
 
 .ui-btn-primary:hover:not(:disabled) {
@@ -227,6 +249,8 @@ textarea:focus-visible {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-control);
   color: var(--action-secondary-ink);
+  min-height: 2.75rem;
+  min-width: 2.75rem;
 }
 
 .ui-btn-secondary:hover:not(:disabled) {
@@ -238,6 +262,15 @@ textarea:focus-visible {
   border: 1px solid color-mix(in oklab, var(--state-danger) 36%, transparent);
   border-radius: var(--radius-control);
   color: var(--state-danger);
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.ui-btn-primary:active:not(:disabled),
+.ui-btn-secondary:active:not(:disabled),
+.ui-btn-danger:active:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(1px);
 }
 
 .ui-checkbox {
@@ -435,6 +468,24 @@ textarea:focus-visible {
   .production-panel,
   .production-panel-strong {
     transition-duration: 0.01ms !important;
+  }
+
+  .landing-workflow-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .landing-workflow-track > :first-child {
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    min-width: 0;
+    padding-right: 0;
+    width: 100%;
+  }
+
+  .landing-workflow-duplicate {
+    display: none;
   }
 }
 
