@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getAuthCallbackRecoveryUrl } from "@/lib/auth-redirect";
 import { isPublicPathForProxy } from "@/lib/proxy-paths";
 import { updateSession } from "@/lib/supabase/proxy";
 
@@ -22,6 +23,10 @@ export async function proxy(request: NextRequest) {
   );
   if (!authConfigured && process.env.NODE_ENV !== "production") return NextResponse.next();
   if (!authConfigured) return new NextResponse("Supabase Auth is not configured.", { status: 503 });
+
+  const authCallbackRecoveryUrl = getAuthCallbackRecoveryUrl(request.url);
+  if (authCallbackRecoveryUrl) return NextResponse.redirect(authCallbackRecoveryUrl);
+
   if (isPublicPathForProxy(request.nextUrl.pathname)) return NextResponse.next();
 
   if (LEGACY_WORKSPACE_PATHS.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
