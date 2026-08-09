@@ -104,22 +104,71 @@ Required:
 
 Optional:
 
-- `APP_ACCESS_USER`, `APP_ACCESS_PASSWORD`, and
-  `APP_ACCESS_SESSION_SECRET`: temporary workspace access gate
+- `APP_URL`: public application URL used for invitation callbacks
+- `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase Auth SSR configuration
+- `SUPABASE_SECRET_KEY`: server-only Supabase admin key for invitations
 - `OPENAI_API_KEY`: AI-assisted lyric cleanup and image generation
+- `WORKSPACE_INTEGRATION_ENCRYPTION_KEY`: server-only key used to encrypt workspace AI integration overrides
 - `NEXT_PUBLIC_SUPABASE_URL` and
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: realtime features
 - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and
   `SUPABASE_PRIVATE_BUCKET`: private generated-output storage
+- `WORSHIP_WORKSPACE_SLUG`: fallback workspace slug for local jobs; normally
+  leave this as `default`
+- `GEMINI_API_KEY` and `GEMINI_BACKGROUND_VIDEO_MODEL`: optional video
+  generation configuration
+- `MEDIA_GENERATION_VIDEO_HOURLY_LIMIT` and
+  `MEDIA_GENERATION_VIDEO_DAILY_LIMIT`: optional video generation limits
+
+Removed authentication settings:
+
+- `APP_ACCESS_USER`
+- `APP_ACCESS_PASSWORD`
+- `APP_ACCESS_SESSION_SECRET`
+
+These belonged to the retired shared-password gate and should be removed from
+local and deployment environments. Supabase Auth is now the only supported
+application authentication mechanism.
 
 See `.env.example` for the complete list.
 
-## Authentication Status
+### Google OAuth setup
 
-Authentication is currently a temporary workspace-wide access gate, not a
-user-account system. The UI intentionally does not present mock user, church,
-or organization identities. A proper account model remains deferred until its
-scope and security requirements are designed.
+Google sign-in is handled by Supabase Auth. The downloaded Google OAuth client
+JSON (for example, `client_secret*.json`) is local setup material only; the app
+does not read it. The repository ignores those files. Never copy the client
+secret into source code, a `NEXT_PUBLIC_*` variable, or this repository.
+
+1. In Google Cloud Console, create or select a Web OAuth client.
+2. Add Supabase's callback URL as an authorized redirect URI:
+   `https://<project-ref>.supabase.co/auth/v1/callback`.
+3. In Supabase Dashboard → Authentication → Providers → Google, enable Google
+   and enter the client ID and client secret from the local JSON file.
+4. Set `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the local `.env` and deployment
+   environment. Set `APP_URL` to the app's public URL for callback redirects.
+
+The Google client secret belongs in Supabase's server-side provider settings,
+not in the app's environment variables. The app only receives Supabase's
+public URL and publishable key in the browser. If the secret has been exposed,
+rotate it in Google Cloud Console before continuing.
+
+## Authentication and Workspaces
+
+Supabase Auth provides user sessions and email invitations. Each church is a
+workspace addressed at `/w/{workspaceSlug}`. Access requires an active
+workspace membership. Owners and Admins can manage invitations; Members have
+read-only access.
+
+Provision a workspace with:
+
+```powershell
+npm run provision:workspace -- --name "Example Church" --slug example --owner-email owner@example.com
+```
+
+See [docs/architecture.md](docs/architecture.md) for the tenancy boundary and
+invitation flow.
 
 ## Commands
 

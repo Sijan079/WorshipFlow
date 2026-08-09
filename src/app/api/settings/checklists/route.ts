@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { getActiveWorkspaceId } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 import { ActivateChecklistPresetSchema, CreateChecklistPresetSchema } from "@/lib/settings-presets";
 import { seedChecklistPresets } from "@/lib/settings-server";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("MEMBER")).workspaceId;
     await seedChecklistPresets(prisma, workspaceId);
     const [workspace, records] = await Promise.all([
       prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { activeChecklistId: true } }),
@@ -31,7 +31,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
     const parsed = CreateChecklistPresetSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
     const parsed = ActivateChecklistPresetSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
 

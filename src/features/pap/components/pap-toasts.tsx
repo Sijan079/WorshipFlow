@@ -41,7 +41,7 @@ export function PAPToastViewport({
   toasts: PAPToast[];
 }) {
   return (
-    <div className="fixed right-4 top-4 z-[70] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2">
+    <div className="workspace-content-light fixed right-4 top-4 z-[70] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2 text-[var(--text-primary)]">
       <AnimatePresence initial={false} mode="popLayout">
       {toasts.map((toast) => {
         const Icon = toast.tone === "success" ? CheckCircle2 : Info;
@@ -56,7 +56,7 @@ export function PAPToastViewport({
           >
             <div className="flex items-start gap-3">
               <Icon className={toast.tone === "success" ? "mt-0.5 h-4 w-4 text-[var(--state-success)]" : "mt-0.5 h-4 w-4 text-[var(--text-accent)]"} />
-              <p className="min-w-0 flex-1 text-sm font-semibold leading-5">{toast.message}</p>
+              <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-[var(--text-primary)]">{toast.message}</p>
               <Button
                 type="button"
                 variant="ghost"

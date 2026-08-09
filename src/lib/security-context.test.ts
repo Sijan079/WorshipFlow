@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getDefaultWorkspaceSlug } from "./security-context.ts";
+import { getDefaultWorkspaceSlug } from "./workspace-context-helpers.ts";
 
 export function runSecurityContextTests() {
   assert.equal(getDefaultWorkspaceSlug({}), "default");

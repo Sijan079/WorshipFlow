@@ -3,6 +3,7 @@
 import { Camera, Download, Maximize2, MoreHorizontal, RefreshCw, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,16 +62,16 @@ export default function PAPDesktopClient({
   }
 
   return (
-    <div className={embedded ? "space-y-5" : "space-y-6"}>
+    <div className={`${embedded ? "space-y-5" : "space-y-6"} text-[var(--text-primary)]`}>
       <header
         className={`flex flex-col justify-between gap-4 md:flex-row md:items-end ${
-          hideHeader ? "" : `border-b border-[var(--color-brand-border)] ${embedded ? "pb-4" : "pb-5"}`
+          hideHeader ? "" : `border-b border-[var(--border-default)] ${embedded ? "pb-4" : "pb-5"}`
         }`}
       >
         {hideHeader ? null : (
           <div>
             {embedded ? (
-              <h2 className="text-lg font-semibold text-[var(--color-brand-ink)]">Phone Transfer</h2>
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Phone Transfer</h2>
             ) : (
               <h1 className="text-2xl font-semibold">Phone Transfer</h1>
             )}
@@ -89,7 +90,7 @@ export default function PAPDesktopClient({
               showToast("Inbox refreshed.");
               void pap.refreshInbox();
             }}
-            className="pressable h-10 px-4 font-semibold"
+            className="pressable ui-btn-secondary h-11 px-4 font-semibold text-[var(--text-primary)]"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -100,7 +101,7 @@ export default function PAPDesktopClient({
                 type="button"
                 variant="ghost"
                 size="icon-lg"
-                className="pressable text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+                className="pressable h-11 w-11 text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
                 aria-label="Inbox actions"
               >
                 <MoreHorizontal className="h-5 w-5" />
@@ -109,20 +110,19 @@ export default function PAPDesktopClient({
             <DropdownMenuContent
               align="end"
               sideOffset={8}
-              className="min-w-52 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]"
+              className="workspace-content-light min-w-52 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 text-[var(--text-primary)] shadow-[var(--elevation-raised)]"
             >
               <DropdownMenuLabel className="technical-label px-2 py-1.5">Inbox actions</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-[var(--rule-default)]" />
               <DropdownMenuItem
-                variant="destructive"
-                className="gap-2 px-2 py-2 font-semibold"
+                className="gap-2 px-2 py-2 font-semibold text-[var(--text-danger)] focus:bg-[var(--state-danger-soft)] focus:text-[var(--text-danger)] [&_svg]:text-[var(--text-danger)]"
                 onSelect={() => {
                   void pap.clearFiles();
                   showToast("Inbox cleared.");
                 }}
               >
                 <Trash2 className="h-4 w-4" />
-                Clear Inbox
+                Clear inbox
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -160,7 +160,7 @@ export default function PAPDesktopClient({
                     className="pressable ui-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold"
                   >
                     <Download className="h-4 w-4" />
-                    Download All
+                    Download all
                   </button>
                 </div>
 
@@ -198,7 +198,7 @@ export default function PAPDesktopClient({
                             void pap.downloadFile(file);
                             showToast(`${file.fileName} sent to downloads.`, "success");
                           }}
-                          className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-accent)] hover:bg-[var(--surface-panel-strong)]"
+                          className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-accent)] hover:bg-[var(--surface-panel-strong)]"
                           aria-label={`Download ${file.fileName}`}
                           title="Download"
                         >
@@ -210,7 +210,7 @@ export default function PAPDesktopClient({
                             void pap.removeFile(file.id);
                             showToast(`${file.fileName} deleted.`);
                           }}
-                          className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--state-danger)] hover:bg-[var(--surface-panel-strong)]"
+                          className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--state-danger)] hover:bg-[var(--surface-panel-strong)]"
                           aria-label={`Delete ${file.fileName}`}
                           title="Delete"
                         >
@@ -236,25 +236,36 @@ export default function PAPDesktopClient({
         </section>
       </div>
 
-      {previewFile ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4" onClick={() => setPreviewFile(null)}>
-          <div className="max-h-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => {
-                setPreviewFile(null);
-                showToast("Preview closed.");
-              }}
-              className="pressable mb-3 ml-auto flex rounded-md bg-[var(--surface-panel)] p-2 text-[var(--text-primary)]"
-              aria-label="Close preview"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={pap.getPreviewUrl(previewFile)} alt={previewFile.fileName} className="max-h-[82vh] max-w-full rounded-md bg-[var(--surface-panel)] object-contain" />
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={Boolean(previewFile)} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        {previewFile ? (
+          <DialogContent className="workspace-content-light max-w-5xl overflow-hidden border-[var(--border-default)] bg-[var(--surface-panel)] p-0 text-[var(--text-primary)]">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-default)] px-4 py-3">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                  {previewFile.fileName}
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Screenshot preview
+                </DialogDescription>
+              </div>
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  onClick={() => showToast("Preview closed.")}
+                  className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[var(--surface-panel)] text-[var(--text-primary)]"
+                  aria-label="Close preview"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogClose>
+            </div>
+            <div className="flex max-h-[78vh] items-center justify-center bg-[var(--surface-canvas)] p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pap.getPreviewUrl(previewFile)} alt={previewFile.fileName} className="max-h-[74vh] max-w-full rounded-md bg-[var(--surface-panel)] object-contain" />
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
     </div>
   );

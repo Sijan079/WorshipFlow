@@ -63,6 +63,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local Google OAuth client credentials (all downloaded client-secret JSON names)
+/client_secret*.json
+
 # vercel
 .vercel
 

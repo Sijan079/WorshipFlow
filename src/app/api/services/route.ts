@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import type { BlockType, Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
+import { mapProgramTypeKeyToBlockType } from "@/lib/program-block-types";
 import { getActiveWorkspaceId } from "@/lib/security-context";
-import { validateTemplateBlocks } from "@/lib/settings-presets";
 import {
   type AssignedMinistry,
   mapAssignedMinistryToLegacyMinistryName,
@@ -92,7 +93,16 @@ export async function POST(request: Request) {
         ? prisma.ministryPreset.findFirst({ where: { workspaceId, code: ministryPresetCode } })
         : Promise.resolve(null),
       templatePresetCode
-        ? prisma.serviceTemplatePreset.findFirst({ where: { workspaceId, code: templatePresetCode } })
+        ? prisma.serviceTemplatePreset.findFirst({
+            where: { workspaceId, code: templatePresetCode },
+            include: {
+              templateBlocks: {
+                where: { active: true },
+                orderBy: { order: "asc" },
+                include: { type: true, typeVersion: true },
+              },
+            },
+          })
         : Promise.resolve(null),
     ]);
     if (!templatePresetCode || !templatePreset) {
@@ -101,6 +111,10 @@ export async function POST(request: Request) {
     const resolvedTemplateType = (templatePreset?.templateType ?? templateType) as ServiceTemplateType;
     const ministryName = ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
     const serviceVariant = mapTemplateTypeToServiceVariant(resolvedTemplateType);
+    const persistedTemplateBlocks = templatePreset.templateBlocks;
+    if (persistedTemplateBlocks.length === 0) {
+      return NextResponse.json({ error: "The selected service template has no active ordered blocks." }, { status: 400 });
+    }
 
     const newService = await prisma.$transaction(async (tx) => {
       const service = await tx.worshipService.create({
@@ -119,9 +133,16 @@ export async function POST(request: Request) {
         },
       });
 
-      const templateBlocks = validateTemplateBlocks(
-        templatePreset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>,
-      );
+      const templateBlocks = persistedTemplateBlocks.length > 0
+        ? persistedTemplateBlocks.map((block) => ({
+            label: block.label || block.type.label,
+            code: block.type.key,
+            blockType: mapProgramTypeKeyToBlockType(block.type.key) as BlockType,
+            order: block.order,
+            typeVersionId: block.typeVersionId,
+            fieldDefaults: block.fieldDefaults,
+          }))
+        : [];
       await Promise.all(
         templateBlocks.map((block, index) =>
           tx.worshipServiceBlock.create({
@@ -131,6 +152,8 @@ export async function POST(request: Request) {
               label: block.label,
               code: block.code,
               order: index,
+              typeVersionId: block.typeVersionId,
+              fieldValues: block.fieldDefaults as Prisma.InputJsonValue,
             },
           })
         )

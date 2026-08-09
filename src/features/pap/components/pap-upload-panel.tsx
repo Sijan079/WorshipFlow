@@ -33,7 +33,7 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
   const activeProgress = pap.progress.find((item) => !item.done);
 
   return (
-    <section className="ui-surface-panel">
+    <section className="ui-surface-panel text-[var(--text-primary)]">
       <div className="border-b border-[var(--border-default)] p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -77,7 +77,7 @@ export function PAPUploadPanel({ compact = false }: { compact?: boolean }) {
           rows={2}
           maxLength={180}
           placeholder="Optional note for this batch"
-          className="mt-5 w-full resize-none rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm"
+          className="mt-5 w-full resize-none rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm placeholder:text-[var(--text-muted)]"
         />
         <input
           ref={inputRef}

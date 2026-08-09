@@ -23,6 +23,7 @@ export const serviceDetailArgs = Prisma.validator<Prisma.WorshipServiceDefaultAr
         order: "asc",
       },
       include: {
+        typeVersion: true,
         people: {
           orderBy: {
             order: "asc",

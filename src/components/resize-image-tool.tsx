@@ -17,6 +17,7 @@ import {
   calculateFillTransform,
   calculateFitTransform,
   calculateStretchTransform,
+  canReuseSourceImage,
   detectContentBounds,
   generateOutputFilename,
   getTargetDimensions,
@@ -43,6 +44,7 @@ type ResizeImageToolProps = {
 };
 
 type LoadedImage = {
+  file: File;
   fileName: string;
   mimeType: string;
   fileSize: number;
@@ -90,7 +92,7 @@ function loadImageFromFile(file: File) {
         reject(new Error("The source image dimensions are too large to process safely."));
         return;
       }
-      resolve({ fileName: file.name, mimeType: file.type, fileSize: file.size, objectUrl, image });
+      resolve({ file, fileName: file.name, mimeType: file.type, fileSize: file.size, objectUrl, image });
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -124,7 +126,7 @@ function renderCanvas(
   settings: RenderSettings,
   preview = false
 ) {
-  const previewScale = preview ? Math.min(1, 1000 / Math.max(settings.width, settings.height)) : 1;
+  const previewScale = preview ? Math.min(1, 2400 / Math.max(settings.width, settings.height)) : 1;
   canvas.width = Math.max(1, Math.round(settings.width * previewScale));
   canvas.height = Math.max(1, Math.round(settings.height * previewScale));
   const context = canvas.getContext("2d");
@@ -208,10 +210,10 @@ function renderCanvas(
 
 export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
   const [loadedImage, setLoadedImage] = useState<LoadedImage | null>(null);
-  const [selectedPresetId, setSelectedPresetId] = useState("xiaomi-redmi-note-10-5g");
+  const [selectedPresetId, setSelectedPresetId] = useState("freeshow-1920x1080");
   const [customWidth, setCustomWidth] = useState(1080);
   const [customHeight, setCustomHeight] = useState(1920);
-  const [orientation, setOrientation] = useState<Orientation>("portrait");
+  const [orientation, setOrientation] = useState<Orientation>("landscape");
   const [fitMode, setFitMode] = useState<FitMode>("fit");
   const [crop, setCrop] = useState<CropState>(DEFAULT_CROP);
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("black");
@@ -243,6 +245,21 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
   const transparencyWarning =
     fitMode === "fit" && backgroundMode === "transparent" && outputFormat !== "png"
       ? "Transparency requires PNG; export will use a black background."
+      : "";
+  const sourceWidth = sourceCrop?.width ?? loadedImage?.image.naturalWidth;
+  const sourceHeight = sourceCrop?.height ?? loadedImage?.image.naturalHeight;
+  const upscaleFactor =
+    sourceWidth && sourceHeight && !targetError
+      ? calculateFitTransform({
+          sourceWidth,
+          sourceHeight,
+          targetWidth: target.width,
+          targetHeight: target.height,
+        }).destinationWidth / sourceWidth
+      : 1;
+  const upscaleWarning =
+    upscaleFactor > 1.25
+      ? `This source needs at least ${upscaleFactor.toFixed(2)}× enlargement for ${target.width} × ${target.height}. Text may soften; use a larger source or rebuild the text.`
       : "";
   const settings: RenderSettings = {
     width: target.width,
@@ -341,16 +358,24 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
     setIsProcessing(true);
     setError("");
     try {
-      const canvas = document.createElement("canvas");
-      renderCanvas(canvas, loadedImage.image, settings);
       const mimeType = `image/${outputFormat}`;
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (result) => (result ? resolve(result) : reject(new Error("Image export failed."))),
-          mimeType,
-          outputFormat === "png" ? undefined : outputQuality
-        );
-      });
+      const reuseSource = canReuseSourceImage(
+        { width: loadedImage.image.naturalWidth, height: loadedImage.image.naturalHeight },
+        target,
+        loadedImage.mimeType === mimeType,
+        fitMode !== "fit" || enhancementMode !== "none" || sourceCrop !== null
+      );
+      const canvas = reuseSource ? null : document.createElement("canvas");
+      if (canvas) renderCanvas(canvas, loadedImage.image, settings);
+      const blob = reuseSource
+        ? loadedImage.file
+        : await new Promise<Blob>((resolve, reject) => {
+            canvas!.toBlob(
+              (result) => (result ? resolve(result) : reject(new Error("Image export failed."))),
+              mimeType,
+              outputFormat === "png" ? undefined : outputQuality
+            );
+          });
       triggerBrowserDownload(
         blob,
         generateOutputFilename(
@@ -363,8 +388,10 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
         )
       );
       showToast("Image downloaded.", "success");
-      canvas.width = 1;
-      canvas.height = 1;
+      if (canvas) {
+        canvas.width = 1;
+        canvas.height = 1;
+      }
     } catch (downloadError) {
       const message = downloadError instanceof Error ? downloadError.message : "Image export failed.";
       setError(message);
@@ -441,10 +468,10 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
   }
 
   return (
-    <section className="grid gap-4">
-        <aside className="ui-surface-panel order-2 grid gap-5 p-4 md:grid-cols-2 xl:grid-cols-3">
-          <section className="border-b border-[var(--rule-default)] pb-5 md:border-b-0 md:border-r md:pb-0 md:pr-5">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">1. Source</h3>
+    <section className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)] xl:items-start">
+        <aside className="ui-surface-panel order-1 grid gap-5 p-4 md:grid-cols-2 xl:sticky xl:top-5 xl:grid-cols-1">
+          <section className="border-b border-[var(--rule-default)] pb-5 md:border-b-0 md:border-r md:pb-0 md:pr-5 xl:border-b xl:border-r-0 xl:pb-5 xl:pr-0">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">1. Source</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Choose or paste the screenshot, then remove unused borders if needed.</p>
             <input
               ref={fileInputRef}
@@ -503,8 +530,8 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
             )}
           </section>
 
-          <section className="space-y-3 border-b border-[var(--rule-default)] pb-5 md:border-b-0 md:pb-0 xl:border-r xl:pr-5">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">2. Output frame</h3>
+          <section className="space-y-3 border-b border-[var(--rule-default)] pb-5 md:border-b-0 md:pb-0 xl:border-b xl:pb-5">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">2. Output frame</h2>
             {sourceCrop ? (
               <>
                 <div className="border-l-2 border-[var(--action-primary-bg)] bg-[var(--surface-panel-alt)] p-3 text-xs text-[var(--text-secondary)]">
@@ -535,11 +562,11 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
             ) : (
               <>
                 <div>
-                  <span className="text-xs font-medium text-[var(--text-secondary)]">Device preset</span>
+                  <span className="text-xs font-medium text-[var(--text-secondary)]">Output profile</span>
                   <ProductionSelect
                     value={selectedPresetId}
                     onValueChange={setSelectedPresetId}
-                    ariaLabel="Device preset"
+                    ariaLabel="Output profile"
                     options={[
                       ...DEVICE_PRESETS.map((preset) => ({
                         value: preset.id,
@@ -627,7 +654,7 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
           </section>
 
           <section className="space-y-3 md:col-span-2 xl:col-span-1">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">3. Export</h3>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">3. Export</h2>
             <div className="grid grid-cols-2 gap-2">
               <ProductionSelect
                 value={enhancementMode}
@@ -662,6 +689,7 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
               <span className="font-semibold text-[var(--text-primary)]">{target.width} × {target.height}px</span>
             </div>
             {transparencyWarning ? <p className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--state-warning-soft)] p-2.5 text-xs text-[var(--state-warning)]">{transparencyWarning}</p> : null}
+            {upscaleWarning ? <p className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--state-warning-soft)] p-2.5 text-xs text-[var(--state-warning)]">{upscaleWarning}</p> : null}
             {targetError ? <p className="rounded-[var(--radius-control)] border border-[color-mix(in_oklab,var(--state-danger)_35%,transparent)] bg-[var(--state-danger-soft)] p-2.5 text-xs text-[var(--state-danger)]">{targetError}</p> : null}
             {error ? <p className="rounded-[var(--radius-control)] border border-[color-mix(in_oklab,var(--state-danger)_35%,transparent)] bg-[var(--state-danger-soft)] p-2.5 text-xs text-[var(--state-danger)]">{error}</p> : null}
             <button
@@ -676,10 +704,10 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
           </section>
         </aside>
 
-        <div className="ui-surface-elevated order-1 p-4 sm:p-5">
+        <div className="ui-surface-elevated order-2 p-4 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Output preview</h3>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Output preview</h2>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
                 {fitMode === "fill" ? "Drag the image to reposition the crop." : "Preview and export share the same layout calculations."}
               </p>

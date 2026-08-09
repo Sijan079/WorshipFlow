@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const source = readFileSync(join(process.cwd(), "src/components/settings-page-client.tsx"), "utf8");
+const editableSection = source.slice(source.indexOf("function EditablePresetSection"), source.indexOf("function ChecklistSection"));
+const adminSource = readFileSync(join(process.cwd(), "src/components/settings-admin-sections.tsx"), "utf8");
+const workspaceSection = adminSource.slice(adminSource.indexOf("export function WorkspaceSection"), adminSource.indexOf("type MemberRecord"));
+const dialogSource = readFileSync(join(process.cwd(), "src/components/ui/dialog.tsx"), "utf8");
+const globalStyles = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+
+assert.doesNotMatch(editableSection, /<StatusPill[^>]*activeLabel="Enabled"/);
+assert.doesNotMatch(editableSection, /\{record\.code\}<\/span>/);
+assert.match(editableSection, /<DropdownMenu modal=\{false\}>/);
+assert.match(editableSection, /DropdownMenuContent align="end" side="left"/);
+assert.match(editableSection, /DropdownMenuContent[^>]*className="[^"]*workspace-content-light/);
+assert.match(editableSection, /<SectionShell[\s\S]*?title=\{title\}[\s\S]*?flat/);
+assert.match(editableSection, /description=\{EDITABLE_SECTION_DESCRIPTIONS\[endpoint\]\}/);
+assert.match(source, /Ministries organize the worship contexts available when preparing services\./);
+assert.match(source, /Servant groups organize the teams that serve during worship services\./);
+assert.match(editableSection, /overflow-hidden rounded-md border border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\] shadow-\[var\(--elevation-subtle\)\]/);
+assert.match(editableSection, /DropdownMenuItem[^>]*variant="destructive"[^>]*onSelect=\{\(\) => setDeleteCandidate\(record\)\}/);
+assert.match(editableSection, /className="[^"]*!text-\[var\(--text-danger\)\]/);
+assert.match(editableSection, /\[&_svg\]:!text-\[var\(--text-danger\)\]/);
+assert.match(workspaceSection, /return <section className="space-y-3">/);
+assert.match(workspaceSection, /Workspace identity<\/h3>[\s\S]*?Set the name and visual identity your team sees across the workspace\.<\/p>[\s\S]*?overflow-hidden rounded-lg border/);
+assert.match(source, /data-settings-section-stack className="space-y-8"/);
+assert.match(dialogSource, /workspace-content-light fixed left-1\/2 top-1\/2/);
+assert.match(globalStyles, /html body\[data-scroll-locked\]\s*\{[\s\S]*?position:\s*static\s*!important;/);
+assert.match(globalStyles, /html body\[data-scroll-locked\]\s*\{[\s\S]*?margin-right:\s*0\s*!important;/);

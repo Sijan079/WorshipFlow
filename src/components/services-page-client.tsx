@@ -414,7 +414,7 @@ function UnlistedServantsModal({
                 key={name}
                 className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
                   isSelected
-                    ? "border-[var(--color-brand-accent)] bg-[color:color-mix(in_srgb,var(--color-brand-accent)_12%,var(--surface-panel))] text-[var(--text-primary)]"
+                    ? "border-[var(--action-primary-bg)] bg-[color:color-mix(in_srgb,var(--action-primary-bg)_12%,var(--surface-panel))] text-[var(--text-primary)]"
                     : "border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
                 }`}
               >
@@ -562,7 +562,7 @@ function ServantCombobox({
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
                     isActive
-                      ? "bg-[color:color-mix(in_srgb,var(--color-brand-accent)_18%,var(--surface-panel))] text-[var(--text-primary)]"
+                      ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_18%,var(--surface-panel))] text-[var(--text-primary)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
                   }`}
                 >
@@ -1267,28 +1267,28 @@ export default function ServicesPageClient({ initialServices }: { initialService
   }
 
   return (
-    <div className="min-h-full space-y-6 py-1 lg:px-2">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="services-page min-h-full space-y-6 py-1 lg:px-2">
+      <section className="services-header flex flex-col gap-4 border-b border-[var(--border-default)] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
+          <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
             Worship Services
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)] md:text-base">
             Prepare each service record, its people, and its source material before building the service order.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setCreateModalOpen(true)}
-          className="pressable inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] sm:self-auto"
+          className="ui-btn-primary pressable inline-flex min-h-11 items-center justify-center gap-2 self-start px-4 py-2.5 text-sm font-semibold sm:self-auto"
         >
           <Plus className="h-4 w-4" />
           Add service
         </button>
       </section>
 
-      <section className="w-full">
-        <div className="border-y border-[var(--rule-default)] py-4">
+      <section className="services-register w-full overflow-hidden border-y border-[var(--border-default)]">
+        <div className="services-register-tools border-b border-[var(--rule-default)] py-4 sm:py-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h2 className="text-base font-semibold text-[var(--text-primary)]">Service register</h2>
@@ -1362,8 +1362,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <ServicesListSkeleton />
         ) : filteredServices.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
-            <h3 className="text-lg font-semibold text-[var(--color-brand-ink)]">No matching services</h3>
-            <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-text-secondary)]">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">No matching services</h3>
+            <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
               Adjust your filters or add a new service for the coming Sunday.
             </p>
           </div>
@@ -1455,7 +1455,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          className="ml-4 border-l-2 border-[var(--action-primary-bg)] px-4 py-5 lg:ml-8 lg:px-6"
+                          className="ml-4 border-l-2 border-[var(--action-primary-bg)] bg-[var(--surface-panel-alt)] px-4 py-5 lg:ml-8 lg:px-6"
                         >
                           <div className="space-y-5">
                             <div className="flex flex-col gap-3 border-b border-[var(--rule-default)] pb-4 md:flex-row md:items-center md:justify-between">
@@ -1536,8 +1536,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <DialogContent className="max-w-6xl overflow-hidden p-0">
             <div className="flex items-center justify-between gap-4 border-b border-[var(--rule-default)] px-5 py-4">
               <div>
-                <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">Create worship service</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Create worship service</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
                   Defaults to next Sunday.
                 </DialogDescription>
               </div>
@@ -1545,7 +1545,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 <button
                   type="button"
                   onClick={() => setCreateParserOpen(true)}
-                  className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
+                  className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
                 >
                   <WandSparkles className="h-4 w-4" />
                   Parse text
@@ -1555,7 +1555,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   onClick={() => setCreateModalOpen(false)}
                   aria-label="Close create service modal"
                   title="Close"
-                  className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] text-[var(--color-text-secondary)]"
+                  className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-secondary)]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1583,7 +1583,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   || serviceTemplatesQuery.isLoading
                   || !templateOptions.some((option) => option.value === createForm.templateType)
                 }
-                className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-60"
+                className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 {createServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Create Service
@@ -1598,8 +1598,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <DialogContent className="max-w-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">Paste service participants</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Paste service participants</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
                   Fill the service form from pasted text.
                 </DialogDescription>
               </div>
@@ -1608,7 +1608,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 onClick={() => setCreateParserOpen(false)}
                 aria-label="Close text parser"
                 title="Close"
-                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] text-[var(--color-text-secondary)]"
+                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-secondary)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1619,14 +1619,14 @@ export default function ServicesPageClient({ initialServices }: { initialService
               onChange={(event) => setCreateParserText(event.target.value)}
               rows={14}
               placeholder="Paste WS PARTICIPANTS text here..."
-              className="mt-4 w-full rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-3 font-mono text-sm leading-6 text-[var(--color-brand-ink)] outline-none focus:border-[var(--color-brand-accent)]"
+              className="mt-4 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
             />
 
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setCreateParserOpen(false)}
-                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
+                className="pressable rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
               >
                 Cancel
               </button>
@@ -1634,7 +1634,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 type="button"
                 onClick={applyCreateParser}
                 disabled={!createParserText.trim()}
-                className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-60"
+                className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 <WandSparkles className="h-4 w-4" />
                 Parse Into Form
@@ -1647,10 +1647,10 @@ export default function ServicesPageClient({ initialServices }: { initialService
       <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(false)}>
         {deleteConfirmOpen ? (
           <DialogContent className="max-w-md">
-            <DialogTitle className="text-xl font-semibold text-[var(--color-brand-ink)]">
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">
               Delete {selectedServiceIds.length} service{selectedServiceIds.length === 1 ? "" : "s"}?
             </DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+            <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               This will permanently remove the selected worship service records from the workspace.
             </DialogDescription>
 
@@ -1658,7 +1658,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
               <button
                 type="button"
                 onClick={() => setDeleteConfirmOpen(false)}
-                className="pressable rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-ink)]"
+                className="pressable rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
               >
                 Cancel
               </button>

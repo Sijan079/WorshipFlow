@@ -8,10 +8,11 @@ export function sanitizePAPFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 120) || "pap-screenshot";
 }
 
-export async function cleanupExpiredPAPInboxUploads(client: PapInboxClient, now = new Date()) {
+export async function cleanupExpiredPAPInboxUploads(client: PapInboxClient, now = new Date(), workspaceId?: string) {
   const expiresBefore = new Date(now.getTime() - PAP_INBOX_RETENTION_MS);
   const expired = await client.papInboxScreenshot.findMany({
     where: {
+      ...(workspaceId ? { workspaceId } : {}),
       createdAt: { lte: expiresBefore },
     },
     select: {
@@ -26,6 +27,7 @@ export async function cleanupExpiredPAPInboxUploads(client: PapInboxClient, now 
 
   await client.papInboxScreenshot.deleteMany({
     where: {
+      ...(workspaceId ? { workspaceId } : {}),
       id: { in: expired.map((file) => file.id) },
     },
   });

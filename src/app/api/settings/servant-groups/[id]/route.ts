@@ -9,6 +9,7 @@ export const { PUT, DELETE } = createSettingsCollectionHandlers({
   updateSchema: UpdateEditablePresetSchema,
   orderBy: [],
   path: "/api/settings/servant-groups",
+  allowDefaultDelete: true,
   messages: {
     load: "Failed to load servant group presets",
     create: "Failed to create servant group preset",

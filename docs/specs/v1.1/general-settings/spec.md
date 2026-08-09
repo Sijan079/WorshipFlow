@@ -1,13 +1,12 @@
 # General Settings Expansion Spec
 
-**Status:** Implemented; pending review
+**Status:** Superseded by workspace Settings architecture
 **Release:** 1.1
 
 ## Purpose
 
-Give operators a truthful view of workspace-level configuration and AI
-availability without introducing the account and organization work planned for
-1.2.
+Give operators a workspace-scoped control surface for identity, membership,
+service-preparation configuration, and safe AI integration overrides.
 
 ## Sections
 
@@ -39,9 +38,10 @@ availability without introducing the account and organization work planned for
 - Show whether each AI capability is configured and available from the server.
 - Never expose secrets, full keys, environment-variable values, or provider
   responses containing sensitive details.
-- Connection status is read-only in 1.1.
-- OpenAI OAuth, user-owned billing, and bring-your-own-account flows are deferred
-  until an explicit security and ownership design is approved.
+- Connection status is safe to read from the browser; credentials are never
+  returned.
+- Workspace API keys are encrypted server-side and provider billing remains
+  outside the product.
 
 ## Data and Security
 

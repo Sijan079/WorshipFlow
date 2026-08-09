@@ -53,6 +53,21 @@ const TEMP_ROOT_DIR = join(tmpdir(), "worship-flow-os");
 const BATCHES_DIR = join(TEMP_ROOT_DIR, "automation-batches");
 const DOWNLOADS_DIR = join(TEMP_ROOT_DIR, "automation-downloads");
 const AI_REVIEWS_DIR = join(TEMP_ROOT_DIR, "extractor-ai-reviews");
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function getTemporaryUploadMimeType(file: File) {
+  const lowerName = file.name.toLowerCase();
+
+  if (lowerName.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+
+  if (lowerName.endsWith(".docx")) {
+    return DOCX_MIME_TYPE;
+  }
+
+  return file.type || "application/octet-stream";
+}
 
 const batches = new Map<string, TempBatch>();
 const downloads = new Map<string, TempDownload>();
@@ -329,12 +344,7 @@ export async function createTemporaryAutomationBatch(
     const fileId = randomUUID();
     const path = join(dir, `${fileId}.bin`);
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const lowerName = file.name.toLowerCase();
-    const mimeType =
-      file.type ||
-      (lowerName.endsWith(".pdf")
-        ? "application/pdf"
-        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    const mimeType = getTemporaryUploadMimeType(file);
     await writeFile(path, bytes);
     storedFiles.push({
       id: fileId,

@@ -4,13 +4,12 @@ import {
   DEFAULT_CHECKLIST_ITEMS,
   DEFAULT_CHECKLIST_NAME,
   DEFAULT_MINISTRY_PRESETS,
-  DEFAULT_SERVICE_TEMPLATE_PRESETS,
   DEFAULT_SERVANT_GROUP_PRESETS,
 } from "./settings-presets";
 
 type SettingsClient = Pick<
   PrismaClient,
-  "workspace" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset"
+  "workspace" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset" | "programBlockType" | "programBlockTypeVersion" | "serviceTemplateBlock"
 > | Prisma.TransactionClient;
 
 async function seedDefaults<T extends { workspaceId: string }>(
@@ -78,7 +77,6 @@ export async function seedServiceTemplatePresets(client: SettingsClient, workspa
   });
 
   if (!workspace.serviceTemplatesInitialized) {
-    await seedDefaults(client.serviceTemplatePreset, workspaceId, DEFAULT_SERVICE_TEMPLATE_PRESETS);
     await client.workspace.update({
       where: { id: workspaceId },
       data: { serviceTemplatesInitialized: true },
@@ -87,20 +85,26 @@ export async function seedServiceTemplatePresets(client: SettingsClient, workspa
 
   const presets = await client.serviceTemplatePreset.findMany({ where: { workspaceId } });
   await Promise.all(
-    presets.map((preset) => {
+    presets.map(async (preset) => {
+      if (await client.serviceTemplateBlock.count({ where: { templateId: preset.id } })) return;
       if (Array.isArray(preset.blocks) && preset.blocks.length > 0) {
-        return Promise.resolve();
+        const blocks = preset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>;
+        const types = await client.programBlockType.findMany({
+          where: { workspaceId },
+          include: { versions: { where: { status: "PUBLISHED" }, orderBy: { version: "desc" }, take: 1 } },
+        });
+        const typeByKey = new Map(types.map((type) => [type.key, type]));
+        const data = blocks.flatMap((block, order) => {
+          const key = block.blockType === "CUSTOM" ? "PROGRAM_ITEM" : (block.blockType ?? "PROGRAM_ITEM");
+          const type = typeByKey.get(key);
+          const version = type?.versions[0];
+          return type && version ? [{ templateId: preset.id, typeId: type.id, typeVersionId: version.id, label: block.label, order }] : [];
+        });
+        if (data.length > 0) await client.serviceTemplateBlock.createMany({ data });
+        return;
       }
 
-      const defaultPreset = DEFAULT_SERVICE_TEMPLATE_PRESETS.find((item) => item.code === preset.code);
-      if (!defaultPreset) {
-        return Promise.resolve();
-      }
-
-      return client.serviceTemplatePreset.update({
-        where: { id: preset.id, workspaceId },
-        data: { blocks: defaultPreset.blocks },
-      });
+      return Promise.resolve();
     }),
   );
 }

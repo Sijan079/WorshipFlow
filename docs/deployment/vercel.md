@@ -4,8 +4,7 @@
 
 - Create a production PostgreSQL database.
 - Configure all required Vercel environment variables.
-- Set `APP_ACCESS_PASSWORD` and `APP_ACCESS_SESSION_SECRET` for both Preview
-  and Production.
+- Set the Supabase Auth variables for both Preview and Production.
 - Confirm `npm run build` passes locally.
 - Confirm production migrations are ready with `prisma migrate deploy` before
   promoting a database-backed deploy. Vercel runs migrations only when
@@ -76,11 +75,11 @@ Supabase setup:
   `prisma migrate deploy` before building so the deployed API and production
   database schema stay aligned.
 
-Recommended launch gate:
+Supabase Auth variables:
 
-- `APP_ACCESS_USER`
-- `APP_ACCESS_PASSWORD`
-- `APP_ACCESS_SESSION_SECRET`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `APP_URL`
 
 Optional AI extractor variables:
 
@@ -98,11 +97,13 @@ real secrets.
 
 ## Launch Security
 
-When `APP_ACCESS_PASSWORD` is set, the app requires the `/login` page before
-rendering private workspace pages or API routes. Successful login sets a signed,
-HTTP-only session cookie. `APP_ACCESS_SESSION_SECRET` should be a long random
-secret used only for signing those cookies; if it is omitted, the app falls back
-to `APP_ACCESS_PASSWORD` for signing.
+Google OAuth is configured in Supabase Dashboard → Authentication → Providers →
+Google. Keep the downloaded `client_secret*.json` file local and ignored. Do not
+put the Google client secret in Vercel environment variables or any
+`NEXT_PUBLIC_*` variable; rotate it in Google Cloud Console if it was exposed.
+
+Supabase Auth owns the session cookie and the app enforces workspace membership
+inside its server routes.
 
 Phone Transfer uses the same login gate; any trusted device can upload to and
 view the shared inbox after signing in.

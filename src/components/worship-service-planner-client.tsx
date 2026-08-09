@@ -11,7 +11,7 @@ import {
   FileMusic,
   Smartphone,
 } from "lucide-react";
-import { apiFetch, type ChecklistPresetRecord } from "@/lib/api-client";
+import { apiFetch, type ChecklistPresetRecord, type ServiceRecord } from "@/lib/api-client";
 
 const DASHBOARD_QUICK_ACTIONS = [
   {
@@ -22,7 +22,7 @@ const DASHBOARD_QUICK_ACTIONS = [
   },
   {
     title: "Song Formatter",
-    href: "/songs/upload",
+    href: "/song-formatter/upload",
     icon: FileMusic,
     external: false,
   },
@@ -42,6 +42,12 @@ const DASHBOARD_QUICK_ACTIONS = [
 
 export default function WorshipServicePlannerClient() {
   const [checklistOpen, setChecklistOpen] = useState(true);
+  const [today] = useState(() => Date.now());
+  const servicesQuery = useQuery({
+    queryKey: ["services"],
+    queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
+    staleTime: 30_000,
+  });
   const checklistQuery = useQuery({
     queryKey: ["settings", "checklists"],
     queryFn: () => apiFetch<ChecklistPresetRecord[]>("/api/settings/checklists"),
@@ -50,30 +56,43 @@ export default function WorshipServicePlannerClient() {
   const checklistItems = (activeChecklist?.items ?? [])
     .filter((item) => item.active)
     .sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
+  const nextService = [...(servicesQuery.data ?? [])]
+    .sort((left, right) => new Date(left.serviceDate).getTime() - new Date(right.serviceDate).getTime())
+    .find((service) => new Date(service.serviceDate).getTime() >= today) ?? servicesQuery.data?.[0];
 
   return (
-    <div className="min-h-full space-y-6 py-1 text-[var(--color-brand-ink)] lg:px-2">
-      <section className="ui-stage-enter">
+    <div className="dashboard-page min-h-full space-y-6 py-1 text-[var(--text-primary)] lg:px-2">
+      <section className="dashboard-header ui-stage-enter border-b border-[var(--border-default)] pb-6">
         <div className="max-w-3xl">
-          <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
+          <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
             Production Dashboard
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-base">
             Keep the booth team oriented before service starts, then jump into the core preparation tools.
           </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl space-y-5">
-        <div>
+      <section className="dashboard-current-service border-y border-[var(--border-default)] py-4" aria-labelledby="next-service-heading">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="technical-label text-[var(--text-muted)]">NEXT SERVICE</p>
+            {servicesQuery.isLoading ? <p className="mt-2 text-sm text-[var(--text-secondary)]">Loading service context...</p> : nextService ? <><h2 id="next-service-heading" className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date(nextService.serviceDate))}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{nextService.ministryName || nextService.assignedMinistry || "Worship service"} · {nextService.status.toLowerCase()}</p></> : <p id="next-service-heading" className="mt-2 text-sm text-[var(--text-secondary)]">No service has been prepared yet.</p>}
+          </div>
+          <Link href="/services" className="pressable inline-flex min-h-10 items-center justify-center border border-[var(--border-default)] px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]">Open services</Link>
+        </div>
+      </section>
+
+      <section className="dashboard-workspace mx-auto max-w-7xl space-y-5">
+        <div className="dashboard-actions">
           <div className="mb-3">
             <p className="technical-label">QUICK ACTIONS</p>
-            <h2 className="mt-1 text-2xl font-semibold text-[var(--color-brand-ink)]">
+            <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
               Core workflows
             </h2>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="dashboard-action-grid grid divide-y divide-[var(--border-default)] border-y border-[var(--border-default)] sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
             {DASHBOARD_QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               const content = (
@@ -82,11 +101,11 @@ export default function WorshipServicePlannerClient() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-panel-strong)] text-[var(--text-accent)]">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span className="truncate text-base font-semibold text-[var(--color-brand-ink)]">
+                    <span className="truncate text-base font-semibold text-[var(--text-primary)]">
                       {action.title}
                     </span>
                   </span>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--color-text-muted)]" />
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
                 </span>
               );
 
@@ -96,7 +115,7 @@ export default function WorshipServicePlannerClient() {
                   href={action.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="pressable-subtle block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 transition hover:bg-[var(--surface-panel-strong)]"
+                    className="pressable-subtle block p-4 transition hover:bg-[var(--surface-panel-alt)]"
                 >
                   {content}
                 </a>
@@ -104,7 +123,7 @@ export default function WorshipServicePlannerClient() {
                 <Link
                   key={action.title}
                   href={action.href}
-                  className="pressable-subtle block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 transition hover:bg-[var(--surface-panel-strong)]"
+                  className="pressable-subtle block p-4 transition hover:bg-[var(--surface-panel-alt)]"
                 >
                   {content}
                 </Link>
@@ -113,7 +132,7 @@ export default function WorshipServicePlannerClient() {
           </div>
         </div>
 
-        <div className="production-panel ui-stage-enter p-5">
+        <div className="dashboard-checklist ui-stage-enter border-y border-[var(--border-default)] py-5">
           <button
             type="button"
             onClick={() => setChecklistOpen((current) => !current)}
@@ -123,11 +142,11 @@ export default function WorshipServicePlannerClient() {
           >
             <span>
               <span className="technical-label">PRE-SERVICE CHECKLIST</span>
-              <span className="mt-1 block text-2xl font-semibold text-[var(--color-brand-ink)]">
+              <span className="mt-1 block text-2xl font-semibold text-[var(--text-primary)]">
                 {activeChecklist?.name ?? "Pre-service checklist"}
               </span>
               {checklistOpen ? (
-                <span className="mt-2 block max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
+                <span className="mt-2 block max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
                   A read-only booth reference for the recurring prep work before service starts.
                 </span>
               ) : null}
@@ -158,7 +177,7 @@ export default function WorshipServicePlannerClient() {
                       <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-panel-strong)] font-[var(--font-mono)] text-xs font-semibold text-[var(--text-accent)]">
                         {index + 1}
                       </span>
-                      <span className="text-sm leading-6 text-[var(--color-brand-ink)]">{item.label}</span>
+                      <span className="text-sm leading-6 text-[var(--text-primary)]">{item.label}</span>
                     </li>
                   ))}
                 </ol>

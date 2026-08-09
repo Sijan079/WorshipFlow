@@ -9,6 +9,7 @@ const ServerEnvSchema = z.object({
   APP_ACCESS_PASSWORD: optionalString,
   APP_ACCESS_SESSION_SECRET: optionalString,
   NEXT_PUBLIC_API_URL: optionalUrl,
+  APP_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optionalString,
   SUPABASE_URL: optionalUrl,
@@ -25,6 +26,7 @@ const ServerEnvSchema = z.object({
   MEDIA_GENERATION_VIDEO_HOURLY_LIMIT: z.coerce.number().int().positive().optional(),
   MEDIA_GENERATION_VIDEO_DAILY_LIMIT: z.coerce.number().int().positive().optional(),
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+  WORKSPACE_INTEGRATION_ENCRYPTION_KEY: optionalString,
 });
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;
@@ -37,8 +39,8 @@ export function getServerEnv(): ServerEnv {
     throw new Error(`Invalid environment configuration: ${issues}`);
   }
 
-  if (parsed.data.VERCEL_ENV === "production" && !parsed.data.APP_ACCESS_PASSWORD) {
-    throw new Error("APP_ACCESS_PASSWORD must be set for production deployments.");
+  if (parsed.data.VERCEL_ENV === "production" && (!parsed.data.NEXT_PUBLIC_SUPABASE_URL || !parsed.data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)) {
+    throw new Error("Supabase Auth configuration must be set for production deployments.");
   }
 
   return parsed.data;
@@ -50,6 +52,7 @@ export function getEnvironmentReport() {
   return {
     database: Boolean(env.DATABASE_URL),
     accessGate: Boolean(env.APP_ACCESS_PASSWORD),
+    supabaseAuth: Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
     aiExtractor: Boolean(env.OPENAI_API_KEY),
     backgroundGeneration: Boolean(env.OPENAI_API_KEY),
     mediaGeneration: Boolean(env.OPENAI_API_KEY || env.GEMINI_API_KEY),

@@ -4,6 +4,7 @@ import {
   calculateFillTransform,
   calculateFitTransform,
   calculateStretchTransform,
+  canReuseSourceImage,
   detectContentBounds,
   generateOutputFilename,
   getTargetDimensions,
@@ -73,23 +74,25 @@ export function runResizeImageTests() {
     targetHeight: 2400,
   }).destinationHeight, 2400);
 
-  const redmi = DEVICE_PRESETS.find((preset) => preset.id === "xiaomi-redmi-note-10-5g")!;
-  assert.deepEqual(getTargetDimensions(redmi, 0, 0, "portrait"), { width: 1080, height: 2400 });
-  assert.deepEqual(getTargetDimensions(redmi, 0, 0, "landscape"), { width: 2400, height: 1080 });
-
-  for (const id of ["ipad-10-2", "ipad-pro-13"]) {
-    const preset = DEVICE_PRESETS.find((item) => item.id === id)!;
-    assert.deepEqual(getTargetDimensions(preset, 0, 0, "portrait"), {
-      width: preset.portraitWidth,
-      height: preset.portraitHeight,
-    });
-  }
+  const freeShow = DEVICE_PRESETS.find((preset) => preset.id === "freeshow-1920x1080")!;
+  assert.deepEqual(getTargetDimensions(freeShow, 0, 0, "landscape"), {
+    width: 1920,
+    height: 1080,
+  });
 
   assert.equal(validateTargetDimensions(1080, 2400), null);
   assert.match(validateTargetDimensions(10_000, 10_000)!, /40,000,000/);
   assert.match(validateTargetDimensions(10.5, 100)!, /whole numbers/);
   assert.equal(
-    generateOutputFilename("Sunday Screen (Final).PNG", redmi.id, "portrait", "jpeg"),
-    "sunday-screen-final-xiaomi-redmi-note-10-5g-portrait.jpg"
+    canReuseSourceImage({ width: 1080, height: 2400 }, { width: 1080, height: 2400 }, true, false),
+    true
+  );
+  assert.equal(
+    canReuseSourceImage({ width: 1080, height: 2400 }, { width: 1080, height: 2400 }, true, true),
+    false
+  );
+  assert.equal(
+    generateOutputFilename("Sunday Screen (Final).PNG", freeShow.id, "landscape", "jpeg"),
+    "sunday-screen-final-freeshow-1920x1080-landscape.jpg"
   );
 }

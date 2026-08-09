@@ -39,7 +39,18 @@ type Serialized<T> = T extends Date
       : T;
 
 function buildUrl(path: string) {
+  path = workspaceApiPath(path);
+
   return `${BASE_URL}${path}`;
+}
+
+export function workspaceApiPath(path: string) {
+  if (typeof window === "undefined" || !path.startsWith("/api/") || path.startsWith("/api/workspaces/") || path.startsWith("/api/auth/")) {
+    return path;
+  }
+
+  const match = window.location.pathname.match(/^\/w\/([^/]+)/);
+  return match ? `/api/workspaces/${encodeURIComponent(match[1])}${path.slice("/api".length)}` : path;
 }
 
 function buildHeaders(options?: RequestInit) {
@@ -231,6 +242,56 @@ export type CreateServicePayload = {
 
 export type UpdateServicePayload = Partial<CreateServicePayload>;
 
+export type ServiceBlockMutationPayload = {
+  id?: string;
+  label: string;
+  code?: string;
+  blockType: string;
+  order?: number;
+};
+
+export type UpdateServiceBlocksPayload = { blocks: ServiceBlockMutationPayload[] };
+
+export type ProgramBlockFieldDefinition = {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  order: number;
+  options?: string[];
+  helpText?: string;
+};
+
+export type ProgramBlockTypeVersionRecord = {
+  id: string;
+  typeId: string;
+  version: number;
+  definition: { fields: ProgramBlockFieldDefinition[] };
+  status: "DRAFT" | "PUBLISHED";
+  publishedAt: string | null;
+  createdAt: string;
+};
+
+export type ProgramBlockTypeRecord = {
+  id: string;
+  workspaceId: string;
+  key: string;
+  label: string;
+  description: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+  versions: ProgramBlockTypeVersionRecord[];
+};
+
+export type WorkspaceSettingsRecord = { id: string; slug: string; name: string; logoDataUrl: string | null };
+export type WorkspaceIntegrationRecord = {
+  provider: "OPENAI" | "GEMINI";
+  enabled: boolean;
+  apiKeyConfigured: boolean;
+  extractorModel: string | null;
+  backgroundImageModel: string | null;
+  backgroundVideoModel: string | null;
+};
+
 export type EditableSettingsPresetRecord = {
   id: string;
   workspaceId: string;
@@ -271,6 +332,8 @@ export type ServiceTemplatePresetRecord = EditableSettingsPresetRecord & {
     code: string;
     blockType: string;
     order: number;
+    typeVersionId?: string | null;
+    fieldDefaults?: Record<string, unknown>;
   }>;
 };
 
@@ -303,6 +366,8 @@ export type CreateServiceTemplatePresetPayload = CreateEditableSettingsPresetPay
     code?: string;
     blockType?: string;
     order?: number;
+    typeVersionId?: string;
+    fieldDefaults?: Record<string, unknown>;
   }>;
 };
 

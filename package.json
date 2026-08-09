@@ -10,12 +10,16 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types src/security-tests.ts",
-    "seed:song-tags": "tsx prisma/seed-song-tags.ts"
+    "test:migrations": "node scripts/verify-current-migration-order.mjs",
+    "seed:song-tags": "tsx prisma/seed-song-tags.ts",
+    "provision:workspace": "tsx scripts/provision-workspace.ts",
+    "migrate:default-workspace": "tsx scripts/migrate-default-workspace.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-pg": "6.19.0",
     "@prisma/client": "6.19.0",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-query": "^5.100.14",
     "class-variance-authority": "^0.7.1",
@@ -52,8 +56,5 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -15,6 +15,7 @@ import {
   type BackgroundGenerationRequestPayload,
   type GeneratedOutputRecord,
 } from "@/lib/api-client";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProductionSelect } from "@/components/ui/production-select";
 
 type BackgroundGeneratorToolProps = {
@@ -65,7 +66,7 @@ const textSafeAreas = [
 const stageOrder: BackgroundStage[] = ["data-entry", "estimation", "output"];
 
 const stageLabels: Record<BackgroundStage, string> = {
-  "data-entry": "Data Entry",
+  "data-entry": "Data entry",
   estimation: "Estimation",
   output: "Output",
 };
@@ -122,7 +123,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
 
   const resetProcess = () => {
     if (generateMutation.isPending) {
-      showToast("Wait for generation to finish before returning to Data Entry.");
+      showToast("Wait for generation to finish before returning to data entry.");
       return;
     }
 
@@ -185,10 +186,10 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
 
   return (
     <div className="space-y-5">
-      <section className="ui-surface-elevated p-5">
+      <section className="ui-surface-panel p-5" aria-labelledby="background-workflow-heading">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Background Generator</h2>
+            <h2 id="background-workflow-heading" className="text-lg font-semibold text-[var(--text-primary)]">Generation workflow</h2>
             <p className="text-sm text-[var(--text-secondary)]">Create a workspace image asset in three controlled stages.</p>
           </div>
           <StageProgress activeStage={activeStage} />
@@ -213,7 +214,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
                 isPending={generateMutation.isPending}
                 onBack={() => {
                   if (generateMutation.isPending) {
-                    showToast("Wait for generation to finish before returning to Data Entry.");
+                    showToast("Wait for generation to finish before returning to data entry.");
                     return;
                   }
                   setActiveStage("data-entry");
@@ -325,16 +326,16 @@ function DataEntryStage({
       <div className="ui-surface-panel-alt flex flex-col justify-between p-4">
         <div>
           <p className="text-sm font-medium text-[var(--text-primary)]">Required before estimate</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Mood and Style must be selected before the estimate can be validated.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Mood and style must be selected before the estimate can be validated.</p>
         </div>
         <button
           type="button"
           onClick={onEstimate}
           disabled={isPending || !request.mood || !request.visualStyle}
-          className="ui-btn-primary mt-4 flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="ui-btn-primary mt-4 flex w-full items-center justify-center gap-2 px-3 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
-          Validate Estimate
+          Validate estimate
         </button>
       </div>
     </div>
@@ -356,7 +357,7 @@ function EstimationStage({
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">Generation Estimate</h3>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">Generation estimate</h3>
           <p className="text-sm text-[var(--text-secondary)]">Review provider, resolution, and estimated cost before generation.</p>
         </div>
         <span className="rounded-[var(--radius-control)] bg-[var(--state-ready-soft)] px-2 py-1 text-xs font-semibold text-[var(--state-ready)]">16:9</span>
@@ -376,7 +377,7 @@ function EstimationStage({
         </div>
       ) : (
         <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] p-6 text-sm text-[var(--text-secondary)]">
-          Return to Data Entry and validate the estimate before generating.
+          Return to data entry and validate the estimate before generating.
         </div>
       )}
 
@@ -384,19 +385,19 @@ function EstimationStage({
         <button
           type="button"
           onClick={onBack}
-          className="ui-btn-secondary flex items-center justify-center gap-2"
+          className="ui-btn-secondary flex items-center justify-center gap-2 px-3"
         >
           <ArrowLeft size={16} />
-          Back to Data Entry
+          Back to data entry
         </button>
         <button
           type="button"
           onClick={onGenerate}
           disabled={!estimate || isPending}
-          className="ui-btn-primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ui-btn-primary flex items-center justify-center gap-2 px-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-          Generate Background
+          Generate background
         </button>
       </div>
     </div>
@@ -432,10 +433,10 @@ function OutputStage({
         <button
           type="button"
           onClick={onReset}
-          className="ui-btn-secondary flex items-center gap-2"
+          className="ui-btn-secondary flex items-center gap-2 px-3"
         >
           <RotateCcw size={16} />
-          Restart Process
+          Restart process
         </button>
       </div>
     );
@@ -465,7 +466,7 @@ function OutputStage({
             type="button"
             onClick={() => onDownload(output.id)}
             disabled={isDownloading}
-            className="ui-btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-80"
+            className="ui-btn-primary flex w-full items-center justify-center gap-2 px-3 disabled:cursor-wait disabled:opacity-80"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
             {isDownloading ? "Preparing download..." : "Download"}
@@ -473,10 +474,10 @@ function OutputStage({
           <button
             type="button"
             onClick={onReset}
-            className="ui-btn-secondary flex w-full items-center justify-center gap-2"
+            className="ui-btn-secondary flex w-full items-center justify-center gap-2 px-3"
           >
             <RotateCcw size={16} />
-            Restart Process
+            Restart process
           </button>
         </div>
       </div>
@@ -503,7 +504,7 @@ function RecentBackgroundShelf({
     <section className="ui-surface-panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">10 Most Recent Generated Images</h3>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent generated images</h2>
           <p className="text-sm text-[var(--text-secondary)]">Workspace assets expire after 24 hours.</p>
         </div>
         <button
@@ -589,12 +590,12 @@ function BackgroundPreviewModal({
       : "text-black [text-shadow:0_1px_10px_rgba(255,255,255,0.55)]";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay-strong)] p-4">
-      <div className="ui-modal flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-3">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Generated Background Preview</h3>
-            <p className="ui-meta-text">{new Date(output.createdAt).toLocaleString()}</p>
+            <DialogTitle className="text-sm font-semibold text-[var(--text-primary)]">Generated background preview</DialogTitle>
+            <DialogDescription className="ui-meta-text">{new Date(output.createdAt).toLocaleString()}</DialogDescription>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1">
@@ -603,7 +604,7 @@ function BackgroundPreviewModal({
                   key={tone}
                   type="button"
                   onClick={() => setOverlayTextTone(tone)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${
+                  className={`min-h-11 rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${
                     overlayTextTone === tone
                       ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)]"
@@ -613,14 +614,11 @@ function BackgroundPreviewModal({
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="ui-btn-secondary p-2"
-              aria-label="Close preview"
-            >
-              <X size={16} />
-            </button>
+            <DialogClose asChild>
+              <button type="button" className="ui-btn-secondary p-2" aria-label="Close preview">
+                <X size={16} />
+              </button>
+            </DialogClose>
           </div>
         </div>
         <div className="min-h-0 overflow-auto bg-[var(--surface-panel-alt)] p-4">
@@ -648,14 +646,14 @@ function BackgroundPreviewModal({
             type="button"
             onClick={() => onDownload(output.id)}
             disabled={isDownloading}
-            className="ui-btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-80"
+            className="ui-btn-primary flex w-full items-center justify-center gap-2 px-4 disabled:cursor-wait disabled:opacity-80"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
             {isDownloading ? "Preparing download..." : "Download"}
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

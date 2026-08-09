@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cleanupExpiredPAPInboxUploads } from "@/features/pap/server/pap-inbox";
 import { deletePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,11 @@ type RouteContext = {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    await cleanupExpiredPAPInboxUploads(prisma);
     const { screenshotId } = await context.params;
-    const screenshot = await prisma.papInboxScreenshot.findUnique({
-      where: { id: screenshotId },
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    await cleanupExpiredPAPInboxUploads(prisma, new Date(), workspaceId);
+    const screenshot = await prisma.papInboxScreenshot.findFirst({
+      where: { id: screenshotId, workspaceId },
       select: { id: true, filePath: true },
     });
 

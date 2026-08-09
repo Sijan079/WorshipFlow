@@ -1,21 +1,25 @@
 # Settings Page Restructure Spec
 
-**Status:** Implemented; pending review
+**Status:** Superseded by workspace Settings architecture
 **Release:** 1.1
 
 ## Purpose
 
-Replace the current long Settings page with four focused tabs while preserving
-all existing settings behavior.
+Provide a workspace-scoped Settings surface for workspace administration and
+worship-service preparation configuration.
 
 ## Information Architecture
 
 | Tab | Contents |
 | --- | --- |
-| General | Workspace operational status, ministries, servant groups, AI usage availability, current access mode, and AI integration status |
-| Templates | Worship service templates and their stored block order |
+| Workspace | Workspace identity |
+| Membership | Workspace members and invitations |
+| General | Operational status, ministries, and servant groups |
+| Templates | Worship service templates and normalized ordered blocks |
+| Block types | Workspace-owned versioned program block definitions |
 | Tags | Song tag presets |
 | Checklist | Pre-service checklist presets |
+| Integrations | Workspace AI overrides with redacted secrets |
 
 General is the default tab. Tab state does not require a new route or persisted
 preference in 1.1.
@@ -27,6 +31,8 @@ preference in 1.1.
   supported by each settings section.
 - Preserve default-record deletion protection.
 - Keep service-template blocks in their stored order.
+- Do not seed system block types or a default service-template lineup for new
+  workspaces.
 - Keep preset codes internal and generate them from labels for new records.
 - Show service templates as collapsed rows with the template name beside the
   disclosure icon; reveal editing controls only when expanded.

@@ -1,6 +1,6 @@
-import SettingsPageClient from "@/components/settings-page-client";
-import { getEnvironmentReport } from "@/lib/server-env";
+import { redirect } from "next/navigation";
+import { getDefaultWorkspaceSlug } from "@/lib/security-context";
 
 export default function SettingsPage() {
-  return <SettingsPageClient environment={getEnvironmentReport()} />;
+  redirect(`/w/${encodeURIComponent(getDefaultWorkspaceSlug())}/settings`);
 }

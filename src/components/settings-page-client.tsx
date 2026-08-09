@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { ChevronDown, GripVertical, Loader2, Plus, Redo2, RefreshCcw, Save, Trash2, Undo2, X } from "lucide-react";
+import { ChevronDown, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, X, UsersRound } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   apiFetch,
   type ActivateChecklistPresetPayload,
@@ -15,6 +16,7 @@ import {
   type CreateSongTagPresetPayload,
   type EditableSettingsPresetRecord,
   type ServiceTemplatePresetRecord,
+  type ProgramBlockTypeRecord,
   type SongTagPresetRecord,
   type UpdateChecklistPresetPayload,
   type UpdateEditableSettingsPresetPayload,
@@ -23,8 +25,14 @@ import {
 } from "@/lib/api-client";
 import { moveTemplateBlock, normalizePresetCode } from "@/lib/settings-presets";
 import type { EnvironmentReport } from "@/lib/server-env";
+import { IntegrationsSection, MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
 
 type EditableEndpoint = "ministries" | "servant-groups";
+
+const EDITABLE_SECTION_DESCRIPTIONS: Record<EditableEndpoint, string> = {
+  ministries: "Ministries organize the worship contexts available when preparing services.",
+  "servant-groups": "Servant groups organize the teams that serve during worship services.",
+};
 
 type EditableForm = {
   label: string;
@@ -45,7 +53,24 @@ type TemplateBlockForm = {
   label: string;
   code?: string;
   blockType?: string;
+  typeVersionId?: string;
 };
+
+const TEMPLATE_BLOCK_TYPES = [
+  ["CUSTOM", "Custom program item"],
+  ["CALL_TO_WORSHIP", "Call to Worship"],
+  ["PRAISE_AND_WORSHIP", "Song / worship set"],
+  ["AWIT_NG_HIMNO", "Hymn"],
+  ["TIPAN_PAHAYAG", "Covenant / declaration"],
+  ["AWIT_NG_PAKIKINIG", "Listening song"],
+  ["SCRIPTURE_READING", "Scripture reading"],
+  ["SERMON", "Sermon / message"],
+  ["AWIT_NG_PAGTUGON", "Response song"],
+  ["OFFERING", "Offering"],
+  ["FLOWERS_FOR_THE_LORD", "Announcements"],
+  ["MC", "People / details"],
+  ["DETAILS", "Details"],
+] as const;
 
 type TemplateForm = {
   label: string;
@@ -68,12 +93,43 @@ type SongTagForm = {
 
 const SETTINGS_TABS = [
   { id: "general", label: "General" },
+  { id: "membership", label: "Membership" },
   { id: "templates", label: "Templates" },
+  { id: "block-types", label: "Block types" },
   { id: "tags", label: "Tags" },
   { id: "checklist", label: "Checklist" },
+  { id: "integrations", label: "Integrations" },
+  { id: "usage-billing", label: "Usage & billing" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
+
+const SETTINGS_NAV_GROUPS: Array<{ label: string; tabs: SettingsTab[] }> = [
+  { label: "Workspace", tabs: ["general", "membership"] },
+  { label: "Service setup", tabs: ["templates", "block-types", "tags", "checklist"] },
+  { label: "Account", tabs: ["integrations", "usage-billing"] },
+];
+
+type ProgramFieldForm = {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options: string;
+  helpText: string;
+};
+
+const PROGRAM_FIELD_OPTIONS = [
+  ["short_text", "Short text"],
+  ["long_text", "Long text"],
+  ["person", "Person"],
+  ["song", "Song"],
+  ["scripture_reference", "Scripture reference"],
+  ["media", "Media / file"],
+  ["duration", "Duration"],
+  ["checkbox", "Checkbox"],
+  ["single_select", "Single select"],
+] as const;
 
 const EMPTY_EDITABLE_FORM: EditableForm = { label: "", code: "", active: true };
 const EMPTY_TEMPLATE_FORM: TemplateForm = {
@@ -88,6 +144,8 @@ const EMPTY_TEMPLATE_FORM: TemplateForm = {
   ],
 };
 const EMPTY_SONG_TAG_FORM: SongTagForm = { label: "", token: "", color: "#CFE8F6" };
+const SETTINGS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const SETTINGS_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 
 function StatusPill({
   active,
@@ -126,7 +184,7 @@ function SettingsAddButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${expanded ? "border-[var(--action-primary-bg-hover)] bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)]" : "border-[var(--border-default)] bg-[var(--surface-panel-strong)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)]"}`}
+      className={`pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${expanded ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)]" : "bg-transparent text-[var(--text-accent)] hover:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,transparent)] hover:text-[var(--text-primary)]"}`}
       aria-controls={controls}
       aria-expanded={expanded}
     >
@@ -151,12 +209,14 @@ function SettingsEmptyState({ children }: { children: ReactNode }) {
 
 function DeleteConfirmDialog({
   description,
+  error,
   label,
   onCancel,
   onConfirm,
   pending,
 }: {
   description: string;
+  error?: string;
   label: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -167,6 +227,7 @@ function DeleteConfirmDialog({
       <DialogContent className="ui-modal max-w-md p-5">
         <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Delete {label}?</DialogTitle>
         <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</DialogDescription>
+        {error ? <p role="alert" className="mt-3 text-sm text-[var(--text-danger)]">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onCancel} disabled={pending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)] disabled:opacity-50">Cancel</button>
           <button type="button" onClick={onConfirm} disabled={pending} className="ui-btn-danger pressable h-10 px-3 text-sm font-semibold disabled:opacity-50">{pending ? "Deleting..." : "Delete"}</button>
@@ -179,24 +240,33 @@ function DeleteConfirmDialog({
 function SectionShell({
   action,
   children,
+  description,
+  flat = false,
   pending,
+  showTitle = true,
   title,
 }: {
   action?: ReactNode;
   children: ReactNode;
+  description?: string;
+  flat?: boolean;
   pending?: boolean;
+  showTitle?: boolean;
   title: string;
 }) {
   return (
-    <section className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] px-4 py-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin text-[var(--text-secondary)]" /> : null}
-        </div>
+    <section className={flat ? "space-y-3" : "overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)]"}>
+      <div className={`flex flex-wrap items-center gap-3 ${showTitle || description ? "justify-between" : "justify-end"} ${flat ? "pb-1" : "border-b border-[var(--border-default)] px-4 py-4 sm:px-6"}`}>
+        {showTitle || description || pending ? <div>
+          <div className="flex items-center gap-3">
+            {showTitle ? <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+            {pending ? <Loader2 className="h-4 w-4 animate-spin text-[var(--text-secondary)]" /> : null}
+          </div>
+          {description ? <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p> : null}
+        </div> : null}
         {action}
       </div>
-      <div className="overflow-x-auto">{children}</div>
+      {flat ? children : <div className="overflow-x-auto">{children}</div>}
     </section>
   );
 }
@@ -216,15 +286,22 @@ function CollectionState({
 }) {
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-10 text-center text-sm text-[var(--text-secondary)]">
-        Loading {label.toLowerCase()}...
+      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)]" role="status" aria-label={`Loading ${label.toLowerCase()}`}>
+        <div className="border-b border-[var(--border-default)] px-6 py-5">
+          <div className="h-4 w-40 animate-pulse rounded bg-[var(--surface-panel-elevated)]" />
+          <div className="mt-3 h-3 w-72 max-w-full animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+        </div>
+        <div className="divide-y divide-[var(--border-default)]">
+          {[0, 1, 2].map((row) => <div key={row} className="grid grid-cols-[1fr_5rem] gap-6 px-6 py-5"><div className="h-4 animate-pulse rounded bg-[var(--surface-panel-strong)]" /><div className="h-4 animate-pulse rounded bg-[var(--surface-panel-elevated)]" /></div>)}
+        </div>
+        <span className="sr-only">Loading {label.toLowerCase()}...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--state-danger)] bg-[var(--state-danger-soft)] px-4 py-3 text-sm text-[var(--text-danger)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[var(--state-danger)] bg-[var(--state-danger-soft)] px-4 py-3 text-sm text-[var(--text-danger)]">
         <span><strong>{label}:</strong> {error instanceof Error ? error.message : "Failed to load settings"}</span>
         <button type="button" onClick={onRetry} className="ui-btn-secondary pressable px-3 py-1.5 text-xs font-semibold">
           Retry
@@ -238,10 +315,9 @@ function CollectionState({
 
 function GeneralStatus({ environment }: { environment: EnvironmentReport }) {
   return (
-    <section aria-labelledby="operational-status-heading" className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
+    <section aria-label="Usage and billing status" className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
       <div className="border-b border-[var(--border-default)] pb-3">
-        <h2 id="operational-status-heading" className="text-base font-semibold text-[var(--text-primary)]">Operational Status</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">Safe workspace and AI availability signals. Credentials are never displayed.</p>
+        <p className="text-sm text-[var(--text-secondary)]">Review provider availability. Billing is not connected for this workspace.</p>
       </div>
       <div className="grid gap-4 pt-4 md:grid-cols-3">
         <div>
@@ -283,6 +359,7 @@ function EditablePresetSection({
 }) {
   const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, EditableForm>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newRecord, setNewRecord] = useState<EditableForm>(EMPTY_EDITABLE_FORM);
   const [newRecordOpen, setNewRecordOpen] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<EditableSettingsPresetRecord | null>(null);
@@ -302,6 +379,7 @@ function EditablePresetSection({
     )),
     onSuccess: async () => {
       setDrafts({});
+      setEditingId(null);
       await queryClient.invalidateQueries({ queryKey: ["settings", endpoint] });
     },
   });
@@ -312,49 +390,48 @@ function EditablePresetSection({
       await queryClient.invalidateQueries({ queryKey: ["settings", endpoint] });
     },
   });
-  const changedEntries = records.flatMap((record) => {
-    const draft = drafts[record.id];
-    return draft && (draft.label !== record.label || draft.active !== record.active)
-      ? [[record.id, draft] as [string, UpdateEditableSettingsPresetPayload]]
-      : [];
-  });
-  const invalidDraft = changedEntries.some(([, draft]) => !draft.label?.trim());
-
   return (
     <>
     <SectionShell
       title={title}
+      description={EDITABLE_SECTION_DESCRIPTIONS[endpoint]}
+      flat
       pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={<div className="flex items-center gap-2">
-        {changedEntries.length > 0 ? <SectionSaveButton disabled={invalidDraft} pending={updateMutation.isPending} onClick={() => updateMutation.mutate(changedEntries)} /> : null}
         <SettingsAddButton controls={`${endpoint}-new-record`} expanded={newRecordOpen} label={endpoint === "ministries" ? "Add ministry" : "Add servant group"} onClick={() => { if (newRecordOpen) setNewRecord(EMPTY_EDITABLE_FORM); setNewRecordOpen((open) => !open); }} disabled={createMutation.isPending} />
       </div>}
     >
-      {newRecordOpen ? <div id={`${endpoint}-new-record`} className="grid gap-3 border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
-        <input value={newRecord.label} onChange={(event) => setNewRecord({ ...newRecord, label: event.target.value, code: newRecord.code || normalizePresetCode(event.target.value) })} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" placeholder="Label" autoFocus />
-        <label className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]"><input type="checkbox" checked={newRecord.active} onChange={(event) => setNewRecord({ ...newRecord, active: event.target.checked })} className="ui-checkbox h-4 w-4" />Active</label>
+      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
+      {newRecordOpen ? <div id={`${endpoint}-new-record`} className="grid gap-3 border-b border-[var(--border-default)] px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
+        <input value={newRecord.label} onChange={(event) => setNewRecord({ ...newRecord, label: event.target.value, code: newRecord.code || normalizePresetCode(event.target.value) })} className="rounded-md border border-[var(--border-default)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" placeholder="Label" autoFocus />
         <button type="button" onClick={() => createMutation.mutate(newRecord)} disabled={createMutation.isPending || !newRecord.label.trim() || !newRecord.code.trim()} className="ui-btn-primary pressable h-10 px-3 text-sm font-semibold disabled:opacity-40">{createMutation.isPending ? "Adding..." : "Add"}</button>
       </div> : null}
-      <div className="min-w-[32rem] space-y-3 p-4">
+      <div className="min-w-0 divide-y divide-[var(--border-default)]">
           {records.length === 0 ? <SettingsEmptyState>No saved records yet. Use the add action above.</SettingsEmptyState> : null}
-          {records.map((record, index) => {
+          {records.map((record) => {
             const draft = drafts[record.id] ?? record;
             return (
-              <div key={record.id} className="group grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_7rem_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
-                <span className="flex items-center justify-center border-r border-[var(--border-default)] bg-[var(--surface-panel-alt)] font-[var(--font-mono)] text-[10px] font-semibold text-[var(--text-muted)]" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                <input
-                  value={draft.label}
-                  onChange={(event) => setDrafts({ ...drafts, [record.id]: { ...draft, label: event.target.value } })}
-                  className="min-w-0 border-0 bg-transparent px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none"
-                  aria-label={`${record.label} label`}
-                />
-                <button type="button" onClick={() => setDrafts({ ...drafts, [record.id]: { ...draft, active: !draft.active } })} className="flex items-center justify-center border-l border-[var(--border-default)] px-2" aria-label={`${draft.active ? "Deactivate" : "Activate"} ${record.label}`}>
-                    <StatusPill active={draft.active} />
-                </button>
-                {record.isDefault ? <span className="border-l border-[var(--border-default)]" aria-hidden="true" /> : <button type="button" onClick={() => setDeleteCandidate(record)} className="pressable inline-flex min-h-11 w-full items-center justify-center border-l border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label={`Delete ${record.label}`} title={`Delete ${record.label}`}><Trash2 className="h-3.5 w-3.5" /><span className="sr-only">Delete {record.label}</span></button>}
+              <div key={record.id} className="group grid min-h-16 w-full grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-3 px-4 py-2 transition-colors hover:bg-[var(--surface-panel-alt)] focus-within:bg-[var(--surface-panel-alt)] sm:px-6">
+                {editingId === record.id ? <div className="flex min-w-0 items-center gap-2"><input autoFocus value={draft.label} onChange={(event) => setDrafts({ ...drafts, [record.id]: { ...draft, label: event.target.value } })} className="min-w-0 flex-1 border-0 border-b border-[var(--border-focus)] bg-transparent px-0 py-1 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none" aria-label={`${record.label} label`} /><button type="button" onClick={() => updateMutation.mutate([[record.id, draft]])} disabled={updateMutation.isPending || !draft.label.trim()} className="ui-btn-primary inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Save ${record.label}`}><Save className="h-3.5 w-3.5" />Save</button><button type="button" onClick={() => { setDrafts((current) => { const next = { ...current }; delete next[record.id]; return next; }); setEditingId(null); }} disabled={updateMutation.isPending} className="pressable inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]" aria-label={`Cancel editing ${record.label}`}><X className="h-3.5 w-3.5" />Cancel</button></div> : <div className="flex min-w-0 items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-muted)]"><UsersRound className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{draft.label}</span></div>}
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="pressable inline-flex min-h-11 w-11 items-center justify-center rounded-md bg-transparent text-[var(--text-muted)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]" aria-label={`Actions for ${record.label}`} title={`Actions for ${record.label}`}>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="left" sideOffset={8} className="workspace-content-light w-40 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1 text-[var(--text-primary)] shadow-[var(--elevation-raised)]">
+                    <DropdownMenuItem onSelect={() => setEditingId(record.id)} className="min-h-9 gap-2 px-2 text-[var(--text-secondary)] focus:bg-[var(--action-ghost-hover)] focus:text-[var(--text-primary)]">
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleteCandidate(record)} className="min-h-9 gap-2 px-2 !text-[var(--text-danger)] [&_svg]:!text-[var(--text-danger)] focus:bg-[var(--state-danger-soft)] focus:!text-[var(--text-danger)]">
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           })}
+      </div>
       </div>
     </SectionShell>
     {deleteCandidate ? (
@@ -440,6 +517,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
     <>
       <SectionShell
         title="Checklist Sets"
+        showTitle={false}
         pending={createMutation.isPending || updateMutation.isPending || activateMutation.isPending || deleteMutation.isPending}
         action={<div className="flex items-center gap-2">
           {changedEntries.length > 0 ? <SectionSaveButton disabled={invalidDraft} pending={updateMutation.isPending} onClick={() => updateMutation.mutate(changedEntries)} /> : null}
@@ -551,7 +629,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
   );
 }
 
-function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRecord[] }) {
+function ServiceTemplateSection({ records, programBlockTypes }: { records: ServiceTemplatePresetRecord[]; programBlockTypes: ProgramBlockTypeRecord[] }) {
   const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, TemplateForm>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -576,12 +654,18 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
       optionalBlocks: record.optionalBlocks,
       blocks: record.blocks.length > 0
         ? record.blocks.map((block, index) => ({
+            ...(() => {
+              const typeKey = block.blockType === "CUSTOM" ? "PROGRAM_ITEM" : block.blockType;
+              const type = programBlockTypes.find((candidate) => candidate.key === typeKey);
+              return { typeVersionId: block.typeVersionId ?? type?.versions.find((version) => version.status === "PUBLISHED")?.id };
+            })(),
             id: `${record.id}-${block.code || index}`,
             label: block.label,
             code: block.code,
             blockType: block.blockType,
+            typeVersionId: block.typeVersionId ?? undefined,
           }))
-        : [{ id: `${record.id}-fallback`, label: record.label }],
+        : [{ id: `${record.id}-fallback`, label: record.label, blockType: "CUSTOM" }],
     };
   }
 
@@ -591,6 +675,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
         label: block.label.trim(),
         code: block.code,
         blockType: block.blockType,
+        typeVersionId: block.typeVersionId,
         order,
       }))
       .filter((block) => block.label.length > 0);
@@ -609,6 +694,26 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
     return {
       ...form,
       blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, label } : block),
+    };
+  }
+
+  function updateBlockType(form: TemplateForm, index: number, blockType: string) {
+    return {
+      ...form,
+      blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, blockType } : block),
+    };
+  }
+
+  const typeOptions = programBlockTypes.flatMap((type) => {
+    const version = type.versions.find((item) => item.status === "PUBLISHED");
+    return version ? [{ value: version.id, label: type.label, blockType: type.key === "PROGRAM_ITEM" ? "CUSTOM" : type.key }] : [];
+  });
+
+  function updateBlockSelection(form: TemplateForm, index: number, versionId: string) {
+    const option = typeOptions.find((candidate) => candidate.value === versionId);
+    return {
+      ...form,
+      blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, typeVersionId: versionId, blockType: option?.blockType ?? "CUSTOM" } : block),
     };
   }
 
@@ -762,6 +867,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
     <>
     <SectionShell
       title="Service Templates"
+      showTitle={false}
       pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={(
         <div className="flex items-center gap-2">
@@ -785,7 +891,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
           <SettingsAddButton
             controls="new-template-details"
             expanded={newTemplateOpen}
-            label="Add template"
+            label="New template"
             onClick={() => {
               if (newTemplateOpen) {
                 setNewRecord(EMPTY_TEMPLATE_FORM);
@@ -799,6 +905,14 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
       )}
     >
       <p className="sr-only" aria-live="polite">{reorderAnnouncement}</p>
+      <div className="hidden grid-cols-[3rem_minmax(12rem,1.2fr)_minmax(14rem,1.5fr)_6rem_9rem_7rem] items-center gap-3 border-b border-[var(--border-default)] px-4 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] lg:grid sm:px-6">
+        <span />
+        <span>Name</span>
+        <span>Description</span>
+        <span>Blocks</span>
+        <span>Updated</span>
+        <span className="text-right">Actions</span>
+      </div>
       <div className="divide-y divide-[var(--border-default)]">
         {deleteError ? (
           <div role="alert" className="bg-[var(--state-danger-soft)] px-4 py-3 text-sm text-[var(--text-danger)]">
@@ -828,8 +942,9 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
 
           return (
             <article key={record.id}>
-              <div className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-panel-strong)]">
-                <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+              <div className="group/row flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-panel-strong)] lg:grid lg:grid-cols-[3rem_minmax(12rem,1.2fr)_minmax(14rem,1.5fr)_6rem_9rem_7rem] sm:px-6">
+                <label className="relative inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                  <LayoutTemplate className={`pointer-events-none absolute h-4 w-4 text-[var(--text-muted)] transition-opacity ${isSelected ? "opacity-0" : "group-hover/row:opacity-0 group-focus-within/row:opacity-0"}`} aria-hidden="true" />
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -839,35 +954,52 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                         ? [...current, record.id]
                         : current.filter((id) => id !== record.id));
                     }}
-                    className="ui-checkbox h-5 w-5"
+                    className={`ui-checkbox h-5 w-5 transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100"}`}
                     aria-label={`Select ${record.label}`}
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => setExpanded((current) => ({ ...current, [record.id]: !isOpen }))}
-                  className="pressable flex min-h-11 min-w-0 flex-1 items-center justify-between gap-4 text-left"
+                  className="pressable grid min-h-11 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 text-left lg:contents"
                   aria-expanded={isOpen}
                   aria-controls={panelId}
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-semibold text-[var(--text-primary)]">{draft.label || record.label}</span>
-                    <span className="block text-xs text-[var(--text-secondary)]">
-                      {draft.blocks.filter((block) => block.label.trim()).length} blocks{isDirty ? " · Unsaved" : ""}
-                    </span>
+                    <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">{record.isDefault ? "Default" : record.code}</span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <StatusPill active={record.active} />
-                    <ChevronDown className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                  </span>
+                  <span className="flex shrink-0 items-center gap-3 lg:hidden"><StatusPill active={record.active} /><ChevronDown className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-180" : ""}`} /></span>
+                  <span className="hidden truncate text-xs text-[var(--text-secondary)] lg:block">{draft.templateType === "FIRST_SUNDAY" ? "First Sunday service" : "Regular weekly service"}{isDirty ? " · Unsaved" : ""}</span>
+                  <span className="hidden font-mono text-xs text-[var(--text-secondary)] lg:block">{draft.blocks.filter((block) => block.label.trim()).length}</span>
+                  <span className="hidden font-mono text-[10px] leading-4 text-[var(--text-secondary)] lg:block"><span className="block">{SETTINGS_DATE_FORMATTER.format(new Date(record.updatedAt))}</span><span className="block text-[var(--text-muted)]">{SETTINGS_TIME_FORMATTER.format(new Date(record.updatedAt))}</span></span>
                 </button>
+                <div className="flex shrink-0 items-center justify-end gap-1">
+                  <button type="button" onClick={() => setExpanded((current) => ({ ...current, [record.id]: !isOpen }))} className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)]" aria-label={`${isOpen ? "Close" : "Edit"} ${record.label}`} title={isOpen ? "Close editor" : "Edit template"}>
+                    {isOpen ? <ChevronDown className="h-4 w-4 rotate-180" /> : <Pencil className="h-4 w-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setSelectedIds([record.id]);
+                      setDeleteConfirmOpen(true);
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)] disabled:opacity-50"
+                    aria-label={`Delete ${record.label}`}
+                    title={`Delete ${record.label}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {isOpen ? (
                 <div id={panelId} className="animate-fade-in bg-[var(--surface-canvas)] px-4 py-5 sm:px-6">
                   <div className="mx-auto w-full max-w-5xl space-y-5">
-                    <section className="overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)]">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] px-4 py-3">
+                    <section className="border-y border-[var(--border-default)]">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] py-3">
                         <div>
                           <p className="technical-label">TEMPLATE DETAILS</p>
                           <p className="mt-1 text-xs text-[var(--text-secondary)]">The template name appears as a service type on the Services page.</p>
@@ -928,7 +1060,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                           </div>
                           <button
                             type="button"
-                            onClick={() => setDraft(record.id, { ...draft, blocks: [...draft.blocks, { id: crypto.randomUUID(), label: "" }] })}
+                            onClick={() => setDraft(record.id, { ...draft, blocks: [...draft.blocks, { id: crypto.randomUUID(), label: "", blockType: "CUSTOM" }] })}
                             className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -939,7 +1071,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                       {draft.blocks.map((block, index) => (
                         <div
                           key={block.id}
-                          className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === record.id && draggedBlock.index === index ? "opacity-60" : ""}`}
+                          className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_minmax(10rem,13rem)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === record.id && draggedBlock.index === index ? "opacity-60" : ""}`}
                           onDragOver={(event) => {
                             if (!draggedBlock || draggedBlock.templateId !== record.id) return;
                             event.preventDefault();
@@ -981,6 +1113,14 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                             className="min-w-0 border-0 bg-transparent px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none focus:z-10"
                             aria-label={`Program block ${index + 1}`}
                           />
+                          <select
+                            value={block.typeVersionId || block.blockType || "CUSTOM"}
+                            onChange={(event) => setDraft(record.id, typeOptions.some((option) => option.value === event.target.value) ? updateBlockSelection(draft, index, event.target.value) : updateBlockType(draft, index, event.target.value))}
+                            className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
+                            aria-label={`Behavior for program block ${index + 1}`}
+                          >
+                            {typeOptions.length > 0 ? typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : TEMPLATE_BLOCK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                          </select>
                           <button
                             type="button"
                             onClick={() => setDraft(record.id, removeBlock(draft, index))}
@@ -993,6 +1133,9 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                           </button>
                         </div>
                       ))}
+                      <p className="rounded-md border border-dashed border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-muted)]" aria-label="Service order preview">
+                        Preview: {draft.blocks.filter((block) => block.label.trim()).map((block) => block.label.trim()).join(" → ") || "Add a program block"}
+                      </p>
                     </section>
 
                   </div>
@@ -1057,9 +1200,9 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                     </div>
                   </div>
                   {newRecord.blocks.map((block, index) => (
-                    <div
+                      <div
                       key={block.id}
-                      className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === "new" && draggedBlock.index === index ? "opacity-60" : ""}`}
+                      className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_minmax(10rem,13rem)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === "new" && draggedBlock.index === index ? "opacity-60" : ""}`}
                       onDragOver={(event) => {
                         if (!draggedBlock || draggedBlock.templateId !== "new") return;
                         event.preventDefault();
@@ -1102,12 +1245,23 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                         placeholder="Program block"
                         aria-label={`New block ${index + 1}`}
                       />
+                      <select
+                        value={block.typeVersionId || block.blockType || "CUSTOM"}
+                        onChange={(event) => setNewDraft(typeOptions.some((option) => option.value === event.target.value) ? updateBlockSelection(newRecord, index, event.target.value) : updateBlockType(newRecord, index, event.target.value))}
+                        className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
+                        aria-label={`Behavior for new program block ${index + 1}`}
+                      >
+                        {typeOptions.length > 0 ? typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : TEMPLATE_BLOCK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
                       <button type="button" onClick={() => setNewDraft(removeBlock(newRecord, index))} className="pressable inline-flex min-h-11 w-11 shrink-0 items-center justify-center border-l border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label={`Remove new block ${index + 1}`} title="Remove block">
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="sr-only">Remove</span>
                       </button>
                     </div>
                   ))}
+                  <p className="rounded-md border border-dashed border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-muted)]" aria-label="New service order preview">
+                    Preview: {newRecord.blocks.filter((block) => block.label.trim()).map((block) => block.label.trim()).join(" → ") || "Add a program block"}
+                  </p>
                 </section>
               </div>
             </div>
@@ -1197,6 +1351,7 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
     <>
     <SectionShell
       title="Song Tags"
+      showTitle={false}
       pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={(
         <div className="flex items-center gap-2">
@@ -1306,6 +1461,140 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
   );
 }
 
+function ProgramBlockTypesSection({ records }: { records: ProgramBlockTypeRecord[] }) {
+  const queryClient = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
+  const [newTypeOpen, setNewTypeOpen] = useState(false);
+  const initialType = records[0];
+  const [typeDraft, setTypeDraft] = useState({ key: initialType?.key ?? "", label: initialType?.label ?? "", description: initialType?.description ?? "" });
+  const [fields, setFields] = useState<ProgramFieldForm[]>(() => (initialType?.versions[0]?.definition.fields ?? []).map((field) => ({ key: field.key, label: field.label, type: field.type, required: field.required, options: field.options?.join(", ") ?? "", helpText: field.helpText ?? "" })));
+  const [deleteCandidate, setDeleteCandidate] = useState<ProgramBlockTypeRecord | null>(null);
+  const selected = !newTypeOpen ? (records.find((record) => record.id === selectedId) ?? records[0] ?? null) : null;
+  const latest = selected?.versions[0];
+
+  function openType(record: ProgramBlockTypeRecord) {
+    setNewTypeOpen(false);
+    setSelectedId(record.id);
+    setTypeDraft({ key: record.key, label: record.label, description: record.description ?? "" });
+    setFields((record.versions[0]?.definition.fields ?? []).map((field) => ({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      options: field.options?.join(", ") ?? "",
+      helpText: field.helpText ?? "",
+    })));
+  }
+
+  const definition = {
+    fields: fields.map((field, order) => ({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      order,
+      ...(field.options.trim() ? { options: field.options.split(",").map((option) => option.trim()).filter(Boolean) } : {}),
+      ...(field.helpText.trim() ? { helpText: field.helpText.trim() } : {}),
+    })),
+  };
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (newTypeOpen) {
+        return apiFetch<ProgramBlockTypeRecord>("/api/settings/program-block-types", {
+          method: "POST",
+          body: JSON.stringify({ key: typeDraft.key.trim().toUpperCase(), label: typeDraft.label, description: typeDraft.description || null, definition }),
+        });
+      }
+      if (!selected) throw new Error("Select a block type first.");
+      return apiFetch<ProgramBlockTypeTypeVersionResponse>(`/api/settings/program-block-types/${selected.id}`, {
+        method: "POST",
+        body: JSON.stringify({ definition }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["settings", "program-block-types"] });
+      setNewTypeOpen(false);
+      setTypeDraft({ key: "", label: "", description: "" });
+      setFields([]);
+    },
+  });
+  const publishMutation = useMutation({
+    mutationFn: () => {
+      if (!selected || !latest) throw new Error("Select a block type version first.");
+      return apiFetch(`/api/settings/program-block-types/${selected.id}/versions/${latest.id}/publish`, { method: "POST" });
+    },
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["settings", "program-block-types"] }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiFetch<{ success: boolean }>(`/api/settings/program-block-types/${id}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      setDeleteCandidate(null);
+      setSelectedId(null);
+      await queryClient.invalidateQueries({ queryKey: ["settings", "program-block-types"] });
+    },
+  });
+
+  function addField() {
+    setFields((current) => [...current, { key: `field_${current.length + 1}`, label: "New field", type: "short_text", required: false, options: "", helpText: "" }]);
+  }
+
+  return (
+    <>
+    <SectionShell title="Program Block Types" showTitle={false} pending={saveMutation.isPending || deleteMutation.isPending} action={(
+      <div className="flex items-center gap-2">
+        {selected && !newTypeOpen ? <button type="button" onClick={() => setDeleteCandidate(selected)} className="ui-btn-danger pressable inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold"><Trash2 className="h-4 w-4" /> Delete type</button> : null}
+        <button type="button" onClick={() => { setNewTypeOpen(true); setSelectedId(null); setTypeDraft({ key: "", label: "", description: "" }); setFields([]); }} className="ui-btn-primary pressable inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold">
+          <Plus className="h-4 w-4" /> Create type
+        </button>
+      </div>
+    )}>
+      <div className="grid min-h-[32rem] lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="border-b border-[var(--border-default)] lg:border-b-0 lg:border-r">
+          <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Workspace library</div>
+          <div className="divide-y divide-[var(--border-default)]">
+            {records.map((record) => (
+              <button key={record.id} type="button" onClick={() => openType(record)} className={`w-full px-4 py-3 text-left ${selectedId === record.id && !newTypeOpen ? "bg-[var(--surface-panel-strong)]" : "hover:bg-[var(--surface-panel-alt)]"}`}>
+                <span className="block text-sm font-semibold text-[var(--text-primary)]">{record.label}</span>
+                <span className="mt-1 block text-xs text-[var(--text-muted)]">{record.status === "ARCHIVED" ? "Archived" : `Version ${record.versions[0]?.version ?? "—"}`}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <div className="p-4 sm:p-6">
+          {!newTypeOpen && !selected ? <SettingsEmptyState>Select a block type to inspect it.</SettingsEmptyState> : (
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1.5 text-sm font-semibold text-[var(--text-secondary)]"><span>Type name</span><input value={typeDraft.label} onChange={(event) => setTypeDraft({ ...typeDraft, label: event.target.value })} className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-sm text-[var(--text-primary)]" /></label>
+                <label className="space-y-1.5 text-sm font-semibold text-[var(--text-secondary)]"><span>Key</span><input disabled={!newTypeOpen} value={typeDraft.key} onChange={(event) => setTypeDraft({ ...typeDraft, key: normalizePresetCode(event.target.value) })} className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 font-[var(--font-mono)] text-sm text-[var(--text-primary)]" /></label>
+              </div>
+              <label className="block space-y-1.5 text-sm font-semibold text-[var(--text-secondary)]"><span>Description</span><textarea value={typeDraft.description} onChange={(event) => setTypeDraft({ ...typeDraft, description: event.target.value })} rows={2} className="w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)]" /></label>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold text-[var(--text-primary)]">Fields</h3><p className="mt-1 text-xs text-[var(--text-muted)]">Define what this block captures in a service.</p></div><button type="button" onClick={addField} className="ui-btn-secondary pressable h-10 px-3 text-xs font-semibold">Add field</button></div>
+                <div className="space-y-2">
+                  {fields.map((field, index) => <div key={`${field.key}-${index}`} className="grid gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3 md:grid-cols-[minmax(8rem,1fr)_10rem_8rem_auto]">
+                    <input value={field.label} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value, key: item.key || normalizePresetCode(event.target.value).toLowerCase() } : item))} aria-label={`Field ${index + 1} label`} className="h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-sm text-[var(--text-primary)]" />
+                    <select value={field.type} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item))} aria-label={`Field ${index + 1} type`} className="h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-secondary)]">{PROGRAM_FIELD_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                    <label className="flex h-10 items-center gap-2 px-1 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, required: event.target.checked } : item))} /> Required</label>
+                    <button type="button" onClick={() => setFields((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="h-10 px-2 text-xs text-[var(--text-danger)]">Remove</button>
+                    {field.type === "single_select" ? <input value={field.options} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, options: event.target.value } : item))} placeholder="Options: Prayer, Response" aria-label={`Options for field ${index + 1}`} className="h-10 md:col-span-4 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-primary)]" /> : null}
+                  </div>)}
+                  {fields.length === 0 ? <SettingsEmptyState>Add the first field to define this type.</SettingsEmptyState> : null}
+                </div>
+              </section>
+              <div className="flex justify-end gap-2">{!newTypeOpen && latest?.status === "DRAFT" ? <button type="button" onClick={() => publishMutation.mutate()} disabled={publishMutation.isPending} className="ui-btn-secondary pressable h-10 px-4 text-sm font-semibold">Publish version</button> : null}<button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !typeDraft.label.trim() || (newTypeOpen && !typeDraft.key.trim())} className="ui-btn-primary pressable h-10 px-4 text-sm font-semibold">{newTypeOpen ? "Create type" : "Save draft version"}</button></div>
+              {saveMutation.isError ? <p role="alert" className="text-sm text-[var(--text-danger)]">{saveMutation.error instanceof Error ? saveMutation.error.message : "Could not save block type."}</p> : null}
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionShell>
+    {deleteCandidate ? <DeleteConfirmDialog label={deleteCandidate.label} description="This permanently removes the block type and its unused versions. Types used by templates or services cannot be deleted." error={deleteMutation.error instanceof Error ? deleteMutation.error.message : undefined} pending={deleteMutation.isPending} onCancel={() => { setDeleteCandidate(null); deleteMutation.reset(); }} onConfirm={() => deleteMutation.mutate(deleteCandidate.id)} /> : null}
+    </>
+  );
+}
+
+type ProgramBlockTypeTypeVersionResponse = { id: string };
+
 export default function SettingsPageClient({ environment }: { environment: EnvironmentReport }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -1323,34 +1612,33 @@ export default function SettingsPageClient({ environment }: { environment: Envir
   const ministriesQuery = useQuery({
     queryKey: ["settings", "ministries"],
     queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/ministries"),
+    enabled: activeTab === "general",
   });
   const servantGroupsQuery = useQuery({
     queryKey: ["settings", "servant-groups"],
     queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/servant-groups"),
+    enabled: activeTab === "general",
   });
   const checklistQuery = useQuery({
     queryKey: ["settings", "checklists"],
     queryFn: () => apiFetch<ChecklistPresetRecord[]>("/api/settings/checklists"),
+    enabled: activeTab === "checklist",
   });
   const serviceTemplatesQuery = useQuery({
     queryKey: ["settings", "service-templates"],
     queryFn: () => apiFetch<ServiceTemplatePresetRecord[]>("/api/settings/service-templates"),
+    enabled: activeTab === "templates",
+  });
+  const programBlockTypesQuery = useQuery({
+    queryKey: ["settings", "program-block-types"],
+    queryFn: () => apiFetch<ProgramBlockTypeRecord[]>("/api/settings/program-block-types"),
+    enabled: activeTab === "templates" || activeTab === "block-types",
   });
   const songTagsQuery = useQuery({
     queryKey: ["song-tags"],
     queryFn: () => apiFetch<SongTagPresetRecord[]>("/api/song-tags"),
+    enabled: activeTab === "tags",
   });
-
-  const queries = [ministriesQuery, servantGroupsQuery, checklistQuery, serviceTemplatesQuery, songTagsQuery];
-  const isRefreshing = queries.some((query) => query.isFetching);
-
-  function refreshAll() {
-    void ministriesQuery.refetch();
-    void servantGroupsQuery.refetch();
-    void checklistQuery.refetch();
-    void serviceTemplatesQuery.refetch();
-    void songTagsQuery.refetch();
-  }
 
   function selectTab(tab: SettingsTab) {
     if (tab === activeTab) return;
@@ -1363,8 +1651,8 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let nextIndex: number | undefined;
-    if (event.key === "ArrowRight") nextIndex = (index + 1) % SETTINGS_TABS.length;
-    if (event.key === "ArrowLeft") nextIndex = (index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % SETTINGS_TABS.length;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
     if (event.key === "Home") nextIndex = 0;
     if (event.key === "End") nextIndex = SETTINGS_TABS.length - 1;
     if (nextIndex === undefined) return;
@@ -1375,62 +1663,69 @@ export default function SettingsPageClient({ environment }: { environment: Envir
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-default)] pb-5">
-        <div>
-          <p className="technical-label">WORKSPACE CONTROL</p>
-          <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Settings</h1>
-        </div>
-        <button
-          type="button"
-          onClick={refreshAll}
-          disabled={isRefreshing}
-          className="pressable inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)] disabled:opacity-60"
-          aria-label="Refresh settings"
-          title="Refresh"
-        >
-          {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-        </button>
-      </header>
+    <div className="space-y-4">
+      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <aside className="pb-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:border-r lg:border-[var(--border-default)] lg:pr-6" aria-label="Settings section navigation">
+          <div className="grid gap-5 sm:grid-cols-3 lg:block" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            {SETTINGS_NAV_GROUPS.map((group, groupIndex) => (
+              <div key={group.label} className={`min-w-0 ${groupIndex > 0 ? "mt-6" : ""}`}>
+                <p className="ui-technical-label px-3 font-semibold">{group.label}</p>
+                <div className="mt-1.5 grid gap-1">
+                  {group.tabs.map((tabId) => {
+                    const tab = SETTINGS_TABS.find((candidate) => candidate.id === tabId)!;
+                    const index = SETTINGS_TABS.findIndex((candidate) => candidate.id === tabId);
+                    const selected = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        ref={(element) => { tabRefs.current[index] = element; }}
+                        type="button"
+                        id={`settings-tab-${tab.id}`}
+                        role="tab"
+                        aria-controls={`settings-panel-${tab.id}`}
+                        aria-selected={selected}
+                        tabIndex={selected ? 0 : -1}
+                        onClick={() => selectTab(tab.id)}
+                        onKeyDown={(event) => handleTabKeyDown(event, index)}
+                        className={`pressable flex min-h-10 items-center rounded-md px-3 text-left text-sm font-medium ${selected ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"}`}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
 
-      <div className="overflow-x-auto border-b border-[var(--border-default)]" role="tablist" aria-label="Settings sections">
-        <div className="flex min-w-max gap-1">
-          {SETTINGS_TABS.map((tab, index) => {
-            const selected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                ref={(element) => { tabRefs.current[index] = element; }}
-                type="button"
-                id={`settings-tab-${tab.id}`}
-                role="tab"
-                aria-controls={`settings-panel-${tab.id}`}
-                aria-selected={selected}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => selectTab(tab.id)}
-                onKeyDown={(event) => handleTabKeyDown(event, index)}
-                className={`pressable border-b-2 px-4 py-3 text-sm font-semibold ${selected ? "border-[var(--border-focus)] text-[var(--text-primary)]" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+        <div className="min-w-0">
 
       <div id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" tabIndex={0} hidden={activeTab !== "general"} className="space-y-5">
-        <GeneralStatus environment={environment} />
-        <CollectionState label="Ministries" isLoading={ministriesQuery.isLoading} error={ministriesQuery.error} onRetry={() => void ministriesQuery.refetch()}>
-          <EditablePresetSection endpoint="ministries" title="Ministries" records={ministriesQuery.data ?? []} />
-        </CollectionState>
-        <CollectionState label="Servant groups" isLoading={servantGroupsQuery.isLoading} error={servantGroupsQuery.error} onRetry={() => void servantGroupsQuery.refetch()}>
-          <EditablePresetSection endpoint="servant-groups" title="Servant Groups" records={servantGroupsQuery.data ?? []} />
-        </CollectionState>
+        <div data-settings-section-stack className="space-y-8">
+          {activeTab === "general" ? <WorkspaceSection /> : null}
+          <CollectionState label="Ministries" isLoading={ministriesQuery.isLoading} error={ministriesQuery.error} onRetry={() => void ministriesQuery.refetch()}>
+            <EditablePresetSection endpoint="ministries" title="Ministries" records={ministriesQuery.data ?? []} />
+          </CollectionState>
+          <CollectionState label="Servant groups" isLoading={servantGroupsQuery.isLoading} error={servantGroupsQuery.error} onRetry={() => void servantGroupsQuery.refetch()}>
+            <EditablePresetSection endpoint="servant-groups" title="Servant Groups" records={servantGroupsQuery.data ?? []} />
+          </CollectionState>
+        </div>
       </div>
 
       <div id="settings-panel-templates" role="tabpanel" aria-labelledby="settings-tab-templates" tabIndex={0} hidden={activeTab !== "templates"} className="space-y-5">
         <CollectionState label="Service templates" isLoading={serviceTemplatesQuery.isLoading} error={serviceTemplatesQuery.error} onRetry={() => void serviceTemplatesQuery.refetch()}>
-          <ServiceTemplateSection records={serviceTemplatesQuery.data ?? []} />
+          <ServiceTemplateSection records={serviceTemplatesQuery.data ?? []} programBlockTypes={programBlockTypesQuery.data ?? []} />
+        </CollectionState>
+      </div>
+
+      <div id="settings-panel-membership" role="tabpanel" aria-labelledby="settings-tab-membership" tabIndex={0} hidden={activeTab !== "membership"} className="space-y-5 [&>section>div:first-child>h2]:hidden [&>section>div:first-child>p]:mt-0">
+        {activeTab === "membership" ? <MembershipSection /> : null}
+      </div>
+
+      <div id="settings-panel-block-types" role="tabpanel" aria-labelledby="settings-tab-block-types" tabIndex={0} hidden={activeTab !== "block-types"} className="space-y-5">
+        <CollectionState label="Program block types" isLoading={programBlockTypesQuery.isLoading} error={programBlockTypesQuery.error} onRetry={() => void programBlockTypesQuery.refetch()}>
+          <ProgramBlockTypesSection records={programBlockTypesQuery.data ?? []} />
         </CollectionState>
       </div>
 
@@ -1444,6 +1739,16 @@ export default function SettingsPageClient({ environment }: { environment: Envir
         <CollectionState label="Checklist sets" isLoading={checklistQuery.isLoading} error={checklistQuery.error} onRetry={() => void checklistQuery.refetch()}>
           <ChecklistSection records={checklistQuery.data ?? []} />
         </CollectionState>
+      </div>
+
+      <div id="settings-panel-integrations" role="tabpanel" aria-labelledby="settings-tab-integrations" tabIndex={0} hidden={activeTab !== "integrations"} className="space-y-5 [&>section>div:first-child>h2]:hidden [&>section>div:first-child>p]:mt-0">
+        {activeTab === "integrations" ? <IntegrationsSection /> : null}
+      </div>
+
+      <div id="settings-panel-usage-billing" role="tabpanel" aria-labelledby="settings-tab-usage-billing" tabIndex={0} hidden={activeTab !== "usage-billing"} className="space-y-5">
+        {activeTab === "usage-billing" ? <GeneralStatus environment={environment} /> : null}
+      </div>
+        </div>
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ const BLOCK_TYPE_VALUES = [
   "OFFERING",
   "FLOWERS_FOR_THE_LORD",
   "DETAILS",
+  "CUSTOM",
 ] as const satisfies readonly BlockType[];
 
 export type ApprovedTemplateOptionalBlock = (typeof APPROVED_TEMPLATE_OPTIONAL_BLOCKS)[number];
@@ -27,6 +28,8 @@ export type TemplateBlockPreset = {
   code: string;
   blockType: BlockType;
   order: number;
+  typeVersionId?: string;
+  fieldDefaults?: Record<string, unknown>;
 };
 
 export const DEFAULT_MINISTRY_PRESETS = ASSIGNED_MINISTRY_OPTIONS.map((option) => ({
@@ -116,10 +119,10 @@ export function inferTemplateBlockType(label: string): BlockType {
   if (/response|pagtugon/.test(value)) return "AWIT_NG_PAGTUGON";
   if (/pakikinig|listening/.test(value)) return "AWIT_NG_PAKIKINIG";
   if (/mc|emcee|papuri|pasasalamat/.test(value)) return "MC";
-  return "DETAILS";
+  return "CUSTOM";
 }
 
-export function validateTemplateBlocks(blocks: Array<{ label: string; code?: string; blockType?: string; order?: number }>) {
+export function validateTemplateBlocks(blocks: Array<{ label: string; code?: string; blockType?: string; order?: number; typeVersionId?: string; fieldDefaults?: Record<string, unknown> }>) {
   if (blocks.length === 0) {
     throw new Error("At least one service block is required.");
   }
@@ -130,11 +133,17 @@ export function validateTemplateBlocks(blocks: Array<{ label: string; code?: str
       throw new Error("Service block label is required.");
     }
 
+    const blockType = block.blockType && BLOCK_TYPE_VALUES.includes(block.blockType as (typeof BLOCK_TYPE_VALUES)[number])
+      ? block.blockType as BlockType
+      : "CUSTOM";
+
     return {
       label,
       code: normalizePresetCode(block.code || label),
-      blockType: (block.blockType || inferTemplateBlockType(label)) as BlockType,
+      blockType: block.blockType ? blockType : inferTemplateBlockType(label),
       order: Number.isInteger(block.order) ? Number(block.order) : index,
+      ...(block.typeVersionId ? { typeVersionId: block.typeVersionId } : {}),
+      ...(block.fieldDefaults ? { fieldDefaults: block.fieldDefaults } : {}),
     };
   });
 }
@@ -195,8 +204,10 @@ export const ServiceTemplatePresetSchema = EditablePresetSchema.extend({
     .array(z.object({
       label: z.string().trim().min(1, "Block label is required").max(80, "Block label is too long"),
       code: PresetCodeSchema.optional(),
-      blockType: z.enum(BLOCK_TYPE_VALUES).optional(),
+      blockType: z.string().trim().min(1).optional(),
       order: z.number().int().min(0).optional(),
+      typeVersionId: z.string().uuid().optional(),
+      fieldDefaults: z.record(z.string(), z.unknown()).optional(),
     }))
     .min(1, "At least one service block is required")
     .transform(validateTemplateBlocks),

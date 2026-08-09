@@ -15,7 +15,7 @@ type QRGeneratorToolProps = {
 
 type QRExportMode = "qr" | "card";
 type QRSizePreset = "slide" | "print" | "social";
-type QRPresetId = "fellowship" | "giving" | "connect" | "prayer" | "livestream" | "notes" | "custom";
+type QRPresetId = "service-resource" | "giving" | "connect" | "livestream" | "notes" | "custom";
 
 type QRPreset = {
   id: QRPresetId;
@@ -27,15 +27,14 @@ type QRPreset = {
 
 const QR_PRESETS: QRPreset[] = [
   {
-    id: "fellowship",
-    label: "Fellowship Pre-Reg",
-    title: "Fellowship Pre-Registration",
-    subtitle: "Scan to reserve your spot.",
-    filename: "fellowship-pre-reg",
+    id: "service-resource",
+    label: "Service Resource",
+    title: "Worship Service Resource",
+    subtitle: "Scan to open the service resource.",
+    filename: "service-resource",
   },
   { id: "giving", label: "Giving", title: "Give Online", subtitle: "Scan to open the giving link.", filename: "giving-qr" },
   { id: "connect", label: "Connect Card", title: "Connect With Us", subtitle: "Scan to fill out a connect card.", filename: "connect-card" },
-  { id: "prayer", label: "Prayer Request", title: "Prayer Request", subtitle: "Scan to share a prayer request.", filename: "prayer-request" },
   { id: "livestream", label: "Livestream", title: "Watch Online", subtitle: "Scan to open the livestream.", filename: "livestream" },
   { id: "notes", label: "Sermon Notes", title: "Sermon Notes", subtitle: "Scan to follow along.", filename: "sermon-notes" },
   { id: "custom", label: "Custom", title: "", subtitle: "", filename: "qr-code" },
@@ -111,7 +110,7 @@ function drawWrappedText(
 }
 
 export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
-  const [presetId, setPresetId] = useState<QRPresetId>("fellowship");
+  const [presetId, setPresetId] = useState<QRPresetId>("service-resource");
   const [destination, setDestination] = useState("");
   const [exportMode, setExportMode] = useState<QRExportMode>("card");
   const [sizePreset, setSizePreset] = useState<QRSizePreset>("slide");
@@ -275,9 +274,9 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
   }, [hasDensityWarning, hasUrlWarning]);
 
   return (
-    <section className="production-panel p-5">
-      <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.82fr)_minmax(360px,1fr)]">
-        <div className="space-y-4">
+    <section className="grid gap-5 xl:grid-cols-[minmax(320px,0.82fr)_minmax(360px,1fr)]">
+        <div className="ui-surface-panel space-y-4 p-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">QR settings</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="technical-label" id="qr-preset-label">Preset</label>
@@ -290,7 +289,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                 </SelectTrigger>
                 <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
                   {QR_PRESETS.map((preset) => (
-                    <SelectItem key={preset.id} value={preset.id} className="min-h-9 px-2 py-2 pr-8 font-medium">
+                    <SelectItem key={preset.id} value={preset.id} className="px-2 py-2 pr-8 font-medium">
                       {preset.label}
                     </SelectItem>
                   ))}
@@ -299,7 +298,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
             </div>
 
             <div>
-              <label className="technical-label" id="qr-size-label">Output Size</label>
+              <label className="technical-label" id="qr-size-label">Output size</label>
               <Select
                 value={sizePreset}
                 onValueChange={(value) => setSizePreset(value as QRSizePreset)}
@@ -309,7 +308,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                 </SelectTrigger>
                 <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
                   {Object.entries(SIZE_PRESETS).map(([id, preset]) => (
-                    <SelectItem key={id} value={id} className="min-h-9 px-2 py-2 pr-8 font-medium">
+                    <SelectItem key={id} value={id} className="px-2 py-2 pr-8 font-medium">
                       {preset.label}
                     </SelectItem>
                   ))}
@@ -319,7 +318,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
           </div>
 
           <label className="block">
-            <span className="technical-label">Destination URL or Text</span>
+            <span className="technical-label">Destination URL or text</span>
             <textarea
               value={destination}
               onChange={(event) => setDestination(event.target.value)}
@@ -335,7 +334,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="technical-label" id="qr-export-mode-label">Export Mode</label>
+              <label className="technical-label" id="qr-export-mode-label">Export mode</label>
               <Select
                 value={exportMode}
                 onValueChange={(value) => setExportMode(value as QRExportMode)}
@@ -344,8 +343,8 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent position="popper" align="start" className="border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 shadow-[var(--elevation-raised)]">
-                  <SelectItem value="card" className="min-h-9 px-2 py-2 pr-8 font-medium">Labeled Card</SelectItem>
-                  <SelectItem value="qr" className="min-h-9 px-2 py-2 pr-8 font-medium">QR Only</SelectItem>
+                  <SelectItem value="card" className="px-2 py-2 pr-8 font-medium">Labeled card</SelectItem>
+                  <SelectItem value="qr" className="px-2 py-2 pr-8 font-medium">QR only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -410,10 +409,10 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
 
         <div className="ui-surface-panel flex min-h-[520px] flex-col">
           <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
               {exportMode === "card" ? <FileImage className="h-4 w-4 text-[var(--state-ready)]" /> : <QrCode className="h-4 w-4 text-[var(--state-ready)]" />}
-              {exportMode === "card" ? "Labeled Card" : "QR Only"}
-            </div>
+              {exportMode === "card" ? "Labeled card" : "QR only"}
+            </h2>
             <span className="font-[var(--font-mono)] text-xs font-semibold text-[var(--text-secondary)]">
               {exportMode === "card" ? `${activeSize.cardWidth}x${activeSize.cardHeight}` : `${activeSize.qrPixels}x${activeSize.qrPixels}`}
             </span>
@@ -485,7 +484,6 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
             </button>
           </div>
         </div>
-      </div>
     </section>
   );
 }

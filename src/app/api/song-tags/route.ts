@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { SongTagPresetSchema } from "@/lib/validation";
-import { getActiveWorkspaceId } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 
 const DEFAULT_SONG_TAG_PRESETS = [
   { label: "Title", token: "Title", color: "#DDECCB", isDefault: true },
@@ -15,7 +15,7 @@ const DEFAULT_SONG_TAG_PRESETS = [
 
 export async function GET() {
   try {
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("MEMBER")).workspaceId;
     const tagCount = await prisma.songTagPreset.count({ where: { workspaceId } });
     if (tagCount === 0) {
       await prisma.songTagPreset.createMany({
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
     const body = await request.json();
     const parsed = SongTagPresetSchema.safeParse(body);
 

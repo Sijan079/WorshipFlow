@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { getActiveWorkspaceId } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 import { UpdateChecklistPresetSchema } from "@/lib/settings-presets";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
     const parsed = UpdateChecklistPresetSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
 
@@ -54,7 +54,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
     const [preset, workspace] = await Promise.all([
       prisma.checklistPreset.findFirst({ where: { id, workspaceId }, select: { isDefault: true } }),
       prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { activeChecklistId: true } }),

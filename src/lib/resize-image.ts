@@ -209,6 +209,20 @@ export function validateTargetDimensions(width: number, height: number): string 
   return null;
 }
 
+export function canReuseSourceImage(
+  source: { width: number; height: number },
+  target: { width: number; height: number },
+  sameFormat: boolean,
+  hasEdits: boolean
+) {
+  return (
+    !hasEdits &&
+    sameFormat &&
+    source.width === target.width &&
+    source.height === target.height
+  );
+}
+
 export function generateOutputFilename(
   sourceName: string,
   presetId: string,

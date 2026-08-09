@@ -9,6 +9,7 @@ export const { PUT, DELETE } = createSettingsCollectionHandlers({
   updateSchema: UpdateEditablePresetSchema,
   orderBy: [],
   path: "/api/settings/ministries",
+  allowDefaultDelete: true,
   messages: {
     load: "Failed to load ministry presets",
     create: "Failed to create ministry preset",

@@ -75,6 +75,7 @@ Current direction:
 - Backend: REST route handlers in `src/app/api/**/route.ts`
 - Persistence: Prisma ORM with PostgreSQL
 - Future desktop target: Tauri + Rust
+- SaaS identity: Supabase Auth with Prisma-owned workspace membership and invitation records
 
 Implementation rules:
 
@@ -84,6 +85,7 @@ Implementation rules:
 - Keep validation in shared Zod modules such as `src/lib/validation.ts` or
   feature-level validation files.
 - Prisma is the source of truth for persistence contracts.
+- Workspace APIs must verify active membership and role inside route handlers; Proxy only refreshes sessions and redirects.
 - Prefer feature-based organization over generic utility sprawl.
 - Favor straightforward modules and explicit data flow over clever abstraction.
 - Reuse shared domain constants and enums for worship block behavior.
@@ -138,3 +140,72 @@ Implementation rules:
 - If a request conflicts with the worship-service-only scope, call it out
   before implementing it.
 - If the repository architecture changes materially, update this guide.
+
+## Planning And Skill Workflow
+
+Before acting, identify every applicable installed skill and read its complete
+`SKILL.md`. Use the skill's required gates, ordering, validation, and checklist.
+Do not invoke unrelated skills.
+
+Use these skills when their trigger applies:
+
+- `$architecture-designer` for significant architecture, system design,
+  foundation decisions, or scalability planning.
+- `$code-reviewer` for reviewing code, branches, commits, or pull requests.
+- `$test-driven-development` before implementing features, bug fixes,
+  refactors, or behavior changes.
+- `$owasp-security-check` for authentication, authorization, APIs, secrets,
+  uploads, private data, or security reviews.
+- `$codebase-documenter` for README, architecture, API, or developer
+  documentation.
+- `$design-system` for design tokens, component contracts, themes, Figma, or
+  Storybook alignment.
+- `$design-taste-frontend` for marketing pages or expressive visual redesigns.
+- `$web-design-guidelines` for UI, UX, or accessibility reviews.
+- `$vercel:react-best-practices` after editing multiple React/TSX components.
+- Repo-local skills under `.agents/skills/` whenever their scope applies:
+  `worship-flow-scope-guard`, `worship-flow-service-order`,
+  `worship-flow-design-system`, `worship-flow-next16-safe`, and
+  `worship-flow-ui-ux-audit`.
+
+### Architecture planning
+
+For a significant architecture or foundation decision:
+
+1. Understand functional requirements, non-functional requirements, and
+   constraints before choosing a design.
+2. Inspect the existing routes, features, Prisma schema, APIs, and docs; reuse
+   established patterns before adding abstractions.
+3. Identify the smallest fitting architecture and record alternatives,
+   trade-offs, operational cost, failure modes, and security boundaries.
+4. Produce a high-level Mermaid diagram when component or data flow is not
+   obvious.
+5. Record each significant decision in an ADR or the existing architecture
+   decision document before implementation.
+6. Review the proposal against worship-service-only scope, local-first/Tauri
+   constraints, data ownership, and the current design system. Revise when
+   review finds a gap.
+
+### Iterative change workflow
+
+Work in a loop until the requested change satisfies its spec. Do not treat a
+failed check as the end of the task.
+
+1. **Plan:** Read the relevant source files and existing docs, define the
+   requested behavior and acceptance criteria, state the scope and applicable
+   skills, and identify the smallest useful check or test.
+2. **Develop:** Write the smallest useful failing check or test first when
+   implementing a feature, bug fix, refactor, or behavior change. Then make
+   the minimum code and documentation changes needed to satisfy the plan.
+3. **Verify:** Run the narrowest relevant checks, then the project checks
+   required by the affected area. Compare the result directly against the
+   acceptance criteria and the applicable product, domain, architecture, and
+   design rules. Do not start the dev server.
+4. **Decide:** If verification passes, report the completed work and evidence.
+   If verification finds a failure, regression, or unmet criterion, update the
+   plan as needed and return to **Develop**. Repeat **Develop → Verify** until
+   the spec passes or a genuine external blocker requires user input.
+5. **Document:** Update the matching README, architecture, route, data, or
+   design document when the change alters that contract. Report changed files,
+   checks completed, skipped work, remaining risks, and any blocker with its
+   reason.

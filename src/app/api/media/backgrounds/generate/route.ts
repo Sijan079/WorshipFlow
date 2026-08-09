@@ -4,7 +4,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 import { rateLimitResponse } from "@/lib/rate-limit";
-import { getActiveWorkspaceId } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 import { getServerEnv } from "@/lib/server-env";
 import {
   assertAcceptedEstimateMatches,
@@ -15,13 +15,18 @@ import {
 import { deleteExpiredBackgroundOutputs } from "@/features/media-generation/server/background-output-retention";
 import { createOpenAIBackgroundProvider } from "@/features/media-generation/server/openai-background-provider";
 import { checkMediaGenerationRateLimits } from "@/features/media-generation/server/rate-limits";
+import { decryptIntegrationSecret } from "@/lib/workspace-integrations";
 
 export async function POST(request: Request) {
   let jobId: string | null = null;
 
   try {
     const env = getServerEnv();
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
+    const integration = await prisma.workspaceIntegration.findUnique({ where: { workspaceId_provider: { workspaceId, provider: "OPENAI" } } });
+    const resolvedApiKey = integration?.apiKeyCiphertext && env.WORKSPACE_INTEGRATION_ENCRYPTION_KEY
+      ? decryptIntegrationSecret(integration.apiKeyCiphertext, env.WORKSPACE_INTEGRATION_ENCRYPTION_KEY)
+      : env.OPENAI_API_KEY;
     const body = await request.json();
     const generationRequest = parseBackgroundGenerationRequest(body.request);
     await deleteExpiredBackgroundOutputs(prisma, workspaceId);
@@ -38,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const estimate = estimateBackgroundGeneration(generationRequest, {
-      imageModel: env.OPENAI_BACKGROUND_IMAGE_MODEL,
+      imageModel: integration?.backgroundImageModel || env.OPENAI_BACKGROUND_IMAGE_MODEL,
       estimatedImageCostUsd: env.OPENAI_BACKGROUND_IMAGE_ESTIMATED_COST_USD,
     });
 
@@ -65,7 +70,7 @@ export async function POST(request: Request) {
     });
     jobId = job.id;
 
-    const provider = createOpenAIBackgroundProvider(env);
+    const provider = createOpenAIBackgroundProvider({ ...env, OPENAI_API_KEY: resolvedApiKey });
     const result = await provider.generateBackground({
       request: generationRequest,
       prompt,

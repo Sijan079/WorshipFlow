@@ -3,15 +3,28 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
 import { AnimatePresence, motion } from "motion/react";
 import BrandLogo from "@/components/brand-logo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AudioLines,
   AlertTriangle,
+  Bell,
   CalendarDays,
   Captions,
   ChevronDown,
+  CircleUserRound,
   ListMusic,
   LogOut,
   Settings2,
@@ -23,11 +36,10 @@ import {
 const SERVICE_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
-  { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users },
 ] as const;
 
 const PRODUCTION_NAV_ITEMS = [
-  { href: "/songs/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
+  { href: "/song-formatter/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
   { href: "/media-tools", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
   { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
 ] as const;
@@ -37,8 +49,9 @@ const WORKSPACE_NAV_ITEMS = [
 ] as const;
 
 const NAV_GROUPS = [
-  { label: "Service", items: SERVICE_NAV_ITEMS },
-  { label: "Production", items: PRODUCTION_NAV_ITEMS },
+  { label: "Prepare", items: SERVICE_NAV_ITEMS },
+  { label: "People", items: [{ href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users }] as const },
+  { label: "Tools", items: PRODUCTION_NAV_ITEMS },
   { label: "Workspace", items: WORKSPACE_NAV_ITEMS },
 ] as const;
 
@@ -52,17 +65,17 @@ const MEDIA_TOOL_NAV = [
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
-  "/dashboard": "Dashboard",
   "/automation": "Sermon Captions",
 } as const;
 
 type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
+type SessionResponse = { authenticated: boolean; user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
 
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
-  if (href === "/songs/upload") {
-    return pathname === "/songs" || pathname === "/songs/upload" || pathname === "/songs/format";
+  if (href === "/song-formatter/upload") {
+    return pathname === "/song-formatter/upload" || pathname === "/song-formatter/format";
   }
 
   return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
@@ -77,22 +90,69 @@ function getWarningKey(pathname: string, hash: string | null): InProgressWarning
     return null;
   }
 
-  if (pathname === "/dashboard" || pathname === "/automation") {
+  if (pathname === "/automation") {
     return pathname;
   }
 
   return null;
 }
 
-export default function WorkspaceShell({ children }: { children: React.ReactNode }) {
+function formatWorkspaceRole(role?: string | null) {
+  return role ? role.charAt(0) + role.slice(1).toLowerCase() : "Member";
+}
+
+function AccountMenu({ name, email, role, avatarUrl, onSignOut }: { name: string; email: string; role: string; avatarUrl?: string | null; onSignOut: () => void }) {
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="pressable inline-flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"
+          aria-label="Open account menu"
+        >
+          {avatarUrl && !avatarFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} className="h-8 w-8 rounded-full object-cover" />
+          ) : <CircleUserRound className="h-7 w-7" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-2">
+        <DropdownMenuLabel className="px-2 py-2">
+          <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{name}</span>
+          {email ? <span className="mt-0.5 block truncate font-[var(--font-mono)] text-[10px] font-normal text-[var(--text-muted)]">{email}</span> : null}
+          <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">{role}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onSignOut} className="min-h-10 px-2 text-[var(--text-secondary)] focus:text-[var(--text-primary)]">
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export default function WorkspaceShell({ children, workspaceSlug }: { children: React.ReactNode; workspaceSlug?: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const formatterMode = pathname === "/songs/upload" || pathname === "/songs/format";
+  const workspaceBasePath = workspaceSlug ? `/w/${encodeURIComponent(workspaceSlug)}` : "";
+  const localPathname = workspaceBasePath && pathname.startsWith(workspaceBasePath)
+    ? pathname.slice(workspaceBasePath.length) || "/"
+    : pathname;
+  const toWorkspacePath = (href: string) => `${workspaceBasePath}${href}`;
   const shellNavItems = NAV_ITEMS;
-  const [mediaToolsOpen, setMediaToolsOpen] = useState(() => pathname === "/media-tools" || pathname.startsWith("/media-tools/"));
+  const [mediaToolsOpen, setMediaToolsOpen] = useState(() => localPathname === "/media-tools" || localPathname.startsWith("/media-tools/"));
   const [currentHash, setCurrentHash] = useState<string | null>(null);
-  const warningKey = getWarningKey(pathname, currentHash);
+  const warningKey = getWarningKey(localPathname, currentHash);
   const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
+  const sessionQuery = useQuery({ queryKey: ["auth", "session", workspaceSlug], queryFn: () => apiFetch<SessionResponse>(`/api/auth/session${workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : ""}`) });
+  const accountName = sessionQuery.data?.user?.displayName || sessionQuery.data?.user?.email || "Workspace user";
+  const accountEmail = sessionQuery.data?.user?.email || "";
+  const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
+  const accountAvatarUrl = sessionQuery.data?.user?.avatarUrl;
+  const alertCount = 0;
   const [dismissedWarningKey, setDismissedWarningKey] = useState<InProgressWarningKey | null>(null);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -108,39 +168,39 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
 
   async function logout() {
     setSigningOut(true);
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      cache: "no-store",
-    }).catch(() => undefined);
+    await createSupabaseClient().auth.signOut().catch(() => undefined);
     router.replace("/login");
     router.refresh();
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-app)] text-[var(--text-primary)] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="workspace-shell min-h-screen bg-white text-[var(--text-primary)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
       <a
         href="#workspace-content"
         className="sr-only fixed left-4 top-4 z-[100] rounded-md bg-[var(--action-primary-bg)] px-4 py-3 font-semibold text-[var(--action-primary-ink)] focus:not-sr-only"
       >
         Skip to workspace content
       </a>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[280px] border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-4 py-4 lg:flex lg:flex-col">
-        <div className="ui-stage-enter mb-4 border-b border-[var(--border-default)] px-2 pb-4">
-          <div>
-            <Link
-              href="/dashboard"
-              className="inline-flex min-h-11 items-center"
-              aria-label="WorshipFlow dashboard"
-            >
-              <BrandLogo className="h-11 w-[216px]" />
-            </Link>
-            <p className="ui-technical-label mt-2 text-[var(--text-secondary)]">
-              {formatterMode ? "Song formatter workspace" : "Production workspace"}
-            </p>
-          </div>
+      <aside className="workspace-nav-surface workspace-rail hidden overflow-x-hidden border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-3 py-4 lg:row-start-1 lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0 lg:self-start">
+        <div className="mb-4 border-b border-[var(--border-default)] px-2 pb-4">
+          <Link href={toWorkspacePath("/dashboard")} className="inline-flex min-h-11 items-center" aria-label="WorshipFlow dashboard">
+            <BrandLogo className="h-9 w-[190px]" />
+          </Link>
         </div>
-
-        <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Production workspace">
+        <div className="workspace-nav-account mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-default)] px-2 pb-4" aria-label="Account">
+          <div className="flex min-w-0 items-center gap-2">
+            <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} onSignOut={() => setSignOutConfirmOpen(true)} />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-white">{accountName}</p>
+              <p className="mt-0.5 text-[10px] text-white/70">{accountRole}</p>
+            </div>
+          </div>
+          <button type="button" className="pressable relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Alerts${alertCount > 0 ? `, ${alertCount} unread` : ""}`}>
+            <Bell className="h-5 w-5" />
+            {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
+          </button>
+        </div>
+        <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" aria-label="Production workspace">
           {NAV_GROUPS.map((group, groupIndex) => (
             <section
               key={group.label}
@@ -149,38 +209,42 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
             >
               <p
                 id={`nav-group-${group.label.toLowerCase()}`}
-                className="ui-technical-label px-3 text-[var(--text-muted)]"
+                className="workspace-nav-group-label ui-technical-label px-3 text-white/60"
               >
                 {group.label}
               </p>
               <div className="mt-1.5 flex flex-col gap-1">
                 {group.items.map(({ href, label, icon: Icon }) => {
+                  const resolvedHref = toWorkspacePath(href);
                   const active =
                     href === "/services"
-                      ? pathname === "/services" && currentHash !== "#team"
-                      : isActivePath(pathname, href);
+                      ? localPathname === "/services" && currentHash !== "#team"
+                      : isActivePath(localPathname, href);
                   const isMediaTools = href === "/media-tools";
                   const showMediaChildren = isMediaTools && mediaToolsOpen;
 
                   return (
-                    <div key={`${href}-${label}`}>
+                    <div
+                      key={`${href}-${label}`}
+                      className={isMediaTools ? "workspace-media-nav-item" : undefined}
+                    >
                       <div
-                        className={`group flex items-center rounded-lg border transition-colors ${
+                        className={`group flex items-center border-l-2 transition-colors ${
                           active
-                            ? "border-[color-mix(in_oklab,var(--border-focus)_38%,var(--border-default))] bg-[var(--surface-panel-strong)] text-[var(--text-primary)] shadow-[var(--elevation-subtle)]"
-                            : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+                            ? "border-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-white"
+                            : "border-transparent text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] hover:text-white"
                         }`}
                       >
                         <Link
-                          href={href}
-                          className="pressable-subtle flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2 py-1.5 text-sm font-semibold"
+                          href={resolvedHref}
+                          className="workspace-nav-link pressable-subtle flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2 py-1.5 text-sm font-semibold"
                           aria-current={active && !isMediaTools ? "page" : undefined}
                         >
                           <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center ${
                               active
-                                ? "bg-[color-mix(in_oklab,var(--action-primary-bg)_22%,transparent)] text-[var(--text-accent)]"
-                                : "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]"
+                                ? "bg-[color-mix(in_oklab,var(--action-primary-bg)_22%,transparent)] text-white"
+                                : "text-white/70 group-hover:text-white"
                             }`}
                           >
                             <Icon className="h-4 w-4" />
@@ -191,7 +255,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                           <button
                             type="button"
                             onClick={() => setMediaToolsOpen((current) => !current)}
-                            className="pressable-subtle mr-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel-elevated)]"
+                            className="workspace-media-toggle pressable-subtle mr-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel-elevated)]"
                             aria-label={mediaToolsOpen ? "Collapse media tools" : "Expand media tools"}
                             aria-expanded={mediaToolsOpen}
                           >
@@ -213,18 +277,18 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="ml-6 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3"
+                            className="workspace-media-children ml-6 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3"
                           >
                             {MEDIA_TOOL_NAV.map((item) => {
-                              const childActive = pathname === item.href;
+                              const childActive = localPathname === item.href;
                               return (
                                 <Link
                                   key={item.href}
-                                  href={item.href}
+                                  href={toWorkspacePath(item.href)}
                                   className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${
                                     childActive
-                                      ? "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
-                                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+                                      ? "bg-[var(--surface-panel-strong)] text-white"
+                                      : "text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"
                                   }`}
                                   aria-current={childActive ? "page" : undefined}
                                 >
@@ -242,57 +306,41 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
             </section>
           ))}
         </nav>
-
-        <div className="mt-auto border-t border-[var(--border-default)] pt-4">
-          <button
-            type="button"
-            onClick={() => setSignOutConfirmOpen(true)}
-            className="pressable-subtle inline-flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
-        </div>
       </aside>
 
-      <div className="min-w-0 lg:col-start-2">
-        <header className="border-b border-[var(--border-default)] bg-[var(--surface-canvas)] lg:hidden">
+      <div className="workspace-main min-w-0 lg:col-start-2 lg:row-start-1">
+        <header className="workspace-nav-surface workspace-mobile-header border-b border-[var(--border-default)] bg-[var(--surface-canvas)] lg:hidden">
           <div className="px-4 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <Link
-                href="/dashboard"
+                href={toWorkspacePath("/dashboard")}
                 className="inline-flex min-h-11 items-center"
                 aria-label="WorshipFlow dashboard"
               >
                 <BrandLogo className="h-9 w-40" />
               </Link>
-              <button
-                type="button"
-                onClick={() => setSignOutConfirmOpen(true)}
-                className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)]"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} onSignOut={() => setSignOutConfirmOpen(true)} />
+              </div>
             </div>
           </div>
           <nav
-            className="grid grid-cols-3 gap-1 border-t border-[var(--border-default)] px-2 py-2"
+            className="flex gap-1 overflow-x-auto border-t border-[var(--border-default)] px-2 py-2"
             aria-label="Production workspace"
           >
             {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
-              const active =
-                href === "/services"
-                  ? pathname === "/services" && currentHash !== "#team"
-                  : isActivePath(pathname, href);
+                const active =
+                  href === "/services"
+                  ? localPathname === "/services" && currentHash !== "#team"
+                  : isActivePath(localPathname, href);
               return (
                 <Link
                   key={`${href}-${shortLabel}`}
-                  href={href}
-                  className={`pressable-subtle flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-[10px] font-semibold last:col-start-2 ${
+                  href={toWorkspacePath(href)}
+                  className={`pressable-subtle flex min-h-14 min-w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 rounded-md border px-3 py-2 text-[10px] font-semibold ${
                     active
                       ? "border-[color-mix(in_oklab,var(--border-focus)_38%,var(--border-default))] bg-[var(--surface-panel-strong)] text-[var(--text-accent)] shadow-[var(--elevation-subtle)]"
-                      : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:bg-[var(--surface-panel)]"
+                      : "border-transparent text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel)] hover:text-white"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -305,19 +353,17 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
         </header>
 
         {showInProgressWarning ? (
-          <div className="mx-auto max-w-[1540px] px-4 pt-4 lg:px-6" role="status">
-            <div className="flex items-start gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-strong)] p-3">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--state-warning-soft)] text-[var(--text-warning)]">
-                <AlertTriangle className="h-4 w-4" />
-              </div>
+          <div className="workspace-content-light mx-auto max-w-[1540px] px-4 pt-4 lg:px-6" role="status">
+            <div className="flex items-start gap-3 rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--state-danger)_28%,transparent)] bg-[var(--state-danger-soft)] p-4 text-[var(--text-danger)] shadow-[var(--elevation-subtle)]">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{warningTitle} is still in development</p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">Some actions may be unavailable or incomplete.</p>
+                <p className="text-sm font-semibold text-[var(--text-danger)]">{warningTitle} is still in development</p>
+                <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--text-danger)_82%,var(--text-primary))]">Some actions may be unavailable or incomplete.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+                className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--text-danger)] hover:bg-[color-mix(in_oklab,var(--state-danger)_10%,transparent)]"
                 aria-label="Dismiss development notice"
               >
                 <X className="h-4 w-4" />
@@ -326,7 +372,7 @@ export default function WorkspaceShell({ children }: { children: React.ReactNode
           </div>
         ) : null}
 
-        <main id="workspace-content" className="ui-stage-enter mx-auto min-h-screen max-w-[1540px] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+        <main id="workspace-content" className="workspace-content workspace-content-light ui-stage-enter mx-auto min-h-screen max-w-[1540px] bg-[var(--surface-app)] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
       </div>
 
       <Dialog open={signOutConfirmOpen} onOpenChange={(open) => !signingOut && setSignOutConfirmOpen(open)}>

@@ -476,13 +476,13 @@ export default function TeamsPageClient() {
   const filtersActive = Boolean(search.trim() || groupFilter);
 
   return (
-    <div className="min-h-full space-y-6 py-1 lg:px-2">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="teams-page min-h-full space-y-6 py-1 lg:px-2">
+      <section className="teams-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold leading-10 text-[var(--color-brand-ink)]">
+          <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
             Teams
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)] md:text-base">
             Keep the servant roster ready for fast, accurate worship service assignments.
           </p>
         </div>
@@ -496,8 +496,8 @@ export default function TeamsPageClient() {
         </button>
       </section>
 
-      <section className="w-full">
-        <div className="border-y border-[var(--rule-default)] py-4">
+      <section className="teams-register w-full">
+        <div className="teams-register-tools border-y border-[var(--rule-default)] py-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">

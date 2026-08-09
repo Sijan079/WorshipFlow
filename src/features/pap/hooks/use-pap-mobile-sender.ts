@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { workspaceApiPath } from "@/lib/api-client";
 import { createPAPBatchFileName } from "../rtc/pap-file-names";
 import type { PAPConnectionState, PAPSendProgress, PAPServerScreenshot } from "../types";
 import { getPAPDeviceName } from "../pap-device-name";
@@ -56,7 +57,7 @@ export function usePAPMobileSender() {
 
       try {
         setError(null);
-        const response = await fetch("/api/pap/uploads", {
+      const response = await fetch(workspaceApiPath("/api/pap/uploads"), {
           method: "POST",
           body: formData,
           cache: "no-store",

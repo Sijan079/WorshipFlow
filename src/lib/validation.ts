@@ -10,12 +10,14 @@ import {
 } from "@/lib/service-records";
 import { ServantSchema, UpdateServantSchema } from "@/lib/servants";
 import { PresetCodeSchema } from "@/lib/settings-presets";
+import { BlockTypeValues } from "@/lib/service-constants";
 
 const AssignedMinistrySchema = z.enum(ASSIGNED_MINISTRY_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 const ServiceTemplateTypeSchema = z.enum(SERVICE_TEMPLATE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 const PledgeTypeSchema = z.enum(PLEDGE_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]]);
 const ServiceServantRoleSchema = z.enum(SERVICE_SERVANT_ROLES.map((role) => role.value) as [string, ...string[]]);
 const ServiceHymnalRoleSchema = z.enum(SERVICE_HYMNAL_ROLES.map((role) => role.value) as [string, ...string[]]);
+const ServiceBlockTypeSchema = z.enum(BlockTypeValues);
 
 export const ServiceBibleVerseSchema = z.object({
   verse: z.string().trim().min(1, "Bible verse is required"),
@@ -74,6 +76,18 @@ export const UpdateWorshipServiceSchema = z.object({
       message: "Pledge selection is only allowed for 1st Sunday.",
     });
   }
+});
+
+export const ServiceBlockMutationSchema = z.object({
+  id: z.string().uuid().optional(),
+  label: z.string().trim().min(1, "Block label is required").max(80, "Block label is too long"),
+  code: PresetCodeSchema.optional(),
+  blockType: ServiceBlockTypeSchema,
+  order: z.number().int().min(0).optional(),
+});
+
+export const UpdateServiceBlocksSchema = z.object({
+  blocks: z.array(ServiceBlockMutationSchema).min(1, "At least one service block is required").max(100, "Too many service blocks"),
 });
 
 export const BlockPersonSchema = z.object({

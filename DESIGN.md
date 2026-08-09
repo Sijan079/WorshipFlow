@@ -5,6 +5,10 @@ This repository follows the Stitch MCP project **Worship Production OS**
 Interface**. If older local guidance conflicts with it, prefer the Stitch
 source.
 
+The private Stitch project **Worship Flow OS - Alternate UI**
+(`15260948165642445938`) contains historical experimental comparison work. It
+does not replace the active design system.
+
 ## Design Goal
 
 The UI should help a worship and production team understand, at a glance:
@@ -15,6 +19,16 @@ The UI should help a worship and production team understand, at a glance:
 
 Every layout, component, and transition should reduce hesitation under
 pressure, not add personality for its own sake.
+
+For screen and flow reviews, use
+[`docs/laws-of-ux-audit.md`](docs/laws-of-ux-audit.md) as the project-wide
+psychology reference. Apply only the laws that explain an observed usability
+problem.
+
+For Stitch redesign work, use
+[`docs/stitch-redesign-context.md`](docs/stitch-redesign-context.md) as the
+implementation-facing map of current pages, business logic, and
+logic-dependent layout constraints.
 
 ## Anti-AI-Slop Redesign Rule
 
@@ -80,23 +94,23 @@ Motion is a communication layer, not decoration.
 
 Use this Stitch palette:
 
-- `surface`: `#0b1326`
-- `surface-dim`: `#0b1326`
-- `surface-bright`: `#31394d`
-- `surface-container-lowest`: `#060e20`
-- `surface-container-low`: `#131b2e`
-- `surface-container`: `#171f33`
-- `surface-container-high`: `#222a3d`
-- `surface-container-highest`: `#2d3449`
-- `on-surface`: `#dae2fd`
-- `on-surface-variant`: `#ccc3d8`
-- `outline`: `#958da1`
-- `outline-variant`: `#4a4455`
-- `surface-tint`: `#d2bbff`
-- `primary`: `#d2bbff`
-- `on-primary`: `#3f008e`
+- `surface`: `#0f1624`
+- `surface-dim`: `#0a0f1a`
+- `surface-bright`: `#293750`
+- `surface-container-lowest`: `#0a0f1a`
+- `surface-container-low`: `#141d2d`
+- `surface-container`: `#192336`
+- `surface-container-high`: `#202c40`
+- `surface-container-highest`: `#293750`
+- `on-surface`: `#eef2ff`
+- `on-surface-variant`: `#b7c0d4`
+- `outline`: `#71809a`
+- `outline-variant`: `#36445c`
+- `surface-tint`: `#c4b5fd`
+- `primary`: `#c4b5fd`
+- `on-primary`: `#171126`
 - `primary-container`: `#7c3aed`
-- `on-primary-container`: `#ede0ff`
+- `on-primary-container`: `#f6f0ff`
 - `secondary`: `#89ceff`
 - `secondary-container`: `#00a2e6`
 - `tertiary`: `#ffb2b7`

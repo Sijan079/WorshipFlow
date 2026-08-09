@@ -1,5 +1,18 @@
 import type { NextConfig } from "next";
 
+const supabaseConnectOrigin = (() => {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    const isLocalHttp = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+    return url.protocol === "https:" || isLocalHttp ? url.origin : "";
+  } catch {
+    return "";
+  }
+})();
+
 const cspHeader = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -8,10 +21,10 @@ const cspHeader = [
   "object-src 'none'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com",
   "font-src 'self' data:",
   "media-src 'self' data: blob:",
-  "connect-src 'self' ws: wss:",
+  `connect-src 'self' ws: wss:${supabaseConnectOrigin ? ` ${supabaseConnectOrigin}` : ""}`,
   "worker-src 'self' blob:",
 ].join("; ");
 

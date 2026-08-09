@@ -48,6 +48,78 @@ body {
   color-scheme: dark;
 }
 
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+  position: static !important;
+}
+
+.workspace-nav-surface {
+  --surface-canvas: #090512;
+  --surface-panel: #12091f;
+  --surface-panel-alt: #100817;
+  --surface-panel-strong: #1a0d2a;
+  --surface-panel-elevated: #24113b;
+  --text-primary: #f7f1ff;
+  --text-secondary: #d0c1e5;
+  --text-muted: #9f84c7;
+  --text-accent: #a875ff;
+  --border-default: rgb(168 117 255 / 22%);
+  --border-strong: rgb(168 117 255 / 42%);
+  --border-focus: #a875ff;
+  --action-primary-bg: #8f4dff;
+  --action-primary-bg-hover: #a875ff;
+  --action-primary-ink: #ffffff;
+  --action-secondary-bg: #1a0d2a;
+  --action-secondary-bg-hover: #24113b;
+  --action-secondary-ink: #f7f1ff;
+  --action-ghost-hover: rgb(168 117 255 / 14%);
+}
+
+.workspace-content-light {
+  --surface-app: #ffffff;
+  --surface-canvas: #ffffff;
+  --surface-panel: #ffffff;
+  --surface-panel-alt: #f8fafc;
+  --surface-panel-strong: #f1f5f9;
+  --surface-panel-elevated: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-accent: #6d28d9;
+  --text-danger: #b91c1c;
+  --text-success: #047857;
+  --text-warning: #b45309;
+  --border-default: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #7c3aed;
+  --rule-default: #e2e8f0;
+  --rule-strong: #cbd5e1;
+  --action-primary-bg: #7c3aed;
+  --action-primary-bg-hover: #6d28d9;
+  --action-primary-ink: #ffffff;
+  --action-secondary-bg: #f1f5f9;
+  --action-secondary-bg-hover: #e2e8f0;
+  --action-secondary-ink: #111827;
+  --action-ghost-hover: #f1f5f9;
+  --state-success: #047857;
+  --state-success-soft: #d1fae5;
+  --state-warning: #b45309;
+  --state-warning-soft: #fef3c7;
+  --state-danger: #b91c1c;
+  --state-danger-soft: #fee2e2;
+  --state-live: #be123c;
+  --state-ready: #0284c7;
+  --state-idle: #64748b;
+  --elevation-subtle: 0 1px 3px rgb(15 23 42 / 8%);
+  --elevation-raised: 0 8px 24px rgb(15 23 42 / 10%);
+}
+
+.workspace-content-light input,
+.workspace-content-light select,
+.workspace-content-light textarea {
+  color-scheme: light;
+}
+
 button,
 input,
 select,

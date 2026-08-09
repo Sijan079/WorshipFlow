@@ -50,6 +50,7 @@ export const BLOCK_LABELS: Record<BlockTypeValue, string> = {
   [BlockType.OFFERING]: "Offering",
   [BlockType.FLOWERS_FOR_THE_LORD]: "Announcements",
   [BlockType.DETAILS]: "Details",
+  [BlockType.CUSTOM]: "Custom program item",
 };
 
 export const SONG_BLOCK_TYPES = new Set<BlockTypeValue>([
@@ -58,3 +59,11 @@ export const SONG_BLOCK_TYPES = new Set<BlockTypeValue>([
   BlockType.AWIT_NG_PAKIKINIG,
   BlockType.AWIT_NG_PAGTUGON,
 ]);
+
+export function selectCurrentService<T extends { serviceDate: string }>(services: readonly T[], now: number) {
+  const ordered = [...services].sort(
+    (left, right) => new Date(left.serviceDate).getTime() - new Date(right.serviceDate).getTime(),
+  );
+
+  return ordered.find((service) => new Date(service.serviceDate).getTime() >= now) ?? ordered.at(-1);
+}

@@ -3,21 +3,21 @@
  */
 :root {
   /* Base palette */
-  --palette-bg-canvas: #060e20;
-  --palette-bg-app: #0b1326;
-  --palette-bg-subtle: #131b2e;
-  --palette-surface-default: #171f33;
-  --palette-surface-strong: #222a3d;
-  --palette-surface-elevated: #2d3449;
-  --palette-text-primary: #dae2fd;
-  --palette-text-secondary: #ccc3d8;
-  --palette-text-muted: #958da1;
-  --palette-border-default: #4a4455;
-  --palette-border-strong: #958da1;
+  --palette-bg-canvas: #0a0f1a;
+  --palette-bg-app: #0f1624;
+  --palette-bg-subtle: #141d2d;
+  --palette-surface-default: #192336;
+  --palette-surface-strong: #202c40;
+  --palette-surface-elevated: #293750;
+  --palette-text-primary: #eef2ff;
+  --palette-text-secondary: #b7c0d4;
+  --palette-text-muted: #8994aa;
+  --palette-border-default: #36445c;
+  --palette-border-strong: #71809a;
   --palette-primary-fill: #7c3aed;
   --palette-primary-fill-hover: #8b5cf6;
-  --palette-primary-ink: #ede0ff;
-  --palette-primary-focus: #d2bbff;
+  --palette-primary-ink: #f6f0ff;
+  --palette-primary-focus: #c4b5fd;
   --palette-secondary-fill: #89ceff;
   --palette-secondary-strong: #00a2e6;
   --palette-tertiary-soft: #ffb2b7;

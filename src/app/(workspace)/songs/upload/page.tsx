@@ -1,3 +1,5 @@
-export default function UploadLyricsPage() {
-  return null;
+import { redirect } from "next/navigation";
+
+export default function LegacyUploadLyricsPage() {
+  redirect("/song-formatter/upload");
 }

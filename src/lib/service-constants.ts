@@ -1,4 +1,5 @@
 export const BlockType = {
+  CUSTOM: "CUSTOM",
   CALL_TO_WORSHIP: "CALL_TO_WORSHIP",
   PRAISE_AND_WORSHIP: "PRAISE_AND_WORSHIP",
   MC: "MC",
@@ -14,6 +15,7 @@ export const BlockType = {
 } as const;
 
 export type BlockType = (typeof BlockType)[keyof typeof BlockType];
+export const BlockTypeValues = Object.values(BlockType) as [BlockType, ...BlockType[]];
 
 export const JobStatus = {
   QUEUED: "QUEUED",

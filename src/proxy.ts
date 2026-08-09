@@ -1,22 +1,53 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { ACCESS_SESSION_COOKIE, verifyAccessSessionCookie } from "@/lib/access-auth";
 import { isPublicPathForProxy } from "@/lib/proxy-paths";
+import { updateSession } from "@/lib/supabase/proxy";
 
-export function proxy(request: NextRequest) {
-  const accessPassword = process.env.APP_ACCESS_PASSWORD;
+const LEGACY_WORKSPACE_PATHS = [
+  "/dashboard",
+  "/services",
+  "/teams",
+  "/settings",
+  "/planner",
+  "/songs",
+  "/media-tools",
+  "/assets",
+  "/automation",
+  "/pap",
+];
 
-  if (!accessPassword && process.env.VERCEL_ENV === "production") {
-    return new NextResponse("Production access gate is not configured.", { status: 503 });
+export async function proxy(request: NextRequest) {
+  const authConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  );
+  if (!authConfigured && process.env.NODE_ENV !== "production") return NextResponse.next();
+  if (!authConfigured) return new NextResponse("Supabase Auth is not configured.", { status: 503 });
+  if (isPublicPathForProxy(request.nextUrl.pathname)) return NextResponse.next();
+
+  if (LEGACY_WORKSPACE_PATHS.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
+    return NextResponse.redirect(new URL("/workspaces", request.url));
   }
 
-  if (!accessPassword || isPublicPathForProxy(request.nextUrl.pathname)) {
-    return NextResponse.next();
+  const workspaceApiMatch = request.nextUrl.pathname.match(/^\/api\/workspaces\/([^/]+)(\/.*)?$/);
+  if (
+    request.nextUrl.pathname.startsWith("/api/")
+    && !workspaceApiMatch
+    && !request.nextUrl.pathname.startsWith("/api/auth/")
+  ) {
+    return NextResponse.json({ error: "Workspace-scoped API route required." }, { status: 404 });
+  }
+  const requestHeaders = new Headers(request.headers);
+  if (workspaceApiMatch) {
+    requestHeaders.set("x-worship-workspace-slug", decodeURIComponent(workspaceApiMatch[1]));
+    requestHeaders.set("x-worship-workspace-method", request.method);
   }
 
-  if (verifyAccessSessionCookie(request.cookies.get(ACCESS_SESSION_COOKIE)?.value)) {
-    return NextResponse.next();
-  }
+  const response = workspaceApiMatch
+    ? NextResponse.rewrite(new URL(`/api${workspaceApiMatch[2] || ""}`, request.url), { request: { headers: requestHeaders } })
+    : NextResponse.next();
+  const session = await updateSession(request, response);
+
+  if (session.authenticated) return session.response;
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });

@@ -72,8 +72,26 @@ export function runSettingsPresetTests() {
     validateTemplateBlocks([{ label: "Message", order: 0 }]),
     [{ label: "Message", code: "MESSAGE", blockType: "SERMON", order: 0 }],
   );
+  assert.deepEqual(
+    validateTemplateBlocks([{ label: "  Closing Moment  ", blockType: "CUSTOM" }]),
+    [{ label: "Closing Moment", code: "CLOSING_MOMENT", blockType: "CUSTOM", order: 0 }],
+  );
+  const programmableTemplate = AlwaysActiveUpdateServiceTemplatePresetSchema.parse({
+      blocks: [{ label: "Prayer Response", blockType: "PRAYER_RESPONSE", typeVersionId: "00000000-0000-1000-8000-000000000001" }],
+    });
+  assert.equal(programmableTemplate.blocks?.[0]?.blockType, "CUSTOM");
+  assert.equal(
+    AlwaysActiveServiceTemplatePresetSchema.safeParse({
+      label: "Custom template",
+      code: "CUSTOM_TEMPLATE",
+      templateType: "REGULAR",
+      optionalBlocks: [],
+      blocks: [{ label: "Closing Moment", blockType: "CUSTOM" }],
+    }).success,
+    true,
+  );
   assert.equal(inferTemplateBlockType("Praise Set"), "PRAISE_AND_WORSHIP");
-  assert.equal(inferTemplateBlockType("Custom Moment"), "DETAILS");
+  assert.equal(inferTemplateBlockType("Custom Moment"), "CUSTOM");
   assert.deepEqual(moveTemplateBlock(["Call", "Sermon", "Offering"], 0, 2), ["Sermon", "Offering", "Call"]);
   assert.equal(
     AlwaysActiveServiceTemplatePresetSchema.parse({

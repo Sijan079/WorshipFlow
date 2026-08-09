@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { AlwaysActiveUpdateServiceTemplatePresetSchema } from "@/lib/settings-presets";
 import { createSettingsCollectionHandlers, type SettingsListDelegate } from "@/lib/settings-routes";
+import { syncTemplateBlocks } from "../route";
 
 export const { PUT, DELETE } = createSettingsCollectionHandlers({
   delegate: prisma.serviceTemplatePreset as unknown as SettingsListDelegate,
@@ -17,4 +18,6 @@ export const { PUT, DELETE } = createSettingsCollectionHandlers({
     update: "Failed to update service template preset",
     delete: "Failed to delete service template preset",
   },
+  afterWrite: syncTemplateBlocks,
+  writeData: (payload) => Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "blocks")),
 });

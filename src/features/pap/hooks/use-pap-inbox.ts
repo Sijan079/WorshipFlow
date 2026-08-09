@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { workspaceApiPath } from "@/lib/api-client";
 import { PAP_INBOX_RETENTION_MS } from "../pap-constants";
 import type { PAPConnectionState, PAPServerScreenshot } from "../types";
 
@@ -19,7 +20,7 @@ async function parseJsonResponse<T>(response: Response) {
 }
 
 function getDownloadUrl(screenshotId: string) {
-  return `/api/pap/uploads/${encodeURIComponent(screenshotId)}/download`;
+  return workspaceApiPath(`/api/pap/uploads/${encodeURIComponent(screenshotId)}/download`);
 }
 
 export function usePAPInbox() {
@@ -38,7 +39,7 @@ export function usePAPInbox() {
 
   const loadScreenshots = useCallback(async () => {
     try {
-      const response = await fetch("/api/pap/uploads", {
+      const response = await fetch(workspaceApiPath("/api/pap/uploads"), {
         cache: "no-store",
       });
       const result = await parseJsonResponse<UploadListResponse>(response);
@@ -69,7 +70,7 @@ export function usePAPInbox() {
     const ids = files.map((file) => file.id);
     await Promise.all(
       ids.map((id) =>
-        fetch(`/api/pap/uploads/${encodeURIComponent(id)}`, {
+        fetch(workspaceApiPath(`/api/pap/uploads/${encodeURIComponent(id)}`), {
           method: "DELETE",
           cache: "no-store",
         }).catch(() => undefined)
@@ -79,7 +80,7 @@ export function usePAPInbox() {
   }, [files]);
 
   const removeFile = useCallback(async (fileId: string) => {
-    const response = await fetch(`/api/pap/uploads/${encodeURIComponent(fileId)}`, {
+    const response = await fetch(workspaceApiPath(`/api/pap/uploads/${encodeURIComponent(fileId)}`), {
       method: "DELETE",
       cache: "no-store",
     });

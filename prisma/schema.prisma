@@ -53,6 +53,7 @@ enum ServiceHymnalRole {
 }
 
 enum BlockType {
+  CUSTOM
   CALL_TO_WORSHIP
   PRAISE_AND_WORSHIP
   MC
@@ -101,6 +102,39 @@ enum JobStatus {
   FAILED
 }
 
+enum ProgramBlockTypeStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProgramBlockVersionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum WorkspaceIntegrationProvider {
+  OPENAI
+  GEMINI
+}
+
 enum OutputType {
   FREESHOW
   DOCX
@@ -130,6 +164,7 @@ model Workspace {
   id        String   @id @default(uuid())
   slug      String   @unique
   name      String
+  logoDataUrl String? @db.Text
   serviceTemplatesInitialized Boolean @default(false)
   activeChecklistId String?
 
@@ -137,6 +172,10 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   services  WorshipService[]
+  users     User[] @relation("WorkspaceUsers")
+  memberships WorkspaceMembership[]
+  invitations WorkspaceInvitation[]
+  papInboxScreenshots PapInboxScreenshot[]
   songs     Song[]
   tagPresets SongTagPreset[]
   ministryPresets MinistryPreset[]
@@ -144,13 +183,83 @@ model Workspace {
   checklistPresets ChecklistPreset[] @relation("WorkspaceChecklistPresets")
   activeChecklist ChecklistPreset? @relation("ActiveChecklist", fields: [activeChecklistId], references: [id], onDelete: SetNull)
   serviceTemplatePresets ServiceTemplatePreset[]
+  programBlockTypes ProgramBlockType[]
+  integrations WorkspaceIntegration[]
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
   servants  Servant[]
 }
 
+model User {
+  id              String   @id @default(uuid())
+  authProviderId  String   @unique
+  email           String   @unique
+  displayName     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspaces      Workspace[] @relation("WorkspaceUsers")
+  memberships     WorkspaceMembership[]
+  sentInvitations WorkspaceInvitation[] @relation("InvitationSender")
+  requestedJobs   AutomationJob[]
+}
+
+model WorkspaceMembership {
+  id          String           @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole    @default(MEMBER)
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+}
+
+model WorkspaceInvitation {
+  id              String           @id @default(uuid())
+  workspaceId     String
+  email           String
+  role            WorkspaceRole    @default(MEMBER)
+  invitedByUserId String?
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InvitationSender", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, email, status])
+  @@index([email, status])
+}
+
+model WorkspaceIntegration {
+  id                    String                      @id @default(uuid())
+  workspaceId           String
+  provider              WorkspaceIntegrationProvider
+  enabled               Boolean                     @default(true)
+  apiKeyCiphertext      String?
+  extractorModel        String?
+  backgroundImageModel  String?
+  backgroundVideoModel  String?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId, enabled])
+}
+
 model PapInboxScreenshot {
   id          String   @id @default(uuid())
+  workspaceId String
   batchId     String
   batchIndex  Int
   batchTotal  Int
@@ -162,7 +271,9 @@ model PapInboxScreenshot {
   deviceName  String?
   createdAt   DateTime @default(now())
 
-  @@index([createdAt])
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
   @@index([batchId, createdAt])
   @@map("PAPInboxScreenshot")
 }
@@ -206,8 +317,11 @@ model WorshipServiceBlock {
   label       String?
   code        String?
   order       Int
+  typeVersionId String?
+  fieldValues Json @default("{}")
 
   service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  typeVersion ProgramBlockTypeVersion? @relation(fields: [typeVersionId], references: [id], onDelete: Restrict)
 
   people      BlockPerson[]
   songs       WorshipServiceSong[]
@@ -354,8 +468,63 @@ model ServiceTemplatePreset {
   updatedAt      DateTime            @updatedAt
 
   workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  templateBlocks ServiceTemplateBlock[]
 
   @@unique([workspaceId, code])
+}
+
+model ProgramBlockType {
+  id          String                 @id @default(uuid())
+  workspaceId String
+  key         String
+  label       String
+  description String?
+  status      ProgramBlockTypeStatus @default(ACTIVE)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions    ProgramBlockTypeVersion[]
+  templateBlocks ServiceTemplateBlock[]
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, status, label])
+}
+
+model ProgramBlockTypeVersion {
+  id          String                    @id @default(uuid())
+  typeId      String
+  version     Int
+  definition  Json
+  status      ProgramBlockVersionStatus  @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime                  @default(now())
+
+  type        ProgramBlockType           @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  templateBlocks ServiceTemplateBlock[]
+  serviceBlocks WorshipServiceBlock[]
+
+  @@unique([typeId, version])
+  @@index([typeId, status])
+}
+
+model ServiceTemplateBlock {
+  id             String   @id @default(uuid())
+  templateId     String
+  typeId         String
+  typeVersionId  String
+  label          String?
+  order          Int
+  active         Boolean  @default(true)
+  fieldDefaults  Json     @default("{}")
+
+  template       ServiceTemplatePreset @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  type           ProgramBlockType      @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  typeVersion    ProgramBlockTypeVersion @relation(fields: [typeVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([templateId, order])
+  @@index([templateId, active, order])
 }
 
 model WorshipServiceSong {
@@ -441,6 +610,7 @@ model AutomationJob {
 
     workspaceId String
     serviceId   String?
+    requestedByUserId String?
     jobType     JobType
     status      JobStatus @default(QUEUED)
 
@@ -452,6 +622,7 @@ model AutomationJob {
 
     workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
     service     WorshipService? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+    requestedBy User? @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
 
     outputs     GeneratedOutput[]
 

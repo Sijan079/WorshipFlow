@@ -18,6 +18,7 @@ import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
 import { validateUploadFile, validateUploadTotal } from "@/lib/upload-security";
+import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +53,10 @@ function toScreenshotRecord(screenshot: PapInboxScreenshotRow) {
 
 export async function GET() {
   try {
-    await cleanupExpiredPAPInboxUploads(prisma);
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    await cleanupExpiredPAPInboxUploads(prisma, new Date(), workspaceId);
     const screenshots = await prisma.papInboxScreenshot.findMany({
+      where: { workspaceId },
       orderBy: [{ createdAt: "desc" }, { batchIndex: "asc" }],
     });
 
@@ -80,7 +83,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await cleanupExpiredPAPInboxUploads(prisma);
+    const workspaceId = await getActiveWorkspaceId(prisma);
+    await cleanupExpiredPAPInboxUploads(prisma, new Date(), workspaceId);
     const formData = await request.formData();
     const files = formData
       .getAll("files")
@@ -130,6 +134,7 @@ export async function POST(request: Request) {
       const screenshot = await prisma.papInboxScreenshot.create({
         data: {
           id: randomUUID(),
+          workspaceId,
           batchId,
           batchIndex,
           batchTotal: files.length,

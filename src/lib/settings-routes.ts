@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { getActiveWorkspaceId } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -10,7 +9,7 @@ type RouteParams = {
 type SafeParseSchema<T> = {
   safeParse(input: unknown):
     | { success: true; data: T }
-    | { success: false; error: { format(): unknown } };
+    | { success: false; error: { format(): unknown; issues?: unknown } };
 };
 
 export type SettingsListDelegate = {
@@ -39,6 +38,10 @@ type CollectionConfig<TCreate, TUpdate> = {
   orderBy: unknown;
   path: string;
   messages: CollectionMessages;
+  allowDefaultDelete?: boolean;
+  afterWrite?: (record: unknown, workspaceId: string, payload: TCreate | TUpdate) => Promise<void>;
+  findMany?: (workspaceId: string) => Promise<unknown[]>;
+  writeData?: (payload: Record<string, unknown>) => Record<string, unknown>;
 };
 
 export function createSettingsCollectionHandlers<TCreate extends Record<string, unknown>, TUpdate extends Record<string, unknown>>(
@@ -46,12 +49,11 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
 ) {
   async function GET() {
     try {
-      const workspaceId = await getActiveWorkspaceId(prisma);
+      const workspaceId = (await requireExplicitWorkspaceRole("MEMBER")).workspaceId;
       await config.seed(workspaceId);
-      const records = await config.delegate.findMany({
-        where: { workspaceId },
-        orderBy: config.orderBy,
-      });
+      const records = config.findMany
+        ? await config.findMany(workspaceId)
+        : await config.delegate.findMany({ where: { workspaceId }, orderBy: config.orderBy });
       return NextResponse.json(records);
     } catch (error: unknown) {
       console.error(`GET ${config.path} error:`, error);
@@ -61,16 +63,18 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
 
   async function POST(request: Request) {
     try {
-      const workspaceId = await getActiveWorkspaceId(prisma);
+      const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
       const parsed = config.createSchema.safeParse(await request.json());
 
       if (!parsed.success) {
+        console.error(`POST ${config.path} validation error: ${JSON.stringify(parsed.error.issues ?? parsed.error.format())}`);
         return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
       }
 
       const record = await config.delegate.create({
-        data: { ...parsed.data, workspaceId, isDefault: false },
+        data: { ...(config.writeData?.(parsed.data) ?? parsed.data), workspaceId, isDefault: false },
       });
+      await config.afterWrite?.(record, workspaceId, parsed.data);
       return NextResponse.json(record, { status: 201 });
     } catch (error: unknown) {
       console.error(`POST ${config.path} error:`, error);
@@ -81,17 +85,19 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
   async function PUT(request: Request, { params }: RouteParams) {
     try {
       const { id } = await params;
-      const workspaceId = await getActiveWorkspaceId(prisma);
+      const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
       const parsed = config.updateSchema.safeParse(await request.json());
 
       if (!parsed.success) {
+        console.error(`PUT ${config.path}/[id] validation error: ${JSON.stringify(parsed.error.issues ?? parsed.error.format())}`);
         return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
       }
 
       const record = await config.delegate.update({
         where: { id, workspaceId },
-        data: parsed.data,
+        data: config.writeData?.(parsed.data) ?? parsed.data,
       });
+      await config.afterWrite?.(record, workspaceId, parsed.data);
       return NextResponse.json(record);
     } catch (error: unknown) {
       console.error(`PUT ${config.path}/[id] error:`, error);
@@ -102,14 +108,14 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
   async function DELETE(_request: Request, { params }: RouteParams) {
     try {
       const { id } = await params;
-      const workspaceId = await getActiveWorkspaceId(prisma);
+      const workspaceId = (await requireExplicitWorkspaceRole("ADMIN")).workspaceId;
       const record = await config.delegate.findUnique({ where: { id, workspaceId } });
 
       if (!record) {
         return NextResponse.json({ error: config.messages.notFound }, { status: 404 });
       }
 
-      if (record.isDefault) {
+      if (record.isDefault && !config.allowDefaultDelete) {
         return NextResponse.json({ error: config.messages.defaultDelete }, { status: 400 });
       }
 
