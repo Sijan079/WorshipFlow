@@ -7,7 +7,7 @@ export async function GET() {
     const context = await requireExplicitWorkspaceRole("MEMBER");
     const members = await prisma.workspaceMembership.findMany({
       where: { workspaceId: context.workspaceId },
-      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }, { id: "asc" }],
       select: {
         id: true,
         role: true,

@@ -135,7 +135,6 @@ Implementation rules:
 
 - Keep REST responses and validation type-safe.
 - Preserve compatibility with `prisma/` and `src/lib/prisma.ts`.
-- Do not start the dev server.
 - Update `README.md` when setup or workflow instructions materially change.
 - If a request conflicts with the worship-service-only scope, call it out
   before implementing it.
@@ -200,7 +199,7 @@ failed check as the end of the task.
 3. **Verify:** Run the narrowest relevant checks, then the project checks
    required by the affected area. Compare the result directly against the
    acceptance criteria and the applicable product, domain, architecture, and
-   design rules. Do not start the dev server.
+   design rules.
 4. **Decide:** If verification passes, report the completed work and evidence.
    If verification finds a failure, regression, or unmet criterion, update the
    plan as needed and return to **Develop**. Repeat **Develop → Verify** until

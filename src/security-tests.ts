@@ -23,8 +23,11 @@ import { runWorkspaceSlugTests } from "./lib/workspace-slug.test.ts";
 import { runUploadSecurityTests } from "./lib/upload-security.test.ts";
 import { runContentSecurityPolicyTests } from "./lib/content-security-policy.test.ts";
 import { runAuthRedirectTests } from "./lib/auth-redirect.test.ts";
+import { runLocalAuthConfigTests } from "./lib/local-auth-config.test.ts";
+import { runMembershipSectionUiTests } from "./components/membership-section-ui.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";
+import { runWorkspaceMembersRouteTests } from "./lib/workspace-members-route.test.ts";
 import { runOAuthClientBoundaryTests, runOAuthSecretHygieneTests } from "./lib/oauth-secret-hygiene.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
@@ -53,8 +56,11 @@ runWorkspaceSlugTests();
 await runUploadSecurityTests();
 await runContentSecurityPolicyTests();
 runAuthRedirectTests();
+runLocalAuthConfigTests();
+runMembershipSectionUiTests();
 runWorkspaceShellTests();
 runWorkspaceRouteTests();
+runWorkspaceMembersRouteTests();
 runOAuthSecretHygieneTests();
 runOAuthClientBoundaryTests();
 

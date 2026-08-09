@@ -95,6 +95,45 @@ npm run dev
 
 The default local URL is `http://localhost:3000`.
 
+### Docker Supabase Auth
+
+Use this mode when the app, database, API, and authentication should all run
+against the local Docker Supabase stack.
+
+1. Add the Google OAuth credentials to the ignored root `.env` file:
+
+   ```env
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="your-google-client-id"
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET="your-google-client-secret"
+   ```
+
+2. In the same Google Cloud web OAuth client, add:
+
+   - Authorized JavaScript origin: `http://localhost:3000`
+   - Authorized redirect URI: `http://127.0.0.1:54321/auth/v1/callback`
+
+   Google returns to Supabase at the second URL. Supabase then returns to the
+   app at `http://localhost:3000/auth/callback`; the app callback does not
+   belong in Google's redirect URI list.
+
+3. Restart Supabase after changing its config or OAuth credentials, then start
+   Next.js with the Docker environment:
+
+   ```powershell
+   npx supabase stop
+   npx supabase start
+   npm run dev:docker
+   ```
+
+`dev:docker` loads `.env.local.docker` before Next.js starts, so those process
+variables override hosted values in `.env.local`. Normal `npm run dev` remains
+unchanged for developers intentionally using another environment.
+
+The deployed app remains separate: Vercel must use the hosted Supabase URL,
+the hosted Supabase Site URL stays `https://sndev-worship-flow.vercel.app`, and
+its redirect allowlist includes
+`https://sndev-worship-flow.vercel.app/auth/callback`.
+
 ## Environment
 
 Required:
@@ -174,6 +213,7 @@ invitation flow.
 
 ```powershell
 npm run dev       # Local development
+npm run dev:docker # Local development with Docker Supabase
 npm run build     # Prisma generation and production build
 npm run lint      # ESLint
 npm test          # Security and domain checks
