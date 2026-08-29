@@ -33,7 +33,8 @@ export async function runTransposeParserTests() {
   assert.match(source, /require\(["']pdf-parse["']\)/);
   assert.match(packageJson.dependencies["@napi-rs/canvas"], /^\^?0\.1\.80$/);
   assert.match(nextConfig, /serverExternalPackages:\s*\["pdf-parse", "@napi-rs\/canvas"\]/);
-  assert.match(nextConfig, /outputFileTracingIncludes:\s*\{\s*"\/\*": \["node_modules\/@napi-rs\/canvas\*\/\*\*\/\*"\]/);
+  assert.match(nextConfig, /outputFileTracingIncludes:\s*\{[\s\S]*node_modules\/@napi-rs\/canvas\*\/\*\*\/\*/);
+  assert.match(nextConfig, /node_modules\/pdf-parse\/dist\/pdf-parse\/cjs\/pdf\.worker\.mjs/);
 
   const directory = await mkdtemp(join(tmpdir(), "worship-flow-pdf-"));
   const path = join(directory, "lyrics.pdf");

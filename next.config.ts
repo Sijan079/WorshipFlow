@@ -32,7 +32,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.119"],
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   outputFileTracingIncludes: {
-    "/*": ["node_modules/@napi-rs/canvas*/**/*"],
+    "/*": [
+      "node_modules/@napi-rs/canvas*/**/*",
+      "node_modules/pdf-parse/dist/pdf-parse/cjs/pdf.worker.mjs",
+    ],
   },
   experimental: {
     proxyClientMaxBodySize: "110mb",
