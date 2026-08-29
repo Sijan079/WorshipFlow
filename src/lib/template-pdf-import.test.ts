@@ -35,7 +35,7 @@ DATE _________________
   assert.match(importRoute, /loadPdfParse\(\)/);
 
   const nextConfig = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
-  assert.match(nextConfig, /serverExternalPackages:\s*\["pdf-parse"\]/);
+  assert.match(nextConfig, /serverExternalPackages:\s*\["pdf-parse", "@napi-rs\/canvas"\]/);
 
   const templateRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "service-templates", "route.ts"), "utf8");
   assert.match(templateRoute, /create:\s*async \(workspaceId, payload\)\s*=>\s*prisma\.\$transaction/);

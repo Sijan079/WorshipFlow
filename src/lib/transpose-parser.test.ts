@@ -26,9 +26,13 @@ function createPdf(text: string) {
 
 export async function runTransposeParserTests() {
   const source = await readFile(new URL("./transpose-parser.ts", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
+  const nextConfig = await readFile(new URL("../../next.config.ts", import.meta.url), "utf8");
 
   assert.match(source, /createRequire\(import\.meta\.url\)/);
   assert.match(source, /require\(["']pdf-parse["']\)/);
+  assert.match(packageJson.dependencies["@napi-rs/canvas"], /^\^?0\.1\.80$/);
+  assert.match(nextConfig, /serverExternalPackages:\s*\["pdf-parse", "@napi-rs\/canvas"\]/);
 
   const directory = await mkdtemp(join(tmpdir(), "worship-flow-pdf-"));
   const path = join(directory, "lyrics.pdf");

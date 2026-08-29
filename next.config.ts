@@ -30,7 +30,7 @@ const cspHeader = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.119"],
-  serverExternalPackages: ["pdf-parse"],
+  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   experimental: {
     proxyClientMaxBodySize: "110mb",
   },
