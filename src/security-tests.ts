@@ -14,6 +14,8 @@ import { runServiceTextAnalysisTests } from "./lib/service-text-analysis.test.ts
 import { runServiceBlockTests } from "./lib/service-blocks.test.ts";
 import { runServiceDisplayTests } from "./lib/service-display.test.ts";
 import { runProgramBlockTypeTests } from "./lib/program-block-types.test.ts";
+import { runTemplateFieldTests } from "./lib/template-fields.test.ts";
+import { runServiceReadinessTests } from "./lib/service-readiness.test.ts";
 import { runSettingsPresetTests } from "./lib/settings-presets.test.ts";
 import { runTemplateBlockTests } from "./lib/template-blocks.test.ts";
 import { runWorkspaceIntegrationTests } from "./lib/workspace-integrations.test.ts";
@@ -28,7 +30,15 @@ import { runMembershipSectionUiTests } from "./components/membership-section-ui.
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";
 import { runWorkspaceMembersRouteTests } from "./lib/workspace-members-route.test.ts";
+import { runTransposeParserTests } from "./lib/transpose-parser.test.ts";
+import { runExtractorAiTests } from "./lib/extractor-ai.test.ts";
 import { runOAuthClientBoundaryTests, runOAuthSecretHygieneTests } from "./lib/oauth-secret-hygiene.test.ts";
+import { runSettingsNavigationTests } from "./lib/settings-navigation.test.ts";
+import { runTemplatePdfImportTests } from "./lib/template-pdf-import.test.ts";
+import { runTemplateBlockKindTests } from "./lib/template-block-kinds.test.ts";
+import { runServiceTemplateRenderingTests } from "./lib/service-template-rendering.test.ts";
+import { runTeamMemberPickerTests } from "./lib/team-member-picker.test.ts";
+import { runDeploymentBuildTests } from "./lib/deployment-build.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -47,6 +57,8 @@ runServiceTextAnalysisTests();
 runServiceBlockTests();
 runServiceDisplayTests();
 runProgramBlockTypeTests();
+runTemplateFieldTests();
+runServiceReadinessTests();
 runSettingsPresetTests();
 runTemplateBlockTests();
 runWorkspaceIntegrationTests();
@@ -61,8 +73,16 @@ runMembershipSectionUiTests();
 runWorkspaceShellTests();
 runWorkspaceRouteTests();
 runWorkspaceMembersRouteTests();
+await runTransposeParserTests();
+await runExtractorAiTests();
 runOAuthSecretHygieneTests();
 runOAuthClientBoundaryTests();
+runSettingsNavigationTests();
+runTemplatePdfImportTests();
+runTemplateBlockKindTests();
+runServiceTemplateRenderingTests();
+runTeamMemberPickerTests();
+runDeploymentBuildTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

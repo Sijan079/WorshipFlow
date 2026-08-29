@@ -238,6 +238,10 @@ export type CreateServicePayload = {
   ministryName?: string;
   theme?: string | null;
   serviceVariant?: ServiceVariant;
+  templateBlockValues?: Array<{
+    templateBlockId: string;
+    values: Record<string, unknown>;
+  }>;
 };
 
 export type UpdateServicePayload = Partial<CreateServicePayload>;
@@ -328,11 +332,12 @@ export type ServiceTemplatePresetRecord = EditableSettingsPresetRecord & {
   templateType: ServiceTemplateType;
   optionalBlocks: string[];
   blocks: Array<{
+    id: string;
     label: string;
     code: string;
-    blockType: string;
+    kind: "PERSON" | "TEXT";
     order: number;
-    typeVersionId?: string | null;
+    fieldDefinition: { fields: ProgramBlockFieldDefinition[] };
     fieldDefaults?: Record<string, unknown>;
   }>;
 };
@@ -364,10 +369,8 @@ export type CreateServiceTemplatePresetPayload = CreateEditableSettingsPresetPay
   blocks: Array<{
     label: string;
     code?: string;
-    blockType?: string;
+    kind?: "PERSON" | "TEXT";
     order?: number;
-    typeVersionId?: string;
-    fieldDefaults?: Record<string, unknown>;
   }>;
 };
 

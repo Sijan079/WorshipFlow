@@ -310,7 +310,7 @@ function getBlockLabel(block: ServiceDetailRecord["blocks"][number]) {
 }
 
 function getBlockDefinition(block: ServiceDetailRecord["blocks"][number]) {
-  const definition = block.typeVersion?.definition;
+  const definition = block.fieldDefinition ?? block.typeVersion?.definition;
   if (!definition || typeof definition !== "object" || Array.isArray(definition)) return null;
   const fields = (definition as { fields?: unknown }).fields;
   return Array.isArray(fields) ? fields.filter((field): field is { key: string; label: string; type: string; required: boolean; options?: string[]; helpText?: string } => Boolean(field && typeof field === "object" && "key" in field && "label" in field && "type" in field)) : null;
@@ -329,12 +329,42 @@ function ProgrammableBlockFields({
   const [values, setValues] = useState<Record<string, unknown>>(
     block.fieldValues && typeof block.fieldValues === "object" && !Array.isArray(block.fieldValues) ? block.fieldValues as Record<string, unknown> : {},
   );
+  const servantsQuery = useQuery({
+    queryKey: ["servants", "block-picker"],
+    queryFn: () => apiFetch<Array<{ id: string; name: string }>>("/api/servants"),
+    enabled: block.kind === "PERSON",
+  });
+  const pathname = usePathname();
+  const workspaceMatch = pathname.match(/^\/w\/([^/]+)/);
+  const teamsHref = workspaceMatch ? `/w/${workspaceMatch[1]}/teams` : "/teams";
+  const saveText = (text: string) => onSave({ text });
+  const personIds = Array.isArray(values.personIds) ? values.personIds.filter((value): value is string => typeof value === "string") : [];
+  if (block.kind === "TEXT") {
+    return (
+      <label className="block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-sm font-semibold text-[var(--text-secondary)]">
+        {getBlockLabel(block)} notes
+        <textarea value={typeof values.text === "string" ? values.text : ""} onChange={(event) => setValues({ text: event.target.value })} rows={4} className="mt-2 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-normal text-[var(--text-primary)]" placeholder="Add any notes or details for this service step." />
+        <button type="button" onClick={() => saveText(typeof values.text === "string" ? values.text : "")} disabled={saving} className="ui-btn-primary pressable mt-3 px-3 text-xs font-semibold disabled:opacity-50">{saving ? "Saving…" : "Save text"}</button>
+      </label>
+    );
+  }
+  if (block.kind === "PERSON") {
+    const people = servantsQuery.data ?? [];
+    const savePeople = (next: string[]) => { setValues({ personIds: next }); onSave({ personIds: next }); };
+    return (
+      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
+        <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link></div>
+        <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} ×</button>)}</div>
+        <select value="" onChange={(event) => { const id = event.target.value; if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} disabled={servantsQuery.isLoading || saving} className="mt-3 min-h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm text-[var(--text-primary)]"><option value="">Add a Team member…</option>{people.filter((person) => !personIds.includes(person.id)).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select>
+      </div>
+    );
+  }
   if (!definition || definition.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div><h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">Block fields</h4><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Configured by the workspace block type.</p></div>
+        <div><h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">Block fields</h4><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Copied from this service&apos;s template.</p></div>
         <button type="button" onClick={() => onSave(values)} disabled={saving} className="rounded-md bg-[var(--color-brand-ink)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save fields"}</button>
       </div>
       <div className="space-y-3">
@@ -1124,11 +1154,13 @@ export default function ServiceBuilderClient({
         id: "",
         serviceId: selectedService.id,
         blockType: "CUSTOM",
+        kind: "TEXT",
         label,
         code: null,
         order: selectedServiceBlocks.length,
         typeVersionId: null,
         typeVersion: null,
+        fieldDefinition: { fields: [] },
         fieldValues: {},
         createdAt: new Date().toISOString(),
         people: [],

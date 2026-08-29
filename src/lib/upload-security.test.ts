@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import JSZip from "jszip";
-import { validateDocumentSignature } from "./upload-security.ts";
+import { isUploadedFile, validateDocumentSignature } from "./upload-security.ts";
 
 export async function runUploadSecurityTests() {
   const pdf = new File([new TextEncoder().encode("%PDF-1.7")], "service.pdf", { type: "application/pdf" });
@@ -16,6 +16,8 @@ export async function runUploadSecurityTests() {
   });
 
   assert.equal(await validateDocumentSignature(pdf), null);
+  assert.equal(isUploadedFile(pdf), true);
+  assert.equal(isUploadedFile("service.pdf"), false);
   assert.match(await validateDocumentSignature(fakePdf) ?? "", /invalid file signature/i);
   assert.equal(await validateDocumentSignature(docx), null);
   assert.match(await validateDocumentSignature(fakeDocx) ?? "", /invalid file signature/i);

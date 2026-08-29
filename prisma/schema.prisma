@@ -102,6 +102,11 @@ enum JobStatus {
   FAILED
 }
 
+enum TemplateBlockKind {
+  PERSON
+  TEXT
+}
+
 enum ProgramBlockTypeStatus {
   ACTIVE
   ARCHIVED
@@ -314,10 +319,12 @@ model WorshipServiceBlock {
   id          String     @id @default(uuid())
   serviceId   String
   blockType   BlockType
+  kind        TemplateBlockKind @default(TEXT)
   label       String?
   code        String?
   order       Int
   typeVersionId String?
+  fieldDefinition Json @default("{\"fields\":[]}")
   fieldValues Json @default("{}")
 
   service     WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -512,16 +519,20 @@ model ProgramBlockTypeVersion {
 model ServiceTemplateBlock {
   id             String   @id @default(uuid())
   templateId     String
-  typeId         String
-  typeVersionId  String
+  typeId         String?
+  typeVersionId  String?
   label          String?
+  code           String?
+  blockType      BlockType @default(CUSTOM)
+  kind           TemplateBlockKind @default(TEXT)
   order          Int
   active         Boolean  @default(true)
+  fieldDefinition Json @default("{\"fields\":[]}")
   fieldDefaults  Json     @default("{}")
 
   template       ServiceTemplatePreset @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  type           ProgramBlockType      @relation(fields: [typeId], references: [id], onDelete: Restrict)
-  typeVersion    ProgramBlockTypeVersion @relation(fields: [typeVersionId], references: [id], onDelete: Restrict)
+  type           ProgramBlockType?      @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  typeVersion    ProgramBlockTypeVersion? @relation(fields: [typeVersionId], references: [id], onDelete: Restrict)
 
   @@unique([templateId, order])
   @@index([templateId, active, order])

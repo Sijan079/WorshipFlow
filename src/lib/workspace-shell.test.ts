@@ -42,14 +42,14 @@ export function runWorkspaceShellTests() {
   assert.doesNotMatch(settings, /<h2[^>]*>General<\/h2>/);
   assert.doesNotMatch(settings, /Manage workspace identity and service defaults/);
   assert.doesNotMatch(settings, /aria-label="Refresh settings"/);
-  assert.match(settings, /grid-cols-\[minmax\(0,1fr\)_auto_2\.75rem\]/);
+  assert.match(settings, /grid-cols-\[2rem_2\.75rem_minmax\(0,1fr\)_minmax\(10rem,13rem\)_2\.75rem\]/);
   assert.doesNotMatch(settings, /min-w-0 border-t border-\[var\(--border-default\)\]/);
-  assert.match(settings, /usage-billing/);
+  assert.doesNotMatch(settings, /usage-billing/);
   assert.doesNotMatch(settings, /settings-panel-workspace/);
-  assert.match(settings, /Usage &amp; billing|Usage & billing/);
+  assert.doesNotMatch(settings, /Usage &amp; billing|Usage & billing/);
   assert.match(settings, /flat/);
   assert.doesNotMatch(settings, /grid-cols-\[2rem_minmax\(0,1fr\)_2\.75rem\]/);
-  assert.match(settings, /grid-cols-\[minmax\(0,1fr\)_auto_2\.75rem\]/);
+  assert.match(settings, /grid-cols-\[2rem_2\.75rem_minmax\(0,1fr\)_minmax\(10rem,13rem\)_2\.75rem\]/);
   assert.doesNotMatch(settings, /String\(index \+ 1\)\.padStart\(2, "0"\)<\/span>/);
   assert.match(shell, /workspace-nav-link[\s\S]*text-white/);
   assert.doesNotMatch(settings, /query\.data\?\.slug/);
@@ -62,7 +62,7 @@ export function runWorkspaceShellTests() {
   assert.doesNotMatch(settingsAdmin, /sm:grid-cols-2/);
   assert.match(settings, /<div className="min-w-0">/);
   assert.match(settingsAdmin, /editingName/);
-  assert.match(settingsAdmin, /workspace banner/i);
+  assert.match(settings, /label="New template"/);
   assert.match(settingsAdmin, /type=\"file\"/);
   assert.match(settingsAdmin, /logoDataUrl/);
   assert.match(settings, /editingId/);

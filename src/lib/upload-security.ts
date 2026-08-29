@@ -15,6 +15,10 @@ type UploadValidationOptions = {
   maxBytes: number;
 };
 
+export function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return value !== null && typeof value !== "string" && typeof value.arrayBuffer === "function";
+}
+
 export function validateUploadFile(file: File, options: UploadValidationOptions) {
   if (file.size <= 0) {
     return "The uploaded file is empty.";

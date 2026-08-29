@@ -6,6 +6,8 @@ export function runProxyTests() {
   assert.equal(isPublicPathForProxy("/"), true);
   assert.equal(isPublicPathForProxy("/login"), true);
   assert.equal(isPublicPathForProxy("/api/auth/login"), true);
+  assert.equal(isPublicPathForProxy("/mockups/purple-editorial-signal.png"), true);
+  assert.equal(isPublicPathForProxy("/mockups/isms/08-material.png"), true);
   assert.equal(isPublicPathForProxy("/api/pap/uploads"), false);
   assert.equal(isPublicPathForProxy("/api/pap/uploads/abc123/download"), false);
 

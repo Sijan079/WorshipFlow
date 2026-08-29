@@ -103,16 +103,12 @@ await probeDatabaseHost("DIRECT_DATABASE_URL", process.env.DIRECT_DATABASE_URL);
 
 if (process.env.DIRECT_DATABASE_URL) {
   console.log("Running prisma migrate deploy against DIRECT_DATABASE_URL...");
-  const migrateResult = run("npx", ["prisma", "migrate", "deploy"], {
+  runOrExit("npx", ["prisma", "migrate", "deploy"], {
     env: {
       ...process.env,
       DATABASE_URL: process.env.DIRECT_DATABASE_URL,
     },
   });
-
-  if (migrateResult.status !== 0) {
-    console.warn(`prisma migrate deploy failed with status ${migrateResult.status ?? "unknown"}; continuing build`);
-  }
 } else {
   console.log("DIRECT_DATABASE_URL is not set; skipping prisma migrate deploy.");
 }

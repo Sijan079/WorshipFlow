@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import type { BlockType, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
-import { mapProgramTypeKeyToBlockType } from "@/lib/program-block-types";
+import { getEmptyBlockValues, validateTemplateBlockValues } from "@/lib/template-block-kinds";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 import {
   type AssignedMinistry,
@@ -24,41 +24,16 @@ export async function GET() {
       orderBy: {
         serviceDate: "asc",
       },
+      include: {
+        blocks: {
+          orderBy: {
+            order: "asc",
+          },
+        },
+      },
     });
 
-    const serviceIds = services.map((service) => service.id);
-
-    if (serviceIds.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    const [bibleVerses, servantAssignments, hymnals] = await Promise.all([
-      prisma.serviceBibleVerse.findMany({
-        where: { serviceId: { in: serviceIds } },
-        orderBy: [{ serviceId: "asc" }, { order: "asc" }],
-      }),
-      prisma.serviceServantAssignment.findMany({
-        where: { serviceId: { in: serviceIds } },
-        orderBy: [{ serviceId: "asc" }, { role: "asc" }],
-      }),
-      prisma.serviceHymnal.findMany({
-        where: { serviceId: { in: serviceIds } },
-        orderBy: [{ serviceId: "asc" }, { role: "asc" }],
-      }),
-    ]);
-
-    const bibleVersesByService = Object.groupBy(bibleVerses, (entry) => entry.serviceId);
-    const servantAssignmentsByService = Object.groupBy(servantAssignments, (entry) => entry.serviceId);
-    const hymnalsByService = Object.groupBy(hymnals, (entry) => entry.serviceId);
-
-    return NextResponse.json(
-      services.map((service) => ({
-        ...service,
-        bibleVerses: bibleVersesByService[service.id] ?? [],
-        servantAssignments: servantAssignmentsByService[service.id] ?? [],
-        hymnals: hymnalsByService[service.id] ?? [],
-      }))
-    );
+    return NextResponse.json(services);
   } catch (error: unknown) {
     console.error("GET /api/services error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
@@ -85,6 +60,7 @@ export async function POST(request: Request) {
       servantAssignments,
       serviceDate,
       status,
+      templateBlockValues,
       templatePresetCode,
       templateType,
     } = result.data;
@@ -99,7 +75,7 @@ export async function POST(request: Request) {
               templateBlocks: {
                 where: { active: true },
                 orderBy: { order: "asc" },
-                include: { type: true, typeVersion: true },
+                include: {},
               },
             },
           })
@@ -114,6 +90,24 @@ export async function POST(request: Request) {
     const persistedTemplateBlocks = templatePreset.templateBlocks;
     if (persistedTemplateBlocks.length === 0) {
       return NextResponse.json({ error: "The selected service template has no active ordered blocks." }, { status: 400 });
+    }
+    const valuesByTemplateBlock = new Map(templateBlockValues.map((entry) => [entry.templateBlockId, entry.values]));
+    if (valuesByTemplateBlock.size !== templateBlockValues.length) {
+      return NextResponse.json({ error: "Each template block can only be submitted once." }, { status: 400 });
+    }
+    const templateBlockIds = new Set(persistedTemplateBlocks.map((block) => block.id));
+    if ([...valuesByTemplateBlock.keys()].some((id) => !templateBlockIds.has(id))) {
+      return NextResponse.json({ error: "Submitted values do not belong to the selected template." }, { status: 400 });
+    }
+    const resolvedTemplateBlocks = persistedTemplateBlocks.map((block) => {
+      const values = validateTemplateBlockValues(block.kind, valuesByTemplateBlock.get(block.id) ?? getEmptyBlockValues(block.kind));
+      if (!values.valid) throw new Error(`Invalid values for ${block.label ?? "program block"}`);
+      return { block, values: values.values };
+    });
+    const selectedPersonIds = resolvedTemplateBlocks.flatMap(({ block, values }) => block.kind === "PERSON" ? (values as { personIds: string[] }).personIds : []);
+    if (selectedPersonIds.length > 0) {
+      const count = await prisma.servant.count({ where: { workspaceId, id: { in: selectedPersonIds } } });
+      if (count !== new Set(selectedPersonIds).size) return NextResponse.json({ error: "A selected person is unavailable in this workspace" }, { status: 400 });
     }
 
     const newService = await prisma.$transaction(async (tx) => {
@@ -133,27 +127,18 @@ export async function POST(request: Request) {
         },
       });
 
-      const templateBlocks = persistedTemplateBlocks.length > 0
-        ? persistedTemplateBlocks.map((block) => ({
-            label: block.label || block.type.label,
-            code: block.type.key,
-            blockType: mapProgramTypeKeyToBlockType(block.type.key) as BlockType,
-            order: block.order,
-            typeVersionId: block.typeVersionId,
-            fieldDefaults: block.fieldDefaults,
-          }))
-        : [];
       await Promise.all(
-        templateBlocks.map((block, index) =>
+        resolvedTemplateBlocks.map(({ block, values }) =>
           tx.worshipServiceBlock.create({
             data: {
               serviceId: service.id,
-              blockType: block.blockType,
+              blockType: "CUSTOM",
+              kind: block.kind,
               label: block.label,
               code: block.code,
-              order: index,
-              typeVersionId: block.typeVersionId,
-              fieldValues: block.fieldDefaults as Prisma.InputJsonValue,
+              order: block.order,
+              fieldDefinition: { fields: [] } as Prisma.InputJsonValue,
+              fieldValues: values as Prisma.InputJsonValue,
             },
           })
         )

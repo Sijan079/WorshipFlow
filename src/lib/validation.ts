@@ -34,11 +34,16 @@ export const ServiceHymnalSchema = z.object({
   title: z.string().trim().min(1, "Hymnal title is required"),
 });
 
+export const TemplateBlockValuesSchema = z.object({
+  templateBlockId: z.string().uuid("Invalid template block ID"),
+  values: z.record(z.string(), z.unknown()),
+});
+
 export const WorshipServiceSchema = z.object({
   serviceDate: z.string().transform((val) => new Date(val)),
   assignedMinistry: AssignedMinistrySchema,
   ministryPresetCode: PresetCodeSchema.optional().nullable(),
-  sermonVerse: z.string().trim().min(1, "Sermon verse is required"),
+  sermonVerse: z.string().trim().min(1).optional(),
   status: z.nativeEnum(ServiceStatus).default(ServiceStatus.DRAFT),
   templateType: ServiceTemplateTypeSchema.default("REGULAR"),
   templatePresetCode: PresetCodeSchema.optional().nullable(),
@@ -46,6 +51,7 @@ export const WorshipServiceSchema = z.object({
   bibleVerses: z.array(ServiceBibleVerseSchema).default([]),
   servantAssignments: z.array(ServiceServantAssignmentSchema).default([]),
   hymnals: z.array(ServiceHymnalSchema).default([]),
+  templateBlockValues: z.array(TemplateBlockValuesSchema).default([]),
 }).superRefine((value, context) => {
   if (value.templateType !== "FIRST_SUNDAY" && value.pledgeType) {
     context.addIssue({

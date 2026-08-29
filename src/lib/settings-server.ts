@@ -1,4 +1,5 @@
-import type { PrismaClient } from "@prisma/client";
+import type { BlockType, PrismaClient } from "@prisma/client";
+import { mapProgramTypeKeyToBlockType } from "./program-block-types.ts";
 import type { Prisma } from "@prisma/client";
 import {
   DEFAULT_CHECKLIST_ITEMS,
@@ -89,17 +90,15 @@ export async function seedServiceTemplatePresets(client: SettingsClient, workspa
       if (await client.serviceTemplateBlock.count({ where: { templateId: preset.id } })) return;
       if (Array.isArray(preset.blocks) && preset.blocks.length > 0) {
         const blocks = preset.blocks as Array<{ label: string; code?: string; blockType?: string; order?: number }>;
-        const types = await client.programBlockType.findMany({
-          where: { workspaceId },
-          include: { versions: { where: { status: "PUBLISHED" }, orderBy: { version: "desc" }, take: 1 } },
-        });
-        const typeByKey = new Map(types.map((type) => [type.key, type]));
-        const data = blocks.flatMap((block, order) => {
-          const key = block.blockType === "CUSTOM" ? "PROGRAM_ITEM" : (block.blockType ?? "PROGRAM_ITEM");
-          const type = typeByKey.get(key);
-          const version = type?.versions[0];
-          return type && version ? [{ templateId: preset.id, typeId: type.id, typeVersionId: version.id, label: block.label, order }] : [];
-        });
+        const data = blocks.map((block, order) => ({
+          templateId: preset.id,
+          label: block.label,
+          code: block.code ?? block.label.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, ""),
+          blockType: mapProgramTypeKeyToBlockType(block.blockType ?? "CUSTOM") as BlockType,
+          order,
+          fieldDefinition: { fields: [] },
+          fieldDefaults: {},
+        }));
         if (data.length > 0) await client.serviceTemplateBlock.createMany({ data });
         return;
       }

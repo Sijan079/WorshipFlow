@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { ChevronDown, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, X, UsersRound } from "lucide-react";
+import { ChevronDown, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, X, UsersRound } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -25,7 +25,7 @@ import {
 } from "@/lib/api-client";
 import { moveTemplateBlock, normalizePresetCode } from "@/lib/settings-presets";
 import type { EnvironmentReport } from "@/lib/server-env";
-import { IntegrationsSection, MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
+import { MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
 
 type EditableEndpoint = "ministries" | "servant-groups";
 
@@ -52,25 +52,10 @@ type TemplateBlockForm = {
   id: string;
   label: string;
   code?: string;
-  blockType?: string;
-  typeVersionId?: string;
+  kind: "PERSON" | "TEXT";
 };
 
-const TEMPLATE_BLOCK_TYPES = [
-  ["CUSTOM", "Custom program item"],
-  ["CALL_TO_WORSHIP", "Call to Worship"],
-  ["PRAISE_AND_WORSHIP", "Song / worship set"],
-  ["AWIT_NG_HIMNO", "Hymn"],
-  ["TIPAN_PAHAYAG", "Covenant / declaration"],
-  ["AWIT_NG_PAKIKINIG", "Listening song"],
-  ["SCRIPTURE_READING", "Scripture reading"],
-  ["SERMON", "Sermon / message"],
-  ["AWIT_NG_PAGTUGON", "Response song"],
-  ["OFFERING", "Offering"],
-  ["FLOWERS_FOR_THE_LORD", "Announcements"],
-  ["MC", "People / details"],
-  ["DETAILS", "Details"],
-] as const;
+const TEMPLATE_BLOCK_KINDS = [["TEXT", "Text"], ["PERSON", "People"]] as const;
 
 type TemplateForm = {
   label: string;
@@ -85,6 +70,12 @@ type TemplateHistory = {
   future: TemplateForm[];
 };
 
+type TemplatePdfImportDraft = {
+  label: string;
+  code: string;
+  blocks: Array<{ label: string; code: string; order: number }>;
+};
+
 type SongTagForm = {
   label: string;
   token: string;
@@ -95,19 +86,15 @@ const SETTINGS_TABS = [
   { id: "general", label: "General" },
   { id: "membership", label: "Membership" },
   { id: "templates", label: "Templates" },
-  { id: "block-types", label: "Block types" },
   { id: "tags", label: "Tags" },
   { id: "checklist", label: "Checklist" },
-  { id: "integrations", label: "Integrations" },
-  { id: "usage-billing", label: "Usage & billing" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 
 const SETTINGS_NAV_GROUPS: Array<{ label: string; tabs: SettingsTab[] }> = [
   { label: "Workspace", tabs: ["general", "membership"] },
-  { label: "Service setup", tabs: ["templates", "block-types", "tags", "checklist"] },
-  { label: "Account", tabs: ["integrations", "usage-billing"] },
+  { label: "Service setup", tabs: ["templates", "tags", "checklist"] },
 ];
 
 type ProgramFieldForm = {
@@ -131,6 +118,62 @@ const PROGRAM_FIELD_OPTIONS = [
   ["single_select", "Single select"],
 ] as const;
 
+function TemplateBlockFieldEditor({
+  definition,
+  onChange,
+}: {
+  definition: { fields: ProgramFieldForm[] };
+  onChange: (definition: { fields: ProgramFieldForm[] }) => void;
+}) {
+  return null;
+  /* Legacy field-definition editor intentionally retired in favor of the two block categories. */
+  /* c8 ignore next */
+  const fields = definition.fields;
+  const update = (index: number, patch: Partial<ProgramFieldForm>) =>
+    onChange({ fields: fields.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field) });
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= fields.length) return;
+    onChange({ fields: moveTemplateBlock(fields, from, to) });
+  };
+
+  return (
+    <div className="border-x border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="technical-label">Fields copied into this block</p>
+        <button
+          type="button"
+          onClick={() => onChange({ fields: [...fields, { key: `field_${Date.now()}`, label: "New field", type: "short_text", required: false, options: "", helpText: "" }] })}
+          className="pressable inline-flex min-h-8 items-center gap-1 rounded border border-[var(--border-default)] px-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)]"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add field
+        </button>
+      </div>
+      {fields.length === 0 ? <p className="text-xs text-[var(--text-muted)]">No fields yet. This block will remain a simple flow item.</p> : null}
+      <div className="space-y-2">
+        {fields.map((field, index) => (
+          <div key={`${field.key}-${index}`} className="grid gap-2 rounded border border-[var(--border-default)] bg-[var(--surface-panel)] p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_auto_auto] md:items-center">
+            <input value={field.label} onChange={(event) => update(index, { label: event.target.value })} aria-label="Field label" placeholder="Field label" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs" />
+            <input value={field.key} onChange={(event) => update(index, { key: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} aria-label="Field key" placeholder="field_key" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 font-mono text-xs" />
+            <select value={field.type} onChange={(event) => update(index, { type: event.target.value })} aria-label="Field type" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs">
+              {PROGRAM_FIELD_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <label className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} /> Required</label>
+            <div className="flex items-center justify-end gap-1">
+              <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="h-7 w-7 rounded text-xs text-[var(--text-secondary)] disabled:opacity-30" aria-label="Move field up">↑</button>
+              <button type="button" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1} className="h-7 w-7 rounded text-xs text-[var(--text-secondary)] disabled:opacity-30" aria-label="Move field down">↓</button>
+              <button type="button" onClick={() => onChange({ fields: fields.filter((_, fieldIndex) => fieldIndex !== index) })} className="h-7 w-7 rounded text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label="Remove field"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+            {field.type === "single_select" ? <input value={field.options} onChange={(event) => update(index, { options: event.target.value })} aria-label="Select options" placeholder="Options separated by commas" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs md:col-span-2" /> : null}
+            <input value={field.helpText} onChange={(event) => update(index, { helpText: event.target.value })} aria-label="Field help text" placeholder="Optional help" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs md:col-span-2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+void TemplateBlockFieldEditor;
+
 const EMPTY_EDITABLE_FORM: EditableForm = { label: "", code: "", active: true };
 const EMPTY_TEMPLATE_FORM: TemplateForm = {
   label: "",
@@ -138,9 +181,9 @@ const EMPTY_TEMPLATE_FORM: TemplateForm = {
   templateType: "REGULAR",
   optionalBlocks: [],
   blocks: [
-    { id: "new-call-to-worship", label: "Call to Worship" },
-    { id: "new-praise-and-worship", label: "Praise & Worship" },
-    { id: "new-sermon", label: "Sermon" },
+    { id: "new-call-to-worship", label: "Call to Worship", kind: "TEXT" },
+    { id: "new-praise-and-worship", label: "Praise & Worship", kind: "TEXT" },
+    { id: "new-sermon", label: "Sermon", kind: "TEXT" },
   ],
 };
 const EMPTY_SONG_TAG_FORM: SongTagForm = { label: "", token: "", color: "#CFE8F6" };
@@ -311,41 +354,6 @@ function CollectionState({
   }
 
   return children;
-}
-
-function GeneralStatus({ environment }: { environment: EnvironmentReport }) {
-  return (
-    <section aria-label="Usage and billing status" className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-      <div className="border-b border-[var(--border-default)] pb-3">
-        <p className="text-sm text-[var(--text-secondary)]">Review provider availability. Billing is not connected for this workspace.</p>
-      </div>
-      <div className="grid gap-4 pt-4 md:grid-cols-3">
-        <div>
-          <p className="technical-label">AI USAGE</p>
-          <p className="mt-2 font-semibold text-[var(--text-primary)]">Not available</p>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Provider balances are not inferred from generation estimates.</p>
-        </div>
-        <div>
-          <p className="technical-label">ACCESS CONTROL</p>
-          <p className="mt-2 font-semibold text-[var(--text-primary)]">{environment.accessGate ? "Shared access enabled" : "Not configured"}</p>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Individual accounts and managed access remain deferred to 1.2.</p>
-        </div>
-        <div>
-          <p className="technical-label">AI INTEGRATIONS</p>
-          <dl className="mt-2 space-y-2 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-[var(--text-secondary)]">Lyrics cleanup</dt>
-              <dd className="font-semibold text-[var(--text-primary)]">{environment.aiExtractor ? "Configured" : "Unavailable"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-[var(--text-secondary)]">Background generation</dt>
-              <dd className="font-semibold text-[var(--text-primary)]">{environment.backgroundGeneration ? "Configured" : "Unavailable"}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-    </section>
-  );
 }
 
 function EditablePresetSection({
@@ -629,7 +637,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
   );
 }
 
-function ServiceTemplateSection({ records, programBlockTypes }: { records: ServiceTemplatePresetRecord[]; programBlockTypes: ProgramBlockTypeRecord[] }) {
+function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRecord[] }) {
   const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, TemplateForm>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -643,6 +651,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
   const [newTemplateOpen, setNewTemplateOpen] = useState(false);
   const [newRecord, setNewRecord] = useState<TemplateForm>(EMPTY_TEMPLATE_FORM);
   const [newHistory, setNewHistory] = useState<TemplateHistory>({ past: [], future: [] });
+  const importInputRef = useRef<HTMLInputElement>(null);
   const endpoint = "service-templates";
   const selectedRecords = records.filter((record) => selectedIds.includes(record.id));
 
@@ -654,18 +663,12 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
       optionalBlocks: record.optionalBlocks,
       blocks: record.blocks.length > 0
         ? record.blocks.map((block, index) => ({
-            ...(() => {
-              const typeKey = block.blockType === "CUSTOM" ? "PROGRAM_ITEM" : block.blockType;
-              const type = programBlockTypes.find((candidate) => candidate.key === typeKey);
-              return { typeVersionId: block.typeVersionId ?? type?.versions.find((version) => version.status === "PUBLISHED")?.id };
-            })(),
-            id: `${record.id}-${block.code || index}`,
+            id: `${record.id}-${block.code || "block"}-${index}`,
             label: block.label,
             code: block.code,
-            blockType: block.blockType,
-            typeVersionId: block.typeVersionId ?? undefined,
+            kind: block.kind,
           }))
-        : [{ id: `${record.id}-fallback`, label: record.label, blockType: "CUSTOM" }],
+        : [{ id: `${record.id}-fallback`, label: record.label, kind: "TEXT" }],
     };
   }
 
@@ -674,8 +677,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
       .map((block, order) => ({
         label: block.label.trim(),
         code: block.code,
-        blockType: block.blockType,
-        typeVersionId: block.typeVersionId,
+        kind: block.kind,
         order,
       }))
       .filter((block) => block.label.length > 0);
@@ -697,23 +699,10 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
     };
   }
 
-  function updateBlockType(form: TemplateForm, index: number, blockType: string) {
+  function updateBlockKind(form: TemplateForm, index: number, kind: "PERSON" | "TEXT") {
     return {
       ...form,
-      blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, blockType } : block),
-    };
-  }
-
-  const typeOptions = programBlockTypes.flatMap((type) => {
-    const version = type.versions.find((item) => item.status === "PUBLISHED");
-    return version ? [{ value: version.id, label: type.label, blockType: type.key === "PROGRAM_ITEM" ? "CUSTOM" : type.key }] : [];
-  });
-
-  function updateBlockSelection(form: TemplateForm, index: number, versionId: string) {
-    const option = typeOptions.find((candidate) => candidate.value === versionId);
-    return {
-      ...form,
-      blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, typeVersionId: versionId, blockType: option?.blockType ?? "CUSTOM" } : block),
+      blocks: form.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, kind } : block),
     };
   }
 
@@ -721,7 +710,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
     const blocks = form.blocks.filter((_, blockIndex) => blockIndex !== index);
     return {
       ...form,
-      blocks: blocks.length > 0 ? blocks : [{ id: crypto.randomUUID(), label: "" }],
+      blocks: blocks.length > 0 ? blocks : [{ id: crypto.randomUUID(), label: "", kind: "TEXT" as const }],
     };
   }
 
@@ -814,6 +803,28 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
       setNewTemplateOpen(false);
     },
   });
+  const importMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiFetch<TemplatePdfImportDraft>("/api/settings/service-templates/import", { method: "POST", body: formData });
+    },
+    onSuccess: (draft) => {
+      setNewRecord({
+        label: draft.label,
+        code: draft.code,
+        templateType: "REGULAR",
+        optionalBlocks: [],
+        blocks: draft.blocks.map((block) => ({
+          ...block,
+          id: crypto.randomUUID(),
+          kind: "TEXT" as const,
+        })),
+      });
+      setNewHistory({ past: [], future: [] });
+      setNewTemplateOpen(true);
+    },
+  });
   const updateMutation = useMutation({
     mutationFn: (entries: Array<{ id: string; payload: UpdateServiceTemplatePresetPayload }>) => Promise.all(entries.map(({ id, payload }) =>
       apiFetch<ServiceTemplatePresetRecord>(`/api/settings/${endpoint}/${id}`, { method: "PUT", body: JSON.stringify(payload) })
@@ -867,10 +878,11 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
     <>
     <SectionShell
       title="Service Templates"
-      showTitle={false}
-      pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
+      description="Build reusable service flows. Their stored order is copied into every new service."
+      flat
+      pending={createMutation.isPending || importMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={(
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2">
           {changedTemplateEntries.length > 0 ? <SectionSaveButton disabled={invalidTemplateDraft} pending={updateMutation.isPending} onClick={() => updateMutation.mutate(changedTemplateEntries)} /> : null}
           {selectedIds.length > 0 ? (
             <button
@@ -901,10 +913,32 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
             }}
             disabled={createMutation.isPending}
           />
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) importMutation.mutate(file);
+              event.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importMutation.isPending}
+            className="ui-btn-secondary pressable inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold disabled:opacity-50"
+          >
+            {importMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            <span>{importMutation.isPending ? "Importing..." : "Import PDF"}</span>
+          </button>
         </div>
       )}
     >
       <p className="sr-only" aria-live="polite">{reorderAnnouncement}</p>
+      {importMutation.isError ? <p role="alert" className="text-sm text-[var(--text-danger)]">{importMutation.error instanceof Error ? importMutation.error.message : "Could not import this PDF."}</p> : null}
+      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
       <div className="hidden grid-cols-[3rem_minmax(12rem,1.2fr)_minmax(14rem,1.5fr)_6rem_9rem_7rem] items-center gap-3 border-b border-[var(--border-default)] px-4 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] lg:grid sm:px-6">
         <span />
         <span>Name</span>
@@ -1060,7 +1094,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                           </div>
                           <button
                             type="button"
-                            onClick={() => setDraft(record.id, { ...draft, blocks: [...draft.blocks, { id: crypto.randomUUID(), label: "", blockType: "CUSTOM" }] })}
+                            onClick={() => setDraft(record.id, { ...draft, blocks: [...draft.blocks, { id: crypto.randomUUID(), label: "", kind: "TEXT" }] })}
                             className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -1069,8 +1103,8 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                         </div>
                       </div>
                       {draft.blocks.map((block, index) => (
+                        <div key={block.id}>
                         <div
-                          key={block.id}
                           className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_minmax(10rem,13rem)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === record.id && draggedBlock.index === index ? "opacity-60" : ""}`}
                           onDragOver={(event) => {
                             if (!draggedBlock || draggedBlock.templateId !== record.id) return;
@@ -1114,12 +1148,12 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                             aria-label={`Program block ${index + 1}`}
                           />
                           <select
-                            value={block.typeVersionId || block.blockType || "CUSTOM"}
-                            onChange={(event) => setDraft(record.id, typeOptions.some((option) => option.value === event.target.value) ? updateBlockSelection(draft, index, event.target.value) : updateBlockType(draft, index, event.target.value))}
+                            value={block.kind}
+                            onChange={(event) => setDraft(record.id, updateBlockKind(draft, index, event.target.value as "PERSON" | "TEXT"))}
                             className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
-                            aria-label={`Behavior for program block ${index + 1}`}
+                            aria-label={`Category for program block ${index + 1}`}
                           >
-                            {typeOptions.length > 0 ? typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : TEMPLATE_BLOCK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            {TEMPLATE_BLOCK_KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                           </select>
                           <button
                             type="button"
@@ -1131,6 +1165,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                             <Trash2 className="h-3.5 w-3.5" />
                             <span className="sr-only">Remove</span>
                           </button>
+                        </div>
                         </div>
                       ))}
                       <p className="rounded-md border border-dashed border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-muted)]" aria-label="Service order preview">
@@ -1193,15 +1228,15 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                           <Redo2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <button type="button" onClick={() => setNewDraft({ ...newRecord, blocks: [...newRecord.blocks, { id: crypto.randomUUID(), label: "" }] })} className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]">
+                      <button type="button" onClick={() => setNewDraft({ ...newRecord, blocks: [...newRecord.blocks, { id: crypto.randomUUID(), label: "", kind: "TEXT" }] })} className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]">
                         <Plus className="h-3.5 w-3.5" />
                         <span>Add block</span>
                       </button>
                     </div>
                   </div>
                   {newRecord.blocks.map((block, index) => (
+                    <div key={block.id}>
                       <div
-                      key={block.id}
                       className={`group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(0,1fr)_minmax(10rem,13rem)_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)] ${draggedBlock?.templateId === "new" && draggedBlock.index === index ? "opacity-60" : ""}`}
                       onDragOver={(event) => {
                         if (!draggedBlock || draggedBlock.templateId !== "new") return;
@@ -1246,17 +1281,18 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
                         aria-label={`New block ${index + 1}`}
                       />
                       <select
-                        value={block.typeVersionId || block.blockType || "CUSTOM"}
-                        onChange={(event) => setNewDraft(typeOptions.some((option) => option.value === event.target.value) ? updateBlockSelection(newRecord, index, event.target.value) : updateBlockType(newRecord, index, event.target.value))}
+                        value={block.kind}
+                        onChange={(event) => setNewDraft(updateBlockKind(newRecord, index, event.target.value as "PERSON" | "TEXT"))}
                         className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
-                        aria-label={`Behavior for new program block ${index + 1}`}
+                        aria-label={`Category for new program block ${index + 1}`}
                       >
-                        {typeOptions.length > 0 ? typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : TEMPLATE_BLOCK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        {TEMPLATE_BLOCK_KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                       <button type="button" onClick={() => setNewDraft(removeBlock(newRecord, index))} className="pressable inline-flex min-h-11 w-11 shrink-0 items-center justify-center border-l border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label={`Remove new block ${index + 1}`} title="Remove block">
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="sr-only">Remove</span>
                       </button>
+                    </div>
                     </div>
                   ))}
                   <p className="rounded-md border border-dashed border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-muted)]" aria-label="New service order preview">
@@ -1267,6 +1303,7 @@ function ServiceTemplateSection({ records, programBlockTypes }: { records: Servi
             </div>
           </article>
         ) : null}
+      </div>
       </div>
     </SectionShell>
     <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !deleteMutation.isPending && setDeleteConfirmOpen(open)}>
@@ -1461,6 +1498,8 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
   );
 }
 
+// Retained for an upcoming template-import editor; it is no longer a Settings panel.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ProgramBlockTypesSection({ records }: { records: ProgramBlockTypeRecord[] }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
@@ -1596,6 +1635,7 @@ function ProgramBlockTypesSection({ records }: { records: ProgramBlockTypeRecord
 type ProgramBlockTypeTypeVersionResponse = { id: string };
 
 export default function SettingsPageClient({ environment }: { environment: EnvironmentReport }) {
+  void environment;
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -1628,11 +1668,6 @@ export default function SettingsPageClient({ environment }: { environment: Envir
     queryKey: ["settings", "service-templates"],
     queryFn: () => apiFetch<ServiceTemplatePresetRecord[]>("/api/settings/service-templates"),
     enabled: activeTab === "templates",
-  });
-  const programBlockTypesQuery = useQuery({
-    queryKey: ["settings", "program-block-types"],
-    queryFn: () => apiFetch<ProgramBlockTypeRecord[]>("/api/settings/program-block-types"),
-    enabled: activeTab === "templates" || activeTab === "block-types",
   });
   const songTagsQuery = useQuery({
     queryKey: ["song-tags"],
@@ -1715,18 +1750,12 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
       <div id="settings-panel-templates" role="tabpanel" aria-labelledby="settings-tab-templates" tabIndex={0} hidden={activeTab !== "templates"} className="space-y-5">
         <CollectionState label="Service templates" isLoading={serviceTemplatesQuery.isLoading} error={serviceTemplatesQuery.error} onRetry={() => void serviceTemplatesQuery.refetch()}>
-          <ServiceTemplateSection records={serviceTemplatesQuery.data ?? []} programBlockTypes={programBlockTypesQuery.data ?? []} />
+          <ServiceTemplateSection records={serviceTemplatesQuery.data ?? []} />
         </CollectionState>
       </div>
 
       <div id="settings-panel-membership" role="tabpanel" aria-labelledby="settings-tab-membership" tabIndex={0} hidden={activeTab !== "membership"} className="space-y-5 [&>section>div:first-child>h2]:hidden [&>section>div:first-child>p]:mt-0">
         {activeTab === "membership" ? <MembershipSection /> : null}
-      </div>
-
-      <div id="settings-panel-block-types" role="tabpanel" aria-labelledby="settings-tab-block-types" tabIndex={0} hidden={activeTab !== "block-types"} className="space-y-5">
-        <CollectionState label="Program block types" isLoading={programBlockTypesQuery.isLoading} error={programBlockTypesQuery.error} onRetry={() => void programBlockTypesQuery.refetch()}>
-          <ProgramBlockTypesSection records={programBlockTypesQuery.data ?? []} />
-        </CollectionState>
       </div>
 
       <div id="settings-panel-tags" role="tabpanel" aria-labelledby="settings-tab-tags" tabIndex={0} hidden={activeTab !== "tags"} className="space-y-5">
@@ -1741,13 +1770,6 @@ export default function SettingsPageClient({ environment }: { environment: Envir
         </CollectionState>
       </div>
 
-      <div id="settings-panel-integrations" role="tabpanel" aria-labelledby="settings-tab-integrations" tabIndex={0} hidden={activeTab !== "integrations"} className="space-y-5 [&>section>div:first-child>h2]:hidden [&>section>div:first-child>p]:mt-0">
-        {activeTab === "integrations" ? <IntegrationsSection /> : null}
-      </div>
-
-      <div id="settings-panel-usage-billing" role="tabpanel" aria-labelledby="settings-tab-usage-billing" tabIndex={0} hidden={activeTab !== "usage-billing"} className="space-y-5">
-        {activeTab === "usage-billing" ? <GeneralStatus environment={environment} /> : null}
-      </div>
         </div>
       </div>
     </div>

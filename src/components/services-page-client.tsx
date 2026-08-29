@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -11,6 +13,7 @@ import {
   type EditableSettingsPresetRecord,
   type ServiceRecord,
   type ServiceTemplatePresetRecord,
+  type SongRecord,
   type ServantRecord,
   type UpdateServicePayload,
 } from "@/lib/api-client";
@@ -18,11 +21,9 @@ import { analyzeServiceText } from "@/lib/service-text-analysis";
 import {
   ASSIGNED_MINISTRY_OPTIONS,
   buildBibleGatewayUrl,
-  formatOfferingPeople,
   getDefaultNextServiceSunday,
   inferAssignedMinistryFromName,
   mapAssignedMinistryToLegacyMinistryName,
-  parseOfferingPeople,
   PLEDGE_TYPE_OPTIONS,
   SERVICE_HYMNAL_ROLES,
   SERVICE_SERVANT_ROLES,
@@ -37,6 +38,7 @@ import { formatServantDisplayName, normalizeServantName, normalizeServantNameFor
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProductionSelect } from "@/components/ui/production-select";
+import { addTeamMember, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
 
 type ServiceFormState = {
   assignedMinistry: string;
@@ -48,6 +50,7 @@ type ServiceFormState = {
   servantAssignments: Record<ServiceServantRole, string>;
   offeringPeople: [string, string];
   hymnals: Record<ServiceHymnalRole, string>;
+  templateBlockValues: Record<string, Record<string, unknown>>;
 };
 
 type ServiceFormErrors = Partial<
@@ -62,6 +65,8 @@ type ServiceFormErrors = Partial<
     string
   >
 >;
+
+type ServiceBlockValues = Record<string, Record<string, unknown>>;
 
 type PendingServiceSave = {
   action: "create" | "update";
@@ -81,8 +86,6 @@ type TemplateOption = {
   templateType: ServiceTemplateType;
 };
 
-const FIRST_SUNDAY_SERVANT_ROLES = new Set<ServiceServantRole>(["PLEDGE_READER"]);
-const FIRST_SUNDAY_HYMNAL_ROLES = new Set<ServiceHymnalRole>(["SONG_OF_HYMNS"]);
 const SERVICE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -148,6 +151,7 @@ function createBlankServiceForm(): ServiceFormState {
       HYMN_OF_RESPONSE: "",
       SONG_OF_HYMNS: "",
     },
+    templateBlockValues: {},
   };
 }
 
@@ -201,34 +205,6 @@ function getSelectedTemplateType(templateCode: string, templateOptions: Template
     ?? (templateCode === "FIRST_SUNDAY" ? "FIRST_SUNDAY" : "REGULAR");
 }
 
-function createFormFromService(service: ServiceRecord): ServiceFormState {
-  const blank = createBlankServiceForm();
-
-  for (const assignment of service.servantAssignments ?? []) {
-    if (assignment.role === "OFFERING") {
-      blank.offeringPeople = parseOfferingPeople(assignment.personName);
-      continue;
-    }
-    blank.servantAssignments[assignment.role as ServiceServantRole] = assignment.personName;
-  }
-
-  for (const hymnal of service.hymnals ?? []) {
-    blank.hymnals[hymnal.role as ServiceHymnalRole] = hymnal.title;
-  }
-
-  return normalizeServiceForm({
-    assignedMinistry: service.ministryPresetCode ?? service.assignedMinistry ?? "LADIES",
-    serviceDate: new Date(service.serviceDate).toISOString().slice(0, 10),
-    sermonVerse: service.sermonVerse ?? "",
-    templateType: service.templatePresetCode ?? service.templateType ?? "REGULAR",
-    pledgeType: (service.pledgeType ?? "") as PledgeType | "",
-    bibleVerses: service.bibleVerses?.length ? service.bibleVerses.map((entry) => entry.verse) : [""],
-    servantAssignments: blank.servantAssignments,
-    offeringPeople: blank.offeringPeople,
-    hymnals: blank.hymnals,
-  });
-}
-
 function isFirstSunday(templateType: string, templateOptions: TemplateOption[] = []) {
   return getSelectedTemplateType(templateType, templateOptions) === "FIRST_SUNDAY";
 }
@@ -272,15 +248,17 @@ function validateServiceForm(form: ServiceFormState): ServiceFormErrors {
     errors.serviceDate = "Service date is required.";
   }
 
-  if (!form.sermonVerse.trim()) {
-    errors.sermonVerse = "Sermon verse is required.";
-  }
-
-  if (hasDuplicateOfferingPeople(normalizeServiceForm(form).offeringPeople)) {
-    errors.OFFERING = "Offering servants cannot be the same person.";
-  }
-
   return errors;
+}
+
+function getServiceBlockValues(blocks: ServiceRecord["blocks"]): ServiceBlockValues {
+  return Object.fromEntries(blocks.map((block) => {
+    const fieldValues = block.fieldValues;
+    const values = fieldValues && typeof fieldValues === "object" && !Array.isArray(fieldValues)
+      ? fieldValues as Record<string, unknown>
+      : block.kind === "PERSON" ? { personIds: [] } : { text: "" };
+    return [block.id, values];
+  }));
 }
 
 function buildServicePayload(
@@ -292,48 +270,14 @@ function buildServicePayload(
   const ministryOption = ministryOptions.find((option) => option.value === normalizedForm.assignedMinistry);
   const templateOption = templateOptions.find((option) => option.value === normalizedForm.templateType);
   const templateType = templateOption?.templateType ?? getSelectedTemplateType(normalizedForm.templateType, templateOptions);
-  type ServiceServantAssignmentPayload = NonNullable<CreateServicePayload["servantAssignments"]>[number];
-  const servantAssignments = SERVICE_SERVANT_ROLES
-    .filter((role) => isFirstSunday(normalizedForm.templateType, templateOptions) || !FIRST_SUNDAY_SERVANT_ROLES.has(role.value))
-    .reduce<ServiceServantAssignmentPayload[]>((assignments, role) => {
-      if (role.value === "OFFERING") {
-        const personName = formatOfferingPeople(normalizedForm.offeringPeople);
-        if (personName) {
-          assignments.push({ role: role.value, personName });
-        }
-
-        return assignments;
-      }
-
-      assignments.push({
-        role: role.value,
-        personName: normalizedForm.servantAssignments[role.value].trim(),
-      });
-
-      return assignments;
-    }, [])
-    .filter((assignment) => assignment.personName.length > 0);
-
   return {
     serviceDate: new Date(normalizedForm.serviceDate).toISOString(),
     assignedMinistry: ministryOption?.assignedMinistry ?? inferAssignedMinistryFromName(ministryOption?.label),
     ministryPresetCode: ministryOption?.value ?? normalizedForm.assignedMinistry,
-    sermonVerse: normalizedForm.sermonVerse.trim(),
     status: ServiceStatus.DRAFT,
     templateType,
     templatePresetCode: templateOption?.value ?? normalizedForm.templateType,
-    pledgeType: isFirstSunday(normalizedForm.templateType, templateOptions) ? (normalizedForm.pledgeType || null) : null,
-    bibleVerses: normalizedForm.bibleVerses
-      .map((verse, index) => ({ verse: verse.trim(), order: index }))
-      .filter((entry) => entry.verse.length > 0),
-    servantAssignments,
-    hymnals: SERVICE_HYMNAL_ROLES
-      .filter((role) => isFirstSunday(normalizedForm.templateType, templateOptions) || !FIRST_SUNDAY_HYMNAL_ROLES.has(role.value))
-      .map((role) => ({
-        role: role.value,
-        title: normalizedForm.hymnals[role.value].trim(),
-      }))
-      .filter((hymnal) => hymnal.title.length > 0),
+    templateBlockValues: Object.entries(normalizedForm.templateBlockValues).map(([templateBlockId, values]) => ({ templateBlockId, values })),
   };
 }
 
@@ -580,7 +524,7 @@ function ServantCombobox({
   );
 }
 
-function ServiceFormFields({
+export function ServiceFormFields({
   errors,
   form,
   ministryOptions,
@@ -867,104 +811,233 @@ function ServiceFormFields({
   );
 }
 
-function ReadOnlyServiceDetails({ service }: { service: ServiceListItem }) {
+function TeamMemberPicker({
+  members,
+  personIds,
+  onChange,
+  disabled = false,
+}: {
+  members: ServantRecord[];
+  personIds: string[];
+  onChange: (personIds: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const workspaceMatch = pathname.match(/^\/w\/([^/]+)/);
+  const teamsHref = workspaceMatch ? `/w/${workspaceMatch[1]}/teams` : "/teams";
+  const availableMembers = filterTeamMembers(members, search, personIds);
+
+  const selectMember = (personId: string) => {
+    onChange(addTeamMember(personIds, personId));
+    setSearch("");
+    setIsOpen(true);
+  };
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-[var(--text-secondary)]">Team members</span>
+        <Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link>
+      </div>
+      {personIds.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {personIds.map((personId) => {
+            const member = members.find((candidate) => candidate.id === personId);
+            return (
+              <button
+                key={personId}
+                type="button"
+                onClick={() => onChange(removeTeamMember(personIds, personId))}
+                disabled={disabled}
+                className="pressable inline-flex items-center gap-1 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-60"
+                aria-label={`Remove ${member ? formatServantDisplayName(member) : "Team member"}`}
+              >
+                {member ? formatServantDisplayName(member) : "Unavailable member"} <span aria-hidden="true">×</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <div className="relative mt-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => { setSearch(event.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Search Teams…"
+          disabled={disabled}
+          aria-label="Search Team members"
+          className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] disabled:opacity-60"
+        />
+        {isOpen ? (
+          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] py-1 shadow-lg">
+            {availableMembers.length ? availableMembers.map((member) => (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => selectMember(member.id)}
+                className="flex min-h-10 w-full items-center px-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
+              >
+                {member.name}
+              </button>
+            )) : <p className="px-3 py-2 text-sm text-[var(--text-muted)]">No matching Team members.</p>}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TemplateDefinedServiceFields({
+  form,
+  errors,
+  ministryOptions,
+  templateOptions,
+  templates,
+  servants,
+  songs,
+  onChange,
+}: {
+  form: ServiceFormState;
+  errors: ServiceFormErrors;
+  ministryOptions: MinistryOption[];
+  templateOptions: TemplateOption[];
+  templates: ServiceTemplatePresetRecord[];
+  servants: ServantRecord[];
+  songs: SongRecord[];
+  onChange: (form: ServiceFormState) => void;
+}) {
+  const template = templates.find((candidate) => candidate.code === form.templateType);
+  const updateTemplate = (templateCode: string) => {
+    const selected = templates.find((candidate) => candidate.code === templateCode);
+    onChange({
+      ...form,
+      templateType: templateCode,
+      templateBlockValues: Object.fromEntries((selected?.blocks ?? []).map((block) => [block.id, block.kind === "PERSON" ? { personIds: [] } : { text: "" }])),
+    });
+  };
+  const updateValue = (blockId: string, key: string, value: unknown) => onChange({
+    ...form,
+    templateBlockValues: {
+      ...form.templateBlockValues,
+      [blockId]: { ...(form.templateBlockValues[blockId] ?? {}), [key]: value },
+    },
+  });
+
   return (
     <div className="space-y-6">
-      <dl className="grid border-y border-[var(--rule-default)] sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Date", formatServiceDate(service.serviceDate)],
-          ["Ministry", service.ministryLabel],
-          ["Sermon verse", service.sermonVerse || "Not set"],
-          ["Template", service.templateLabel],
-        ].map(([label, value], index) => (
-          <div
-            key={label}
-            className={`py-3 sm:px-4 ${index > 0 ? "border-t border-[var(--rule-default)] sm:border-t-0" : ""} ${
-              index % 2 === 1 ? "sm:border-l sm:border-[var(--rule-default)]" : ""
-            } ${index > 1 ? "sm:border-t sm:border-[var(--rule-default)] xl:border-t-0" : ""} ${
-              index > 0 ? "xl:border-l xl:border-[var(--rule-default)]" : ""
-            }`}
-          >
-            <dt className="technical-label">{label}</dt>
-            <dd className="mt-1.5 text-sm font-medium text-[var(--text-primary)]">{value}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <div className="grid gap-x-8 gap-y-6 xl:grid-cols-[1.1fr_1fr_1fr]">
-        <section>
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">Bible verses</h4>
-            <span className="font-mono text-xs text-[var(--text-muted)]">
-              {service.bibleVerses?.length ?? 0} linked
-            </span>
-          </div>
-          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
-            {service.bibleVerses?.length ? (
-              service.bibleVerses.map((entry) => (
-                <a
-                  key={entry.id}
-                  href={buildBibleGatewayUrl(entry.verse)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-3 py-2.5 text-sm text-[var(--text-primary)] transition-colors hover:text-[var(--text-accent)]"
-                >
-                  {entry.verse}
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                </a>
-              ))
-            ) : (
-              <p className="py-3 text-sm text-[var(--text-muted)]">No Bible verses yet.</p>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Servants</h4>
-          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
-            {SERVICE_SERVANT_ROLES.filter((role) =>
-              service.templateType === "FIRST_SUNDAY" || !("firstSundayOnly" in role && role.firstSundayOnly)
-            ).map((role) => {
-              const value = service.servantAssignments?.find((entry) => entry.role === role.value)?.personName;
-              return (
-                <div key={role.value} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-                  <span className="text-[var(--text-muted)]">{role.label}</span>
-                  <span className="text-right font-medium text-[var(--text-primary)]">{value || "Not set"}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section>
-          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Hymnals</h4>
-          <div className="mt-3 divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]">
-            {SERVICE_HYMNAL_ROLES.filter((role) =>
-              service.templateType === "FIRST_SUNDAY" || !("firstSundayOnly" in role && role.firstSundayOnly)
-            ).map((role) => {
-              const value = service.hymnals?.find((entry) => entry.role === role.value)?.title;
-              return (
-                <div key={role.value} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-                  <span className="text-[var(--text-muted)]">{role.label}</span>
-                  <span className="text-right font-medium text-[var(--text-primary)]">{value || "Not set"}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+      <div className="grid gap-4 md:grid-cols-3">
+        <ProductionSelect label="Assigned Ministry" value={form.assignedMinistry} onValueChange={(assignedMinistry) => onChange({ ...form, assignedMinistry })} options={ministryOptions} triggerClassName="bg-[var(--surface-panel)]" />
+        <label className="text-sm text-[var(--text-secondary)]">Date
+          <input type="date" value={form.serviceDate} onChange={(event) => onChange({ ...form, serviceDate: event.target.value })} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]" />
+          {errors.serviceDate ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.serviceDate}</p> : null}
+        </label>
+        <ProductionSelect label="Template" value={form.templateType} onValueChange={updateTemplate} options={templateOptions.map((option) => ({ value: option.value, label: option.label }))} triggerClassName="bg-[var(--surface-panel)]" disabled={templateOptions.length === 0} />
       </div>
-
-      {service.templateType === "FIRST_SUNDAY" ? (
-        <section className="border-t border-[var(--rule-default)] pt-4">
-          <h4 className="text-sm font-semibold text-[var(--text-primary)]">First Sunday details</h4>
-          <div className="mt-3 flex items-baseline justify-between gap-4 text-sm sm:justify-start sm:gap-12">
-            <span className="text-[var(--text-muted)]">Tipan / Pahayag</span>
-            <span className="font-medium text-[var(--text-primary)]">
-              {PLEDGE_TYPE_OPTIONS.find((option) => option.value === service.pledgeType)?.label ?? "Not set"}
-            </span>
+      {!template ? <p className="text-sm text-[var(--state-warning)]">Select a saved template to load its service fields.</p> : null}
+      {template?.blocks.map((block) => (
+        <section key={block.id} className="border-t border-[var(--rule-default)] pt-5">
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">{block.label}</h3>
+          {block.kind === "TEXT" ? <label className="mt-3 block text-sm text-[var(--text-secondary)]">Notes<textarea value={String(form.templateBlockValues[block.id]?.text ?? "")} onChange={(event) => updateValue(block.id, "text", event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]" /></label> : <TeamMemberPicker members={servants} personIds={Array.isArray(form.templateBlockValues[block.id]?.personIds) ? form.templateBlockValues[block.id]?.personIds as string[] : []} onChange={(personIds) => updateValue(block.id, "personIds", personIds)} />}
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {block.fieldDefinition.fields.map((field) => {
+              const value = form.templateBlockValues[block.id]?.[field.key] ?? block.fieldDefaults?.[field.key] ?? (field.type === "checkbox" ? false : "");
+              const label = <span>{field.label}{field.required ? <span className="text-[var(--state-danger)]"> *</span> : null}</span>;
+              if (field.type === "checkbox") return <label key={field.key} className="flex min-h-11 items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={Boolean(value)} onChange={(event) => updateValue(block.id, field.key, event.target.checked)} />{label}</label>;
+              if (field.type === "long_text") return <label key={field.key} className="block text-sm text-[var(--text-secondary)] md:col-span-2">{label}<textarea value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} placeholder={field.helpText} rows={3} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]" /></label>;
+              if (field.type === "single_select") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select…</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+              if (field.type === "person") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select person…</option>{servants.map((servant) => <option key={servant.id} value={servant.id}>{formatServantDisplayName(servant)}</option>)}</select></label>;
+              if (field.type === "song") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select song…</option>{songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</select></label>;
+              return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<input type={field.type === "duration" ? "number" : "text"} value={String(value)} onChange={(event) => updateValue(block.id, field.key, field.type === "duration" && event.target.value ? Number(event.target.value) : event.target.value)} placeholder={field.helpText} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]" /></label>;
+            })}
           </div>
         </section>
-      ) : null}
+      ))}
+    </div>
+  );
+}
+
+function ServiceBlockEditor({
+  blocks,
+  values,
+  servants,
+  onChange,
+}: {
+  blocks: ServiceRecord["blocks"];
+  values: ServiceBlockValues;
+  servants: ServantRecord[];
+  onChange: (values: ServiceBlockValues) => void;
+}) {
+  const updateValue = (blockId: string, nextValues: Record<string, unknown>) => {
+    onChange({ ...values, [blockId]: nextValues });
+  };
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-[var(--text-secondary)]">Edit the fields copied into this service. Template updates will not change this service.</p>
+      {blocks.map((block) => {
+        const blockValues = values[block.id] ?? (block.kind === "PERSON" ? { personIds: [] } : { text: "" });
+        const personIds = Array.isArray(blockValues.personIds)
+          ? blockValues.personIds.filter((id): id is string => typeof id === "string")
+          : [];
+
+        return (
+          <section key={block.id} className="border-t border-[var(--rule-default)] pt-5">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">{block.label}</h4>
+            {block.kind === "PERSON" ? (
+              <TeamMemberPicker
+                members={servants}
+                personIds={personIds}
+                onChange={(nextPersonIds) => updateValue(block.id, { personIds: nextPersonIds })}
+              />
+            ) : (
+              <label className="mt-3 block text-sm text-[var(--text-secondary)]">
+                Text
+                <textarea
+                  value={typeof blockValues.text === "string" ? blockValues.text : ""}
+                  onChange={(event) => updateValue(block.id, { text: event.target.value })}
+                  rows={4}
+                  className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
+                />
+              </label>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReadOnlyServiceDetails({ service, servants }: { service: ServiceListItem; servants: ServantRecord[] }) {
+  const servantNameById = new Map(servants.map((servant) => [servant.id, formatServantDisplayName(servant)]));
+
+  return (
+    <div className="space-y-1">
+      {service.blocks.length ? (
+        service.blocks.map((block, index) => {
+          const values = block.fieldValues as { text?: unknown; personIds?: unknown };
+          const personIds = Array.isArray(values.personIds) ? values.personIds.filter((id): id is string => typeof id === "string") : [];
+          const assignedNames = personIds.map((id) => servantNameById.get(id)).filter((name): name is string => Boolean(name));
+          const value = block.kind === "PERSON"
+            ? assignedNames.length ? assignedNames.join(", ") : personIds.length ? `${personIds.length} ${personIds.length === 1 ? "person" : "people"} assigned` : "Not set"
+            : typeof values.text === "string" && values.text.trim() ? values.text : "Not set";
+
+          return (
+            <div
+              key={block.id}
+              className="grid grid-cols-[2rem_minmax(10rem,0.8fr)_minmax(12rem,1.2fr)] items-start gap-3 rounded-md px-4 py-3 text-sm"
+            >
+              <span className="font-mono text-xs font-medium text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>
+              <span className="font-medium text-[var(--text-primary)]">{block.label}</span>
+              <span className={`min-w-0 whitespace-pre-wrap break-words text-right ${value === "Not set" ? "text-[var(--text-muted)]" : "text-[var(--text-secondary)]"}`}>{value}</span>
+            </div>
+          );
+        })
+      ) : (
+        <p className="rounded-md bg-[var(--surface-panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">No blocks were copied from this service template.</p>
+      )}
     </div>
   );
 }
@@ -981,14 +1054,13 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editBlockValues, setEditBlockValues] = useState<ServiceBlockValues>({});
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createParserOpen, setCreateParserOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ServiceFormState>(() => createBlankServiceForm());
   const [createParserText, setCreateParserText] = useState("");
-  const [editForm, setEditForm] = useState<ServiceFormState>(() => createBlankServiceForm());
   const [createErrors, setCreateErrors] = useState<ServiceFormErrors>({});
-  const [editErrors, setEditErrors] = useState<ServiceFormErrors>({});
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("");
@@ -1065,8 +1137,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
       await queryClient.invalidateQueries({ queryKey: ["services"] });
       setExpandedServiceId(service.id);
       setEditingServiceId(null);
-      setEditForm(createFormFromService(service));
-      setEditErrors({});
       setCreateModalOpen(false);
       setCreateForm(createBlankServiceForm());
       setCreateErrors({});
@@ -1075,13 +1145,23 @@ export default function ServicesPageClient({ initialServices }: { initialService
       showToast("Service could not be created. Review the form and try again.");
     },
   });
+  const songsQuery = useQuery({
+    queryKey: ["songs"],
+    queryFn: () => apiFetch<SongRecord[]>("/api/songs"),
+    staleTime: 30_000,
+  });
 
   const updateServiceMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateServicePayload }) =>
-      apiFetch<ServiceRecord>(`/api/services/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      }),
+    mutationFn: async ({ id, blockValues }: { id: string; blockValues: ServiceBlockValues }) => {
+      await Promise.all(
+        Object.entries(blockValues).map(([blockId, values]) =>
+          apiFetch(`/api/services/${id}/blocks/${blockId}/values`, {
+            method: "PUT",
+            body: JSON.stringify({ values }),
+          })
+        )
+      );
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["services"] });
       setEditingServiceId(null);
@@ -1136,10 +1216,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    updateServiceMutation.mutate({
-      id: nextPendingSave.serviceId,
-      payload: nextPendingSave.payload as UpdateServicePayload,
-    });
+    updateServiceMutation.mutate({ id: nextPendingSave.serviceId, blockValues: editBlockValues });
   }
 
   function prepareServiceSave(action: "create" | "update", form: ServiceFormState, serviceId?: string) {
@@ -1151,8 +1228,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
     const errors = validateServiceForm(form);
     if (action === "create") {
       setCreateErrors(errors);
-    } else {
-      setEditErrors(errors);
     }
 
     if (Object.keys(errors).length > 0) {
@@ -1163,7 +1238,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     }
 
     const payload = buildServicePayload(form, ministryOptions, templateOptions);
-    const missingNames = collectUnlistedServantNames(form, servantsQuery.data ?? []);
+    const missingNames = action === "create" ? [] : collectUnlistedServantNames(form, servantsQuery.data ?? []);
     if (missingNames.length === 0) {
       if (action === "create") {
         createServiceMutation.mutate(payload);
@@ -1174,7 +1249,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
         return;
       }
 
-      updateServiceMutation.mutate({ id: serviceId, payload });
+      updateServiceMutation.mutate({ id: serviceId, blockValues: editBlockValues });
       return;
     }
 
@@ -1202,7 +1277,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    prepareServiceSave("update", editForm, expandedService.id);
+    updateServiceMutation.mutate({ id: expandedService.id, blockValues: editBlockValues });
   }
 
   async function addSelectedServantsAndSave() {
@@ -1255,15 +1330,13 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
     setExpandedServiceId(service.id);
     setEditingServiceId(null);
-    setEditForm(createFormFromService(service));
-    setEditErrors({});
+    setEditBlockValues(getServiceBlockValues(service.blocks));
   }
 
   function startEditingService(service: ServiceRecord) {
     setExpandedServiceId(service.id);
     setEditingServiceId(service.id);
-    setEditForm(createFormFromService(service));
-    setEditErrors({});
+    setEditBlockValues(getServiceBlockValues(service.blocks));
   }
 
   return (
@@ -1287,9 +1360,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
         </button>
       </section>
 
-      <section className="services-register w-full overflow-hidden border-y border-[var(--border-default)]">
-        <div className="services-register-tools border-b border-[var(--rule-default)] py-4 sm:py-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <section className="services-register ui-surface-elevated w-full overflow-hidden">
+        <div className="services-register-tools border-b border-[var(--rule-default)] px-4 py-4 sm:py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-base font-semibold text-[var(--text-primary)]">Service register</h2>
               <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
@@ -1297,7 +1370,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
               </p>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end xl:justify-end">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end lg:justify-end">
               <label className="min-w-[180px] flex-1 text-xs font-medium text-[var(--text-muted)] sm:max-w-[220px]">
                 <span className="mb-1.5 block">Service date</span>
                 <input
@@ -1391,7 +1464,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                     key={service.id}
                     className={
                       isExpanded
-                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_5%,transparent)]"
+                        ? "border-l-4 border-[var(--action-primary-bg)] bg-[color:color-mix(in_srgb,var(--action-primary-bg)_7%,transparent)]"
                         : isSelected
                         ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
                         : "bg-transparent"
@@ -1455,18 +1528,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          className="ml-4 border-l-2 border-[var(--action-primary-bg)] bg-[var(--surface-panel-alt)] px-4 py-5 lg:ml-8 lg:px-6"
+                          className="border-t border-[var(--border-default)] bg-[var(--surface-panel)]"
                         >
-                          <div className="space-y-5">
-                            <div className="flex flex-col gap-3 border-b border-[var(--rule-default)] pb-4 md:flex-row md:items-center md:justify-between">
+                            <div className="flex flex-col gap-3 border-b border-[var(--rule-default)] bg-[var(--surface-panel-strong)] px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
                               <div>
                                 <h3 className="text-base font-semibold text-[var(--text-primary)]">
-                                  {isEditing ? "Edit service" : "Service details"}
+                                  {isEditing ? "Edit service" : "Service flow"}
                                 </h3>
                                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                                  {service.dateLabel}
-                                  {" / "}
-                                  {service.ministryLabel}
+                                  {isEditing ? "Edit the fields copied into this service." : `${service.blocks.length} ordered blocks`}
                                 </p>
                               </div>
 
@@ -1476,8 +1546,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                     type="button"
                                     onClick={() => {
                                       setEditingServiceId(null);
-                                      setEditForm(createFormFromService(service));
-                                      setEditErrors({});
                                     }}
                                     className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-secondary)]"
                                   >
@@ -1505,21 +1573,18 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                 </button>
                               )}
                             </div>
-
+                            <div className="px-4 py-4 lg:px-6">
                             {isEditing ? (
-                              <ServiceFormFields
-                                form={editForm}
-                                errors={editErrors}
-                                ministryOptions={ministryOptions}
-                                onChange={setEditForm}
-                                onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
+                              <ServiceBlockEditor
+                                blocks={service.blocks}
+                                values={editBlockValues}
                                 servants={servantsQuery.data ?? []}
-                                templateOptions={templateOptions}
+                                onChange={setEditBlockValues}
                               />
                             ) : (
-                              <ReadOnlyServiceDetails service={service} />
+                              <ReadOnlyServiceDetails service={service} servants={servantsQuery.data ?? []} />
                             )}
-                          </div>
+                            </div>
                         </motion.div>
                       ) : null}
                     </AnimatePresence>
@@ -1563,14 +1628,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
             </div>
 
             <div className="max-h-[calc(90vh-10rem)] overflow-y-auto px-5 py-5">
-              <ServiceFormFields
+              <TemplateDefinedServiceFields
                 form={createForm}
                 errors={createErrors}
                 ministryOptions={ministryOptions}
                 onChange={setCreateForm}
-                onInvalidOfferingDuplicate={() => showToast("Offering servants cannot be the same person.")}
-                servants={servantsQuery.data ?? []}
                 templateOptions={templateOptions}
+                templates={serviceTemplatesQuery.data ?? []}
+                servants={servantsQuery.data ?? []}
+                songs={songsQuery.data ?? []}
               />
             </div>
 

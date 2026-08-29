@@ -39,6 +39,7 @@ type CollectionConfig<TCreate, TUpdate> = {
   path: string;
   messages: CollectionMessages;
   allowDefaultDelete?: boolean;
+  create?: (workspaceId: string, payload: TCreate) => Promise<unknown>;
   afterWrite?: (record: unknown, workspaceId: string, payload: TCreate | TUpdate) => Promise<void>;
   findMany?: (workspaceId: string) => Promise<unknown[]>;
   writeData?: (payload: Record<string, unknown>) => Record<string, unknown>;
@@ -71,10 +72,12 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
         return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
       }
 
-      const record = await config.delegate.create({
-        data: { ...(config.writeData?.(parsed.data) ?? parsed.data), workspaceId, isDefault: false },
-      });
-      await config.afterWrite?.(record, workspaceId, parsed.data);
+      const record = config.create
+        ? await config.create(workspaceId, parsed.data)
+        : await config.delegate.create({
+            data: { ...(config.writeData?.(parsed.data) ?? parsed.data), workspaceId, isDefault: false },
+          });
+      if (!config.create) await config.afterWrite?.(record, workspaceId, parsed.data);
       return NextResponse.json(record, { status: 201 });
     } catch (error: unknown) {
       console.error(`POST ${config.path} error:`, error);

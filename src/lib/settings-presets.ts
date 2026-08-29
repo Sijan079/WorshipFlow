@@ -1,32 +1,17 @@
 import { z } from "zod";
 import type { BlockType, ServiceTemplateType } from "@prisma/client";
+import { TemplateBlockKindSchema, type TemplateBlockKind } from "./template-block-kinds.ts";
 import { ASSIGNED_MINISTRY_OPTIONS } from "./service-records.ts";
 import { SERVANT_GROUP_OPTIONS } from "./servants.ts";
 import { BLOCK_LABELS, EXTENDED_BLOCK_ORDER, STANDARD_BLOCK_ORDER } from "./service-display.ts";
 
 export const APPROVED_TEMPLATE_OPTIONAL_BLOCKS = ["AWIT_NG_HIMNO", "TIPAN_PAHAYAG"] as const satisfies BlockType[];
-const BLOCK_TYPE_VALUES = [
-  "CALL_TO_WORSHIP",
-  "PRAISE_AND_WORSHIP",
-  "MC",
-  "AWIT_NG_HIMNO",
-  "TIPAN_PAHAYAG",
-  "AWIT_NG_PAKIKINIG",
-  "SCRIPTURE_READING",
-  "SERMON",
-  "AWIT_NG_PAGTUGON",
-  "OFFERING",
-  "FLOWERS_FOR_THE_LORD",
-  "DETAILS",
-  "CUSTOM",
-] as const satisfies readonly BlockType[];
-
 export type ApprovedTemplateOptionalBlock = (typeof APPROVED_TEMPLATE_OPTIONAL_BLOCKS)[number];
 
 export type TemplateBlockPreset = {
   label: string;
   code: string;
-  blockType: BlockType;
+  kind: TemplateBlockKind;
   order: number;
   typeVersionId?: string;
   fieldDefaults?: Record<string, unknown>;
@@ -50,7 +35,7 @@ function createDefaultTemplateBlocks(blockTypes: readonly BlockType[]) {
   return blockTypes.map((blockType, order) => ({
     label: BLOCK_LABELS[blockType],
     code: blockType,
-    blockType,
+    kind: "TEXT" as const,
     order,
   }));
 }
@@ -107,22 +92,7 @@ export function moveTemplateBlock<T>(blocks: T[], from: number, to: number) {
   return next;
 }
 
-export function inferTemplateBlockType(label: string): BlockType {
-  const value = label.trim().toLowerCase();
-  if (/praise|worship/.test(value)) return "PRAISE_AND_WORSHIP";
-  if (/scripture|reading/.test(value)) return "SCRIPTURE_READING";
-  if (/sermon|message|preach/.test(value)) return "SERMON";
-  if (/offering|tithe/.test(value)) return "OFFERING";
-  if (/announcement|flower/.test(value)) return "FLOWERS_FOR_THE_LORD";
-  if (/call/.test(value)) return "CALL_TO_WORSHIP";
-  if (/hymn|himno/.test(value)) return "AWIT_NG_HIMNO";
-  if (/response|pagtugon/.test(value)) return "AWIT_NG_PAGTUGON";
-  if (/pakikinig|listening/.test(value)) return "AWIT_NG_PAKIKINIG";
-  if (/mc|emcee|papuri|pasasalamat/.test(value)) return "MC";
-  return "CUSTOM";
-}
-
-export function validateTemplateBlocks(blocks: Array<{ label: string; code?: string; blockType?: string; order?: number; typeVersionId?: string; fieldDefaults?: Record<string, unknown> }>) {
+export function validateTemplateBlocks(blocks: Array<{ label: string; code?: string; kind?: TemplateBlockKind; order?: number }>) {
   if (blocks.length === 0) {
     throw new Error("At least one service block is required.");
   }
@@ -133,17 +103,11 @@ export function validateTemplateBlocks(blocks: Array<{ label: string; code?: str
       throw new Error("Service block label is required.");
     }
 
-    const blockType = block.blockType && BLOCK_TYPE_VALUES.includes(block.blockType as (typeof BLOCK_TYPE_VALUES)[number])
-      ? block.blockType as BlockType
-      : "CUSTOM";
-
     return {
       label,
       code: normalizePresetCode(block.code || label),
-      blockType: block.blockType ? blockType : inferTemplateBlockType(label),
+      kind: block.kind ?? "TEXT",
       order: Number.isInteger(block.order) ? Number(block.order) : index,
-      ...(block.typeVersionId ? { typeVersionId: block.typeVersionId } : {}),
-      ...(block.fieldDefaults ? { fieldDefaults: block.fieldDefaults } : {}),
     };
   });
 }
@@ -204,10 +168,8 @@ export const ServiceTemplatePresetSchema = EditablePresetSchema.extend({
     .array(z.object({
       label: z.string().trim().min(1, "Block label is required").max(80, "Block label is too long"),
       code: PresetCodeSchema.optional(),
-      blockType: z.string().trim().min(1).optional(),
+      kind: TemplateBlockKindSchema.default("TEXT"),
       order: z.number().int().min(0).optional(),
-      typeVersionId: z.string().uuid().optional(),
-      fieldDefaults: z.record(z.string(), z.unknown()).optional(),
     }))
     .min(1, "At least one service block is required")
     .transform(validateTemplateBlocks),

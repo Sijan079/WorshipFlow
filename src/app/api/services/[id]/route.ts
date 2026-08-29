@@ -4,6 +4,7 @@ import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
+import { getMissingServiceFields } from "@/lib/service-readiness";
 import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
 import {
   mapAssignedMinistryToLegacyMinistryName,
@@ -86,6 +87,25 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     if (!service) {
       return NextResponse.json({ error: "Worship service not found" }, { status: 404 });
+    }
+
+    if (payload.status === "READY") {
+      const blocks = await prisma.worshipServiceBlock.findMany({
+        where: { serviceId: id },
+        orderBy: { order: "asc" },
+        include: { typeVersion: true },
+      });
+      const missingFields = getMissingServiceFields(blocks.map((block) => ({
+        label: block.label,
+        fieldDefinition: block.fieldDefinition ?? block.typeVersion?.definition ?? { fields: [] },
+        fieldValues: block.fieldValues,
+      })));
+      if (missingFields.length > 0) {
+        return NextResponse.json({
+          error: "Complete all required template fields before marking this service Ready.",
+          missingFields,
+        }, { status: 400 });
+      }
     }
 
     const updatedService = await prisma.$transaction(async (tx) => {

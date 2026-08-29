@@ -55,15 +55,18 @@ application tables through the Supabase Data API.
 Templates continue to copy active blocks into stored `WorshipServiceBlock`
 rows at creation time, and rendering follows stored block order.
 
-`ServiceTemplateBlock` is the active source of truth for template order and
-field defaults. Legacy `ServiceTemplatePreset.blocks` data is backfilled once
-and is no longer written by Settings. Program block versions are pinned by
-templates and copied into new services.
+`ServiceTemplateBlock` is the active source of truth for template order, field
+definitions, and defaults. Creating a service snapshots those ordered blocks
+and their definitions into `WorshipServiceBlock` rows. Legacy
+`ServiceTemplatePreset.blocks` data is backfilled once and is no longer written
+by Settings. Program block versions are a compatibility fallback only; new or
+imported templates do not depend on a workspace-wide block-type library.
 
-Program block types are workspace-owned from creation. New workspaces receive
-no built-in block-type catalog or default service-template lineup; each church
-defines its own names, keys, fields, and order. Legacy enum behavior is retained
-only as a compatibility mapping, while unknown workspace keys use `CUSTOM`.
+New workspaces can receive platform-managed starter templates as private,
+editable workspace copies. Each church defines its own names, fields, and
+order; no starter or template change crosses a workspace boundary. Legacy enum
+behavior is retained only as a compatibility mapping, while unknown workspace
+keys use `CUSTOM`.
 
 Workspace integration API keys are encrypted server-side and never returned to
 the browser. Workspace overrides take precedence over deployment environment

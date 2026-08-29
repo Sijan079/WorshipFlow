@@ -6,9 +6,8 @@
 - Configure all required Vercel environment variables.
 - Set the Supabase Auth variables for both Preview and Production.
 - Confirm `npm run build` passes locally.
-- Confirm production migrations are ready with `prisma migrate deploy` before
-  promoting a database-backed deploy. Vercel runs migrations only when
-  `DIRECT_DATABASE_URL` is configured.
+- Configure `DIRECT_DATABASE_URL` for production. The deployment runs
+  `prisma migrate deploy` first and stops if the migration fails.
 - Deploy from the repository root with the Next.js preset.
 - Visit `/api/health` after deploy and confirm `ok: true`.
 - Test service creation, Song Formatter, and Media Tools.
@@ -46,10 +45,9 @@ Optional database variables:
 
 - `DIRECT_DATABASE_URL`
 
-Use `DIRECT_DATABASE_URL` for Prisma migrations when a direct or migration-safe
-connection is reachable from the build environment. If `DIRECT_DATABASE_URL` is
-not set, `scripts/vercel-build.mjs` skips `prisma migrate deploy` and continues
-with client generation plus the Next.js build.
+Use `DIRECT_DATABASE_URL` for Prisma migrations with a direct or migration-safe
+connection reachable from the build environment. Production deployments must
+set it so the deployed API cannot run against an older schema.
 
 The project currently pins `prisma`, `@prisma/client`, and
 `@prisma/adapter-pg` to `6.19.0`. Prisma 7 CLI builds were blocked by Windows

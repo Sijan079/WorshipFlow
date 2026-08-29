@@ -343,6 +343,9 @@ function supportsReasoningEffort(model: string) {
 
 type OpenAiResponsesPayload = {
   status?: string;
+  error?: {
+    message?: string;
+  } | null;
   incomplete_details?: {
     reason?: string;
   } | null;
@@ -399,6 +402,10 @@ export async function runAiLyricsCleanup(params: AiCleanupParams) {
   }
 
   const payload = (await response.json()) as OpenAiResponsesPayload;
+
+  if (payload.status === "failed") {
+    throw new Error(payload.error?.message || "AI cleanup request failed.");
+  }
 
   if (detectIncompleteResponse(payload)) {
     throw new Error("AI cleanup was cut off before completion. Please retry or edit the local draft manually.");

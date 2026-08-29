@@ -1,7 +1,10 @@
 import { readFile } from "fs/promises";
+import { createRequire } from "module";
 import JSZip from "jszip";
-import { PDFParse } from "pdf-parse";
 import type { ExtractorConfidenceLevel, ExtractorWarningCode } from "@/lib/extractor-types";
+
+const require = createRequire(import.meta.url);
+const { PDFParse } = require("pdf-parse") as typeof import("pdf-parse");
 
 function normalizeExtractedText(text: string) {
   return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();

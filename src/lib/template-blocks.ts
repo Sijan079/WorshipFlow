@@ -1,4 +1,3 @@
-import { inferTemplateBlockType } from "./settings-presets.ts";
 
 export type LegacyTemplateBlock = {
   label: string;
@@ -16,7 +15,7 @@ export function normalizeLegacyTemplateBlocks(blocks: LegacyTemplateBlock[]) {
       label: block.label.trim(),
       ...(block.typeVersionId ? { typeVersionId: block.typeVersionId } : {}),
       ...(block.fieldDefaults ? { fieldDefaults: block.fieldDefaults } : {}),
-      blockType: block.blockType || inferTemplateBlockType(block.label),
+      blockType: block.blockType || "CUSTOM",
       order,
     }));
 }

@@ -73,9 +73,11 @@ export const serviceDetailInclude = serviceDetailArgs.include;
 
 export const serviceListRelations = Prisma.validator<Prisma.WorshipServiceDefaultArgs>()({
   include: {
-    bibleVerses: true,
-    servantAssignments: true,
-    hymnals: true,
+    blocks: {
+      orderBy: {
+        order: "asc",
+      },
+    },
   },
 });
 

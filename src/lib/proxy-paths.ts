@@ -3,6 +3,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/_next",
   "/favicon.ico",
   "/login",
+  "/mockups",
   "/auth/callback",
   "/api/auth/login",
 ];
