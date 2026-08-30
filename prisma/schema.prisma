@@ -207,6 +207,19 @@ model User {
   memberships     WorkspaceMembership[]
   sentInvitations WorkspaceInvitation[] @relation("InvitationSender")
   requestedJobs   AutomationJob[]
+  feedbackRateLimits FeedbackRateLimit[]
+}
+
+model FeedbackRateLimit {
+  id          String   @id @default(uuid())
+  userId      String
+  scope       String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope, windowStart])
 }
 
 model WorkspaceMembership {

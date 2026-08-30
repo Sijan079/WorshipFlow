@@ -148,6 +148,9 @@ Optional:
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase Auth SSR configuration
 - `SUPABASE_SECRET_KEY`: server-only Supabase admin key for invitations
 - `OPENAI_API_KEY`: AI-assisted lyric cleanup and image generation
+- `GITHUB_TOKEN`: server-only token with Issues write access for sending user
+  reports to `Sijan079/WorshipFlow`; create the `issue` and `feedback` labels
+  in that repository before enabling submissions
 - `WORKSPACE_INTEGRATION_ENCRYPTION_KEY`: server-only key used to encrypt workspace AI integration overrides
 - `NEXT_PUBLIC_SUPABASE_URL` and
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: realtime features

@@ -14,6 +14,7 @@ export function runWorkspaceModulesTests() {
     "qr-generator/page.tsx",
     "background-generator/page.tsx",
     "resize-image/page.tsx",
+    "background-removal/page.tsx",
   ];
 
   for (const relativePath of mediaToolsPages) {

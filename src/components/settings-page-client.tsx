@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { ChevronDown, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, X, UsersRound } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, X, UsersRound } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -83,7 +83,7 @@ type SongTagForm = {
 };
 
 const SETTINGS_TABS = [
-  { id: "general", label: "General" },
+  { id: "general", label: "Workspace" },
   { id: "membership", label: "Membership" },
   { id: "templates", label: "Templates" },
   { id: "tags", label: "Tags" },
@@ -117,62 +117,6 @@ const PROGRAM_FIELD_OPTIONS = [
   ["checkbox", "Checkbox"],
   ["single_select", "Single select"],
 ] as const;
-
-function TemplateBlockFieldEditor({
-  definition,
-  onChange,
-}: {
-  definition: { fields: ProgramFieldForm[] };
-  onChange: (definition: { fields: ProgramFieldForm[] }) => void;
-}) {
-  return null;
-  /* Legacy field-definition editor intentionally retired in favor of the two block categories. */
-  /* c8 ignore next */
-  const fields = definition.fields;
-  const update = (index: number, patch: Partial<ProgramFieldForm>) =>
-    onChange({ fields: fields.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field) });
-  const move = (from: number, to: number) => {
-    if (to < 0 || to >= fields.length) return;
-    onChange({ fields: moveTemplateBlock(fields, from, to) });
-  };
-
-  return (
-    <div className="border-x border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="technical-label">Fields copied into this block</p>
-        <button
-          type="button"
-          onClick={() => onChange({ fields: [...fields, { key: `field_${Date.now()}`, label: "New field", type: "short_text", required: false, options: "", helpText: "" }] })}
-          className="pressable inline-flex min-h-8 items-center gap-1 rounded border border-[var(--border-default)] px-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)]"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add field
-        </button>
-      </div>
-      {fields.length === 0 ? <p className="text-xs text-[var(--text-muted)]">No fields yet. This block will remain a simple flow item.</p> : null}
-      <div className="space-y-2">
-        {fields.map((field, index) => (
-          <div key={`${field.key}-${index}`} className="grid gap-2 rounded border border-[var(--border-default)] bg-[var(--surface-panel)] p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_auto_auto] md:items-center">
-            <input value={field.label} onChange={(event) => update(index, { label: event.target.value })} aria-label="Field label" placeholder="Field label" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs" />
-            <input value={field.key} onChange={(event) => update(index, { key: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} aria-label="Field key" placeholder="field_key" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 font-mono text-xs" />
-            <select value={field.type} onChange={(event) => update(index, { type: event.target.value })} aria-label="Field type" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs">
-              {PROGRAM_FIELD_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-            <label className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} /> Required</label>
-            <div className="flex items-center justify-end gap-1">
-              <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="h-7 w-7 rounded text-xs text-[var(--text-secondary)] disabled:opacity-30" aria-label="Move field up">↑</button>
-              <button type="button" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1} className="h-7 w-7 rounded text-xs text-[var(--text-secondary)] disabled:opacity-30" aria-label="Move field down">↓</button>
-              <button type="button" onClick={() => onChange({ fields: fields.filter((_, fieldIndex) => fieldIndex !== index) })} className="h-7 w-7 rounded text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label="Remove field"><Trash2 className="h-3.5 w-3.5" /></button>
-            </div>
-            {field.type === "single_select" ? <input value={field.options} onChange={(event) => update(index, { options: event.target.value })} aria-label="Select options" placeholder="Options separated by commas" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs md:col-span-2" /> : null}
-            <input value={field.helpText} onChange={(event) => update(index, { helpText: event.target.value })} aria-label="Field help text" placeholder="Optional help" className="h-9 rounded border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs md:col-span-2" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-void TemplateBlockFieldEditor;
 
 const EMPTY_EDITABLE_FORM: EditableForm = { label: "", code: "", active: true };
 const EMPTY_TEMPLATE_FORM: TemplateForm = {
@@ -525,9 +469,10 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
     <>
       <SectionShell
         title="Checklist Sets"
-        showTitle={false}
+        description="Use the active checklist to track service preparation on the dashboard."
+        flat
         pending={createMutation.isPending || updateMutation.isPending || activateMutation.isPending || deleteMutation.isPending}
-        action={<div className="flex items-center gap-2">
+        action={<div className="flex flex-wrap items-center justify-end gap-2">
           {changedEntries.length > 0 ? <SectionSaveButton disabled={invalidDraft} pending={updateMutation.isPending} onClick={() => updateMutation.mutate(changedEntries)} /> : null}
           <SettingsAddButton
             controls="new-checklist-form"
@@ -541,6 +486,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
           />
         </div>}
       >
+        <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
         <div className="divide-y divide-[var(--border-default)]">
           {newChecklistOpen ? (
             <div id="new-checklist-form" className="grid gap-3 bg-[var(--surface-panel-alt)] px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -569,11 +515,17 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
                       <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{record.items.length} {record.items.length === 1 ? "item" : "items"}</span>
                     </span>
                   </button>
-                  {record.isActive ? (
-                    <StatusPill active activeLabel="On dashboard" />
-                  ) : (
-                    <button type="button" onClick={() => activateMutation.mutate({ checklistId: record.id })} disabled={activateMutation.isPending} className="ui-btn-secondary pressable px-3 py-1.5 text-xs font-semibold disabled:opacity-50">Show on dashboard</button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => activateMutation.mutate({ checklistId: record.id })}
+                    disabled={record.isActive || activateMutation.isPending}
+                    aria-pressed={record.isActive}
+                    aria-label={record.isActive ? `${record.name} is shown on the dashboard` : `Show ${record.name} on the dashboard`}
+                    title={record.isActive ? "Shown on dashboard" : "Show on dashboard"}
+                    className={`pressable inline-flex h-9 w-9 items-center justify-center rounded-md ${record.isActive ? "text-[var(--text-accent)] disabled:cursor-default" : "text-[var(--text-muted)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]"} disabled:opacity-50`}
+                  >
+                    {record.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
                   {!record.isDefault && !record.isActive ? (
                     <button type="button" onClick={() => setDeleteCandidate(record)} className="pressable inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-destructive)] hover:bg-[var(--state-danger-soft)]" aria-label={`Delete ${record.name}`} title="Delete checklist"><Trash2 className="h-4 w-4" /></button>
                   ) : null}
@@ -621,6 +573,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
               </article>
             );
           })}
+        </div>
         </div>
       </SectionShell>
 
@@ -882,7 +835,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
       flat
       pending={createMutation.isPending || importMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={(
-        <div className="flex w-full items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {changedTemplateEntries.length > 0 ? <SectionSaveButton disabled={invalidTemplateDraft} pending={updateMutation.isPending} onClick={() => updateMutation.mutate(changedTemplateEntries)} /> : null}
           {selectedIds.length > 0 ? (
             <button
@@ -945,7 +898,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
         <span>Description</span>
         <span>Blocks</span>
         <span>Updated</span>
-        <span className="text-right">Actions</span>
+        <span aria-hidden="true" />
       </div>
       <div className="divide-y divide-[var(--border-default)]">
         {deleteError ? (
@@ -1008,7 +961,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                   <span className="hidden font-mono text-xs text-[var(--text-secondary)] lg:block">{draft.blocks.filter((block) => block.label.trim()).length}</span>
                   <span className="hidden font-mono text-[10px] leading-4 text-[var(--text-secondary)] lg:block"><span className="block">{SETTINGS_DATE_FORMATTER.format(new Date(record.updatedAt))}</span><span className="block text-[var(--text-muted)]">{SETTINGS_TIME_FORMATTER.format(new Date(record.updatedAt))}</span></span>
                 </button>
-                <div className="flex shrink-0 items-center justify-end gap-1">
+                <div className="flex shrink-0 items-center justify-end gap-1 lg:pr-4">
                   <button type="button" onClick={() => setExpanded((current) => ({ ...current, [record.id]: !isOpen }))} className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)]" aria-label={`${isOpen ? "Close" : "Edit"} ${record.label}`} title={isOpen ? "Close editor" : "Edit template"}>
                     {isOpen ? <ChevronDown className="h-4 w-4 rotate-180" /> : <Pencil className="h-4 w-4" />}
                   </button>
@@ -1388,10 +1341,11 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
     <>
     <SectionShell
       title="Song Tags"
-      showTitle={false}
+      description="Organize songs in the library and when adding them to services."
+      flat
       pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
       action={(
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {changedEntries.length > 0 || hasNewTag ? (
             <button
               type="button"
@@ -1416,6 +1370,7 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
         </div>
       )}
     >
+      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
       <div className="min-w-[38rem] space-y-3 p-4">
         {records.length === 0 && !newTagOpen ? <SettingsEmptyState>No song tags yet. Use Add tag to create one.</SettingsEmptyState> : null}
         {records.map((record, index) => {
@@ -1483,6 +1438,7 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
             <span className="border-l border-[var(--border-default)]" aria-hidden="true" />
           </div>
         ) : null}
+      </div>
       </div>
     </SectionShell>
     {deleteCandidate ? (
@@ -1699,8 +1655,8 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-        <aside className="pb-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:border-r lg:border-[var(--border-default)] lg:pr-6" aria-label="Settings section navigation">
+      <div className="grid gap-8 lg:h-[calc(100vh-3rem)] lg:grid-cols-[220px_1px_minmax(0,1fr)] lg:items-stretch">
+        <aside className="pb-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-6" aria-label="Settings section navigation">
           <div className="grid gap-5 sm:grid-cols-3 lg:block" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
             {SETTINGS_NAV_GROUPS.map((group, groupIndex) => (
               <div key={group.label} className={`min-w-0 ${groupIndex > 0 ? "mt-6" : ""}`}>
@@ -1734,7 +1690,9 @@ export default function SettingsPageClient({ environment }: { environment: Envir
           </div>
         </aside>
 
-        <div className="min-w-0">
+        <div aria-hidden="true" className="hidden bg-[var(--border-default)] shadow-[4px_0_8px_-6px_color-mix(in_oklab,var(--text-primary)_8%,transparent)] lg:block" />
+
+        <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
 
       <div id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" tabIndex={0} hidden={activeTab !== "general"} className="space-y-5">
         <div data-settings-section-stack className="space-y-8">

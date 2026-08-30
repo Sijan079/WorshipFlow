@@ -14,6 +14,7 @@ import {
   ListMusic,
   Loader2,
   Maximize2,
+  Eraser,
   Plus,
   QrCode,
   RefreshCcw,
@@ -71,6 +72,7 @@ import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-to
 import QRGeneratorTool from "@/components/qr-generator-tool";
 import BackgroundGeneratorTool from "@/components/background-generator-tool";
 import ResizeImageTool from "@/components/resize-image-tool";
+import BackgroundRemovalTool from "@/components/background-removal-tool";
 import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-modules";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProductionSelect } from "@/components/ui/production-select";
@@ -99,7 +101,7 @@ type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
-export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image";
+export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image" | "background-removal";
 
 type FormatterDraftSession = {
   text: string;
@@ -140,6 +142,12 @@ const MEDIA_TOOLS: Array<{ id: MediaTool; label: string; description: string; ic
     label: "Resize Image",
     description: "Fit one image into a 1920x1080 presentation frame without cropping.",
     icon: Maximize2,
+  },
+  {
+    id: "background-removal",
+    label: "Remove Background",
+    description: "Use AI to separate a subject from its background and export a transparent PNG.",
+    icon: Eraser,
   },
 ];
 
@@ -3020,17 +3028,17 @@ export default function ServiceBuilderClient({
             </div>
 
             {!mediaTool ? (
-              <div className="grid divide-y divide-[var(--border-default)] border-y border-[var(--border-default)] sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {MEDIA_TOOLS.map((tool) => {
                   const ToolIcon = tool.icon;
                   return (
                     <Link
                       key={tool.id}
                       href={workspaceMediaToolsPath(tool.id)}
-                      className="pressable flex min-h-32 flex-col items-center justify-center gap-3 p-4 text-center hover:bg-[var(--surface-panel-alt)]"
+                      className="group pressable flex min-h-32 flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-center shadow-[var(--elevation-subtle)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)]"
                     >
-                      <ToolIcon className="h-8 w-8 text-[var(--text-accent)]" strokeWidth={1.75} aria-hidden="true" />
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">{tool.label}</span>
+                      <ToolIcon className="h-8 w-8 text-[var(--text-accent)] group-hover:text-[var(--action-primary-ink)]" strokeWidth={1.75} aria-hidden="true" />
+                      <span className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--action-primary-ink)]">{tool.label}</span>
                     </Link>
                   );
                 })}
@@ -3051,6 +3059,10 @@ export default function ServiceBuilderClient({
 
             {mediaTool === "resize-image" ? (
               <ResizeImageTool showToast={showToast} />
+            ) : null}
+
+            {mediaTool === "background-removal" ? (
+              <BackgroundRemovalTool showToast={showToast} />
             ) : null}
 
           </div>

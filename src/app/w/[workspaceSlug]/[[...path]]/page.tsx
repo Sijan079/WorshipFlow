@@ -49,6 +49,8 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="background-generator" />;
     case "media-tools/resize-image":
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="resize-image" />;
+    case "media-tools/background-removal":
+      return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="background-removal" />;
     case "pap":
       return <PAPDesktopClient />;
     default:

@@ -19,6 +19,14 @@ export function runServiceTemplateRenderingTests() {
   assert.match(page, /service\.blocks\.map\(\(block, index\)/);
   assert.match(page, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(page, /border-l-4 border-\[var\(--action-primary-bg\)\]/);
+  assert.doesNotMatch(page, /<span>Sermon verse<\/span>/);
+  assert.doesNotMatch(page, /service\.sermonVerse \|\| "No sermon verse"/);
+  assert.match(page, /const \[editServiceDate, setEditServiceDate\] = useState\(""\);/);
+  assert.match(page, /serviceDate: new Date\(serviceDate\)\.toISOString\(\)/);
+  assert.match(page, /const service = await apiFetch<ServiceRecord>\(/);
+  assert.match(page, /aria-label="Service date"/);
+  assert.match(page, /status: ServiceStatus\.READY/);
+  assert.match(page, /Mark ready/);
   assert.doesNotMatch(readOnlyDetails, /<dl/);
   assert.match(readOnlyDetails, /text-right/);
   assert.match(readOnlyDetails, /formatServantDisplayName/);

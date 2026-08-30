@@ -15,6 +15,6 @@ export function runSettingsNavigationTests() {
   assert.match(settings, /title="Service Templates"\s+description="Build reusable service flows\. Their stored order is copied into every new service\."\s+flat/);
   assert.match(settings, /overflow-hidden rounded-md border border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\] shadow-\[var\(--elevation-subtle\)\]/);
   assert.match(settings, /label="New template"/);
-  assert.match(settings, /action=\{\(\s*<div className="flex w-full items-center justify-end gap-2">/);
+  assert.match(settings, /action=\{\(\s*<div className="flex flex-wrap items-center justify-end gap-2">/);
   assert.match(settings, /id: `\$\{record\.id\}-\$\{block\.code \|\| "block"\}-\$\{index\}`/);
 }

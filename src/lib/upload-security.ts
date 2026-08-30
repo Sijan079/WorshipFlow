@@ -2,7 +2,10 @@ export const UPLOAD_LIMITS = {
   extractorBytes: 15 * 1024 * 1024,
   automationBatchFileBytes: 25 * 1024 * 1024,
   automationBatchTotalBytes: 75 * 1024 * 1024,
+  backgroundRemovalBytes: 20 * 1024 * 1024,
 } as const;
+
+export const BACKGROUND_REMOVAL_UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
 export const EXTRACTOR_UPLOAD_TYPES = [
   "application/pdf",
@@ -66,6 +69,14 @@ export async function validateDocumentSignature(file: File) {
     }
   }
   return null;
+}
+
+export async function validateImageSignature(file: File) {
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isPng = header.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => header[index] === byte);
+  const isJpeg = header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+  const isWebp = header.length >= 12 && String.fromCharCode(...header.slice(0, 4)) === "RIFF" && String.fromCharCode(...header.slice(8, 12)) === "WEBP";
+  return isPng || isJpeg || isWebp ? null : "The uploaded image has an invalid file signature.";
 }
 
 export function validateUploadTotal(files: File[], maxBytes: number) {

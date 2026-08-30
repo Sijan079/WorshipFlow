@@ -19,6 +19,11 @@ const ServiceServantRoleSchema = z.enum(SERVICE_SERVANT_ROLES.map((role) => role
 const ServiceHymnalRoleSchema = z.enum(SERVICE_HYMNAL_ROLES.map((role) => role.value) as [string, ...string[]]);
 const ServiceBlockTypeSchema = z.enum(BlockTypeValues);
 
+export const FeedbackSubmissionSchema = z.object({
+  kind: z.enum(["ISSUE", "FEEDBACK"]),
+  message: z.string().trim().min(1, "Please enter a message").max(5000, "Message is too long"),
+});
+
 export const ServiceBibleVerseSchema = z.object({
   verse: z.string().trim().min(1, "Bible verse is required"),
   order: z.number().int().min(0),

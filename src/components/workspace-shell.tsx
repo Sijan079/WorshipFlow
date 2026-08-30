@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { apiFetch } from "@/lib/api-client";
 import { AnimatePresence, motion } from "motion/react";
@@ -20,13 +20,13 @@ import {
 import {
   AudioLines,
   AlertTriangle,
-  Bell,
   CalendarDays,
   Captions,
   ChevronDown,
   CircleUserRound,
   ListMusic,
   LogOut,
+  MessageSquare,
   Settings2,
   MonitorPlay,
   Users,
@@ -62,6 +62,7 @@ const MEDIA_TOOL_NAV = [
   { href: "/media-tools/qr-generator", label: "QR Generator" },
   { href: "/media-tools/background-generator", label: "Background Generator" },
   { href: "/media-tools/resize-image", label: "Resize Image" },
+  { href: "/media-tools/background-removal", label: "Remove Background" },
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
@@ -152,11 +153,24 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const accountEmail = sessionQuery.data?.user?.email || "";
   const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
   const accountAvatarUrl = sessionQuery.data?.user?.avatarUrl;
-  const alertCount = 0;
   const [dismissedWarningKey, setDismissedWarningKey] = useState<InProgressWarningKey | null>(null);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<"ISSUE" | "FEEDBACK">("ISSUE");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [reportToast, setReportToast] = useState<{ message: string; tone: "info" | "success" | "error" } | null>(null);
   const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
+  const feedbackMutation = useMutation({
+    mutationFn: (payload: { kind: "ISSUE" | "FEEDBACK"; message: string }) => apiFetch("/api/feedback", { method: "POST", body: JSON.stringify(payload) }),
+    onMutate: () => setReportToast({ message: "Sending report…", tone: "info" }),
+    onSuccess: () => {
+      setFeedbackMessage("");
+      setFeedbackOpen(false);
+      setReportToast({ message: "Report sent to GitHub.", tone: "success" });
+    },
+    onError: () => setReportToast({ message: "Could not send report.", tone: "error" }),
+  });
 
   useEffect(() => {
     const syncHash = () => setCurrentHash(window.location.hash);
@@ -181,6 +195,23 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
       >
         Skip to workspace content
       </a>
+      {reportToast ? (
+        <div
+          role={reportToast.tone === "error" ? "alert" : "status"}
+          className={`animate-toast-in fixed right-4 top-4 z-[100] flex max-w-sm items-center gap-3 rounded-[var(--radius-card)] border px-4 py-3 text-sm font-semibold shadow-[var(--elevation-raised)] ${
+            reportToast.tone === "success"
+              ? "border-[color-mix(in_oklab,var(--state-success)_32%,var(--border-default))] bg-[var(--state-success-soft)] text-[var(--text-success)]"
+              : reportToast.tone === "error"
+                ? "border-[color-mix(in_oklab,var(--state-danger)_32%,var(--border-default))] bg-[var(--state-danger-soft)] text-[var(--text-danger)]"
+                : "border-[var(--border-default)] bg-[var(--surface-panel-elevated)] text-[var(--text-primary)]"
+          }`}
+        >
+          <span className="min-w-0 flex-1">{reportToast.message}</span>
+          <button type="button" onClick={() => setReportToast(null)} className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md" aria-label="Dismiss report status">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
       <aside className="workspace-nav-surface workspace-rail hidden overflow-x-hidden border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-3 py-4 lg:row-start-1 lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0 lg:self-start">
         <div className="mb-4 border-b border-[var(--border-default)] px-2 pb-4">
           <Link href={toWorkspacePath("/dashboard")} className="inline-flex min-h-11 items-center" aria-label="WorshipFlow dashboard">
@@ -195,10 +226,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               <p className="mt-0.5 text-[10px] text-white/70">{accountRole}</p>
             </div>
           </div>
-          <button type="button" className="pressable relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Alerts${alertCount > 0 ? `, ${alertCount} unread` : ""}`}>
-            <Bell className="h-5 w-5" />
-            {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
-          </button>
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" aria-label="Production workspace">
           {NAV_GROUPS.map((group, groupIndex) => (
@@ -306,6 +333,18 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
             </section>
           ))}
         </nav>
+        <div className="mt-4 border-t border-[var(--border-default)] pt-3">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className="workspace-nav-link pressable-subtle flex min-h-11 w-full items-center gap-3 border-l-2 border-transparent px-2 py-1.5 text-sm font-semibold text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] hover:text-white"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-white/70">
+              <MessageSquare className="h-4 w-4" />
+            </span>
+            Report
+          </button>
+        </div>
       </aside>
 
       <div className="workspace-main min-w-0 lg:col-start-2 lg:row-start-1">
@@ -407,6 +446,37 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               {signingOut ? "Signing out..." : "Sign out"}
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feedbackOpen} onOpenChange={(open) => !feedbackMutation.isPending && setFeedbackOpen(open)}>
+        <DialogContent className="ui-modal max-w-md p-5">
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Report issue or feedback</DialogTitle>
+          <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Send this directly to the WorshipFlow team. No GitHub account is needed.</DialogDescription>
+          <form
+            className="mt-5 space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              feedbackMutation.mutate({ kind: feedbackKind, message: feedbackMessage });
+            }}
+          >
+            <label className="block text-sm font-semibold text-[var(--text-primary)]">
+              Type
+              <select value={feedbackKind} onChange={(event) => setFeedbackKind(event.target.value as "ISSUE" | "FEEDBACK")} className="mt-1.5 h-11 w-full rounded-md border border-[var(--border-default)] px-3 text-sm">
+                <option value="ISSUE">Report an issue</option>
+                <option value="FEEDBACK">Share feedback</option>
+              </select>
+            </label>
+            <label className="block text-sm font-semibold text-[var(--text-primary)]">
+              Message
+              <textarea value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} rows={5} maxLength={5000} required className="mt-1.5 w-full resize-y rounded-md border border-[var(--border-default)] px-3 py-2 text-sm" placeholder="Tell us what happened or what would help." />
+            </label>
+            {feedbackMutation.error instanceof Error ? <p className="text-sm text-[var(--text-danger)]">{feedbackMutation.error.message}</p> : null}
+            <div className="flex justify-end gap-3 pt-1">
+              <button type="button" onClick={() => setFeedbackOpen(false)} disabled={feedbackMutation.isPending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button type="submit" disabled={feedbackMutation.isPending || !feedbackMessage.trim()} className="ui-btn-primary h-10 px-3 text-sm font-semibold disabled:opacity-40">{feedbackMutation.isPending ? "Sending…" : "Send"}</button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

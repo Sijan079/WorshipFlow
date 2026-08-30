@@ -112,7 +112,7 @@ function ServicesListSkeleton() {
       {Array.from({ length: 5 }).map((_, index) => (
         <div
           key={`service-skeleton-${index}`}
-          className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px]"
+          className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px]"
         >
           <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--surface-panel-strong)]" />
           <div className="space-y-2">
@@ -120,7 +120,6 @@ function ServicesListSkeleton() {
             <div className="h-4 w-24 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:hidden" />
           </div>
           <div className="hidden h-5 w-28 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
-          <div className="hidden h-5 w-36 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
           <div className="hidden h-5 w-16 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
           <div className="h-10 w-10 animate-pulse rounded-md bg-[var(--surface-panel-strong)]" />
         </div>
@@ -1055,6 +1054,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editBlockValues, setEditBlockValues] = useState<ServiceBlockValues>({});
+  const [editServiceDate, setEditServiceDate] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createParserOpen, setCreateParserOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -1152,7 +1152,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, blockValues }: { id: string; blockValues: ServiceBlockValues }) => {
+    mutationFn: async ({ id, blockValues, serviceDate }: { id: string; blockValues: ServiceBlockValues; serviceDate: string }) => {
+      const service = await apiFetch<ServiceRecord>(`/api/services/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ serviceDate: new Date(serviceDate).toISOString() }),
+      });
       await Promise.all(
         Object.entries(blockValues).map(([blockId, values]) =>
           apiFetch(`/api/services/${id}/blocks/${blockId}/values`, {
@@ -1161,11 +1165,26 @@ export default function ServicesPageClient({ initialServices }: { initialService
           })
         )
       );
+      return service;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["services"] });
+    onSuccess: () => {
       setEditingServiceId(null);
     },
+    onError: (error: Error) => showToast(error.message || "Service could not be updated."),
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+  });
+
+  const markReadyMutation = useMutation({
+    mutationFn: (id: string) => apiFetch<ServiceRecord>(`/api/services/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ status: ServiceStatus.READY }),
+    }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+    onError: (error: Error) => showToast(error.message || "Service could not be marked ready."),
   });
 
   const createMissingServantsMutation = useMutation({
@@ -1216,7 +1235,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    updateServiceMutation.mutate({ id: nextPendingSave.serviceId, blockValues: editBlockValues });
+    updateServiceMutation.mutate({ id: nextPendingSave.serviceId, blockValues: editBlockValues, serviceDate: editServiceDate });
   }
 
   function prepareServiceSave(action: "create" | "update", form: ServiceFormState, serviceId?: string) {
@@ -1249,7 +1268,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
         return;
       }
 
-      updateServiceMutation.mutate({ id: serviceId, blockValues: editBlockValues });
+      updateServiceMutation.mutate({ id: serviceId, blockValues: editBlockValues, serviceDate: editServiceDate });
       return;
     }
 
@@ -1277,7 +1296,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    updateServiceMutation.mutate({ id: expandedService.id, blockValues: editBlockValues });
+    if (!editServiceDate) {
+      showToast("Service date is required.");
+      return;
+    }
+
+    updateServiceMutation.mutate({ id: expandedService.id, blockValues: editBlockValues, serviceDate: editServiceDate });
   }
 
   async function addSelectedServantsAndSave() {
@@ -1337,6 +1361,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     setExpandedServiceId(service.id);
     setEditingServiceId(service.id);
     setEditBlockValues(getServiceBlockValues(service.blocks));
+    setEditServiceDate(new Date(service.serviceDate).toISOString().slice(0, 10));
   }
 
   return (
@@ -1444,12 +1469,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <div>
             <div
               aria-hidden="true"
-              className="hidden grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
+              className="hidden grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
             >
               <span />
               <span>Service</span>
               <span>Template</span>
-              <span>Sermon verse</span>
               <span>Status</span>
               <span />
             </div>
@@ -1470,7 +1494,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         : "bg-transparent"
                     }
                   >
-                    <div className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(100px,.65fr)_44px] lg:items-center">
+                    <div className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] lg:items-center">
                       <div className="pt-0.5 lg:pt-0">
                           <input
                             type="checkbox"
@@ -1494,14 +1518,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
                             {formatServiceStatus(service.status)}
                           </span>
                         </div>
-                        <p className="mt-2 truncate text-sm text-[var(--text-secondary)] lg:hidden">
-                          {service.sermonVerse || "No sermon verse"}
-                        </p>
                       </div>
                       <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">{service.templateLabel}</p>
-                      <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">
-                        {service.sermonVerse || "No sermon verse"}
-                      </p>
                       <span className="hidden items-center gap-2 text-xs font-medium text-[var(--text-secondary)] lg:inline-flex">
                         <span
                           aria-hidden="true"
@@ -1563,24 +1581,49 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => startEditingService(service)}
-                                  className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                  Edit service
-                                </button>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  {service.status === ServiceStatus.DRAFT ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => markReadyMutation.mutate(service.id)}
+                                      disabled={markReadyMutation.isPending}
+                                      className="pressable inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+                                    >
+                                      {markReadyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                      Mark ready
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingService(service)}
+                                    className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                    Edit service
+                                  </button>
+                                </div>
                               )}
                             </div>
                             <div className="px-4 py-4 lg:px-6">
                             {isEditing ? (
-                              <ServiceBlockEditor
-                                blocks={service.blocks}
-                                values={editBlockValues}
-                                servants={servantsQuery.data ?? []}
-                                onChange={setEditBlockValues}
-                              />
+                              <div className="space-y-4">
+                                <label className="block max-w-xs text-sm font-medium text-[var(--text-secondary)]">
+                                  Service date
+                                  <input
+                                    type="date"
+                                    value={editServiceDate}
+                                    onChange={(event) => setEditServiceDate(event.target.value)}
+                                    aria-label="Service date"
+                                    className="mt-1 block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]"
+                                  />
+                                </label>
+                                <ServiceBlockEditor
+                                  blocks={service.blocks}
+                                  values={editBlockValues}
+                                  servants={servantsQuery.data ?? []}
+                                  onChange={setEditBlockValues}
+                                />
+                              </div>
                             ) : (
                               <ReadOnlyServiceDetails service={service} servants={servantsQuery.data ?? []} />
                             )}
