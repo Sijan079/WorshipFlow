@@ -17,7 +17,7 @@ import {
   type ServantRecord,
   type UpdateServicePayload,
 } from "@/lib/api-client";
-import { analyzeServiceText } from "@/lib/service-text-analysis";
+import { parseTemplateServiceText, type TemplateTextParseResult } from "@/lib/template-service-text-parser";
 import {
   ASSIGNED_MINISTRY_OPTIONS,
   buildBibleGatewayUrl,
@@ -278,38 +278,6 @@ function buildServicePayload(
     templatePresetCode: templateOption?.value ?? normalizedForm.templateType,
     templateBlockValues: Object.entries(normalizedForm.templateBlockValues).map(([templateBlockId, values]) => ({ templateBlockId, values })),
   };
-}
-
-function applyAnalysisToServiceForm(form: ServiceFormState, input: string) {
-  const normalizedForm = normalizeServiceForm(form);
-  const draft = analyzeServiceText(input);
-  const nextForm: ServiceFormState = {
-    ...normalizedForm,
-    assignedMinistry: inferAssignedMinistryFromName(draft.ministryName),
-    serviceDate: draft.serviceDate ?? normalizedForm.serviceDate,
-    sermonVerse: draft.sermonVerse ?? normalizedForm.sermonVerse,
-    bibleVerses: draft.bibleVerses.length > 0 ? draft.bibleVerses.map((entry) => entry.verse) : normalizedForm.bibleVerses,
-    servantAssignments: { ...normalizedForm.servantAssignments },
-    offeringPeople: [...normalizedForm.offeringPeople] as [string, string],
-    hymnals: { ...normalizedForm.hymnals },
-  };
-
-  for (const assignment of draft.servantAssignments) {
-    if (assignment.role === "OFFERING") {
-      const firstEmptyIndex = nextForm.offeringPeople.findIndex((personName) => !personName.trim());
-      if (firstEmptyIndex !== -1) {
-        nextForm.offeringPeople[firstEmptyIndex] = assignment.personName;
-      }
-      continue;
-    }
-    nextForm.servantAssignments[assignment.role] = assignment.personName;
-  }
-
-  for (const hymnal of draft.hymnals) {
-    nextForm.hymnals[hymnal.role] = hymnal.title;
-  }
-
-  return { draft, nextForm };
 }
 
 function UnlistedServantsModal({
@@ -926,31 +894,33 @@ function TemplateDefinedServiceFields({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <ProductionSelect label="Assigned Ministry" value={form.assignedMinistry} onValueChange={(assignedMinistry) => onChange({ ...form, assignedMinistry })} options={ministryOptions} triggerClassName="bg-[var(--surface-panel)]" />
+    <div className="space-y-4">
+      <div className="ui-surface-panel grid gap-3 p-4 md:grid-cols-3">
+        <ProductionSelect label="Assigned Ministry" value={form.assignedMinistry} onValueChange={(assignedMinistry) => onChange({ ...form, assignedMinistry })} options={ministryOptions} />
         <label className="text-sm text-[var(--text-secondary)]">Date
-          <input type="date" value={form.serviceDate} onChange={(event) => onChange({ ...form, serviceDate: event.target.value })} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]" />
+          <input type="date" value={form.serviceDate} onChange={(event) => onChange({ ...form, serviceDate: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-[var(--text-primary)]" />
           {errors.serviceDate ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.serviceDate}</p> : null}
         </label>
-        <ProductionSelect label="Template" value={form.templateType} onValueChange={updateTemplate} options={templateOptions.map((option) => ({ value: option.value, label: option.label }))} triggerClassName="bg-[var(--surface-panel)]" disabled={templateOptions.length === 0} />
+        <ProductionSelect label="Template" value={form.templateType} onValueChange={updateTemplate} options={templateOptions.map((option) => ({ value: option.value, label: option.label }))} disabled={templateOptions.length === 0} />
       </div>
       {!template ? <p className="text-sm text-[var(--state-warning)]">Select a saved template to load its service fields.</p> : null}
       {template?.blocks.map((block) => (
-        <section key={block.id} className="border-t border-[var(--rule-default)] pt-5">
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{block.label}</h3>
-          {block.kind === "TEXT" ? <label className="mt-3 block text-sm text-[var(--text-secondary)]">Notes<textarea value={String(form.templateBlockValues[block.id]?.text ?? "")} onChange={(event) => updateValue(block.id, "text", event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]" /></label> : <TeamMemberPicker members={servants} personIds={Array.isArray(form.templateBlockValues[block.id]?.personIds) ? form.templateBlockValues[block.id]?.personIds as string[] : []} onChange={(personIds) => updateValue(block.id, "personIds", personIds)} />}
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <section key={block.id} className="grid gap-3 border-t border-[var(--rule-default)] py-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+          <div><h3 className="text-sm font-semibold text-[var(--text-primary)]">{block.label}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">Template block</p></div>
+          <div className="min-w-0">
+          {block.kind === "TEXT" ? <label className="block text-sm text-[var(--text-secondary)]">Notes<textarea value={String(form.templateBlockValues[block.id]?.text ?? "")} onChange={(event) => updateValue(block.id, "text", event.target.value)} rows={2} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]" /></label> : <TeamMemberPicker members={servants} personIds={Array.isArray(form.templateBlockValues[block.id]?.personIds) ? form.templateBlockValues[block.id]?.personIds as string[] : []} onChange={(personIds) => updateValue(block.id, "personIds", personIds)} />}
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
             {block.fieldDefinition.fields.map((field) => {
               const value = form.templateBlockValues[block.id]?.[field.key] ?? block.fieldDefaults?.[field.key] ?? (field.type === "checkbox" ? false : "");
               const label = <span>{field.label}{field.required ? <span className="text-[var(--state-danger)]"> *</span> : null}</span>;
               if (field.type === "checkbox") return <label key={field.key} className="flex min-h-11 items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={Boolean(value)} onChange={(event) => updateValue(block.id, field.key, event.target.checked)} />{label}</label>;
               if (field.type === "long_text") return <label key={field.key} className="block text-sm text-[var(--text-secondary)] md:col-span-2">{label}<textarea value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} placeholder={field.helpText} rows={3} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]" /></label>;
-              if (field.type === "single_select") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select…</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
-              if (field.type === "person") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select person…</option>{servants.map((servant) => <option key={servant.id} value={servant.id}>{formatServantDisplayName(servant)}</option>)}</select></label>;
-              if (field.type === "song") return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<select value={String(value)} onChange={(event) => updateValue(block.id, field.key, event.target.value)} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]"><option value="">Select song…</option>{songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</select></label>;
+              if (field.type === "single_select") return <div key={field.key} className="text-sm text-[var(--text-secondary)]"><span>{label}</span><ProductionSelect className="mt-1" ariaLabel={field.label} value={String(value)} onValueChange={(nextValue) => updateValue(block.id, field.key, nextValue)} options={[{ value: "", label: "Select…" }, ...(field.options ?? []).map((option) => ({ value: option, label: option }))]} /></div>;
+              if (field.type === "person") return <div key={field.key} className="text-sm text-[var(--text-secondary)]"><span>{label}</span><ProductionSelect className="mt-1" ariaLabel={field.label} value={String(value)} onValueChange={(nextValue) => updateValue(block.id, field.key, nextValue)} options={[{ value: "", label: "Select person…" }, ...servants.map((servant) => ({ value: servant.id, label: formatServantDisplayName(servant) }))]} /></div>;
+              if (field.type === "song") return <div key={field.key} className="text-sm text-[var(--text-secondary)]"><span>{label}</span><ProductionSelect className="mt-1" ariaLabel={field.label} value={String(value)} onValueChange={(nextValue) => updateValue(block.id, field.key, nextValue)} options={[{ value: "", label: "Select song…" }, ...songs.map((song) => ({ value: song.id, label: song.title }))]} /></div>;
               return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<input type={field.type === "duration" ? "number" : "text"} value={String(value)} onChange={(event) => updateValue(block.id, field.key, field.type === "duration" && event.target.value ? Number(event.target.value) : event.target.value)} placeholder={field.helpText} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]" /></label>;
             })}
+          </div>
           </div>
         </section>
       ))}
@@ -1060,6 +1030,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ServiceFormState>(() => createBlankServiceForm());
   const [createParserText, setCreateParserText] = useState("");
+  const [createParserResult, setCreateParserResult] = useState<TemplateTextParseResult | null>(null);
   const [createErrors, setCreateErrors] = useState<ServiceFormErrors>({});
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
@@ -1281,14 +1252,31 @@ export default function ServicesPageClient({ initialServices }: { initialService
     prepareServiceSave("create", createForm);
   }
 
-  function applyCreateParser() {
+  function previewCreateParser() {
     const input = createParserText.trim();
     if (!input) return;
 
-    const { nextForm } = applyAnalysisToServiceForm(createForm, input);
-    setCreateForm(nextForm);
+    const template = (serviceTemplatesQuery.data ?? []).find((candidate) => candidate.code === createForm.templateType);
+    if (!template) {
+      showToast("Select a service template before parsing text.");
+      return;
+    }
+    setCreateParserResult(parseTemplateServiceText(input, {
+      blocks: template.blocks,
+      servants: servantsQuery.data ?? [],
+      songs: songsQuery.data ?? [],
+    }));
+  }
+
+  function applyCreateParser() {
+    if (!createParserResult) return;
+    setCreateForm((current) => ({
+      ...current,
+      templateBlockValues: Object.fromEntries(Object.entries(current.templateBlockValues).map(([blockId, values]) => [blockId, { ...values, ...(createParserResult.values[blockId] ?? {}) }])),
+    }));
     setCreateErrors({});
     setCreateParserOpen(false);
+    setCreateParserResult(null);
   }
 
   function submitEditForm() {
@@ -1652,7 +1640,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setCreateParserOpen(true)}
+                  onClick={() => { setCreateParserResult(null); setCreateParserOpen(true); }}
                   className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
                 >
                   <WandSparkles className="h-4 w-4" />
@@ -1707,9 +1695,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <DialogContent className="max-w-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Paste service participants</DialogTitle>
+                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Parse template fields</DialogTitle>
                 <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
-                  Fill the service form from pasted text.
+                  Use template block and field labels, for example: <span className="font-mono">Message &gt; Speaker: Jane Doe</span>.
                 </DialogDescription>
               </div>
               <button
@@ -1727,9 +1715,17 @@ export default function ServicesPageClient({ initialServices }: { initialService
               value={createParserText}
               onChange={(event) => setCreateParserText(event.target.value)}
               rows={14}
-              placeholder="Paste WS PARTICIPANTS text here..."
+              placeholder="Welcome: Jane Doe&#10;Message > Speaker: John Doe&#10;Message > Duration: 35"
               className="mt-4 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
             />
+
+            {createParserResult ? (
+              <div className="mt-4 max-h-52 space-y-3 overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3 text-sm">
+                <p className="font-semibold text-[var(--text-primary)]">{createParserResult.matches.length} field{createParserResult.matches.length === 1 ? "" : "s"} ready to apply</p>
+                {createParserResult.matches.map((match) => <p key={`${match.label}-${match.value}`} className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{match.label}:</span> {match.value}</p>)}
+                {createParserResult.warnings.map((warning) => <p key={warning} className="text-[var(--state-warning)]">{warning}</p>)}
+              </div>
+            ) : null}
 
             <div className="mt-5 flex justify-end gap-3">
               <button
@@ -1741,12 +1737,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
               </button>
               <button
                 type="button"
-                onClick={applyCreateParser}
+                onClick={createParserResult ? applyCreateParser : previewCreateParser}
                 disabled={!createParserText.trim()}
                 className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 <WandSparkles className="h-4 w-4" />
-                Parse Into Form
+                {createParserResult ? "Apply to form" : "Preview matches"}
               </button>
             </div>
           </DialogContent>

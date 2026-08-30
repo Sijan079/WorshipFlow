@@ -57,4 +57,9 @@ export function runWorkspaceRouteTests() {
   assert.doesNotMatch(backgroundRemovalRoute, /integration\?\.backgroundImageModel/);
   assert.match(notifications, /worshipflow:report-error/);
   assert.match(notifications, /No unresolved errors/);
+  const servicesPage = readFileSync(join(process.cwd(), "src", "components", "services-page-client.tsx"), "utf8");
+  assert.match(servicesPage, /parseTemplateServiceText/);
+  assert.doesNotMatch(servicesPage, /analyzeServiceText/);
+  assert.doesNotMatch(servicesPage, /<select /);
+  assert.match(servicesPage, /ui-surface-panel.*md:grid-cols-3/);
 }

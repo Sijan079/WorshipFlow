@@ -38,6 +38,7 @@ import { runOAuthClientBoundaryTests, runOAuthSecretHygieneTests } from "./lib/o
 import { runSettingsNavigationTests } from "./lib/settings-navigation.test.ts";
 import { runTemplatePdfImportTests } from "./lib/template-pdf-import.test.ts";
 import { runTemplateBlockKindTests } from "./lib/template-block-kinds.test.ts";
+import { runTemplateServiceTextParserTests } from "./lib/template-service-text-parser.test.ts";
 import { runServiceTemplateRenderingTests } from "./lib/service-template-rendering.test.ts";
 import { runTeamMemberPickerTests } from "./lib/team-member-picker.test.ts";
 import { runDeploymentBuildTests } from "./lib/deployment-build.test.ts";
@@ -84,6 +85,7 @@ runOAuthClientBoundaryTests();
 runSettingsNavigationTests();
 runTemplatePdfImportTests();
 runTemplateBlockKindTests();
+runTemplateServiceTextParserTests();
 runServiceTemplateRenderingTests();
 runTeamMemberPickerTests();
 runDeploymentBuildTests();
