@@ -19,14 +19,19 @@ export type { LyricsExtractorEditableResponse } from "@/lib/extractor-types";
 const BASE_URL = typeof window !== "undefined"
   ? ""
   : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000");
+const recentErrorReports = new Map<string, number>();
 
 export class ApiError extends Error {
   status: number;
+  path?: string;
+  requestId?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, details?: { path?: string; requestId?: string }) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.path = details?.path;
+    this.requestId = details?.requestId;
   }
 }
 
@@ -42,6 +47,26 @@ function buildUrl(path: string) {
   path = workspaceApiPath(path);
 
   return `${BASE_URL}${path}`;
+}
+
+export function reportClientError(error: unknown, path?: string) {
+  if (typeof window === "undefined") return;
+
+  const message = error instanceof Error && error.message ? error.message : "Request failed.";
+  const apiError = error instanceof ApiError ? error : undefined;
+  const errorPath = apiError?.path ?? path;
+  const reportKey = `${errorPath ?? "client"}:${apiError?.status ?? "network"}:${message}`;
+  const now = Date.now();
+  if ((recentErrorReports.get(reportKey) ?? 0) > now - 10_000) return;
+  recentErrorReports.set(reportKey, now);
+  window.dispatchEvent(new CustomEvent("worshipflow:error", {
+    detail: {
+      message: message.slice(0, 500),
+      path: errorPath,
+      status: apiError?.status,
+      requestId: apiError?.requestId,
+    },
+  }));
 }
 
 export function workspaceApiPath(path: string) {
@@ -65,22 +90,54 @@ function buildHeaders(options?: RequestInit) {
 }
 
 async function fetchOrThrow(path: string, options?: RequestInit) {
-  const response = await fetch(buildUrl(path), {
-    ...options,
-    headers: buildHeaders(options),
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), {
+      ...options,
+      headers: buildHeaders(options),
+    });
+  } catch (error) {
+    reportClientError(error, path);
+    throw error;
+  }
 
   if (response.ok) {
     return response;
   }
 
   const errorData = await response.json().catch(() => ({}));
-  throw new ApiError(errorData.error || `Request failed with status ${response.status}`, response.status);
+  const message = typeof errorData.error === "string" ? errorData.error : `Request failed with status ${response.status}`;
+  const error = new ApiError(message, response.status, {
+    path,
+    requestId: response.headers.get("x-vercel-id") ?? response.headers.get("x-request-id") ?? undefined,
+  });
+  reportClientError(error, path);
+  throw error;
 }
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetchOrThrow(path, options);
   return response.json() as Promise<T>;
+}
+
+export type ErrorNotificationRecord = {
+  id: string;
+  message: string;
+  details: string;
+  page: string;
+  createdAt: string;
+};
+
+export function fetchErrorNotifications() {
+  return apiFetch<ErrorNotificationRecord[]>("/api/error-notifications");
+}
+
+export function createErrorNotification(payload: Pick<ErrorNotificationRecord, "message" | "details" | "page">) {
+  return apiFetch<ErrorNotificationRecord>("/api/error-notifications", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function removeErrorNotification(id: string) {
+  return apiFetch<{ success: true }>(`/api/error-notifications/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 async function postExtractorRequest(path: string, body: BodyInit | Record<string, unknown>) {

@@ -193,6 +193,7 @@ model Workspace {
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
   servants  Servant[]
+  errorNotifications ErrorNotification[]
 }
 
 model User {
@@ -208,6 +209,7 @@ model User {
   sentInvitations WorkspaceInvitation[] @relation("InvitationSender")
   requestedJobs   AutomationJob[]
   feedbackRateLimits FeedbackRateLimit[]
+  errorNotifications ErrorNotification[]
 }
 
 model FeedbackRateLimit {
@@ -220,6 +222,21 @@ model FeedbackRateLimit {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, scope, windowStart])
+}
+
+model ErrorNotification {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String
+  message     String   @db.Text
+  details     String   @db.Text
+  page        String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, createdAt])
 }
 
 model WorkspaceMembership {

@@ -10,6 +10,8 @@ export function runWorkspaceShellTests() {
   const ministriesRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "ministries", "[id]", "route.ts"), "utf8");
   const servantGroupsRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "servant-groups", "[id]", "route.ts"), "utf8");
   const session = readFileSync(join(process.cwd(), "src", "app", "api", "auth", "session", "route.ts"), "utf8");
+  const notificationsRoute = readFileSync(join(process.cwd(), "src", "app", "api", "error-notifications", "route.ts"), "utf8");
+  const schema = readFileSync(join(process.cwd(), "prisma", "schema.prisma"), "utf8");
 
   for (const removedCopy of ["Back to Services", "CURRENT SERVICE", "Notes", "Messages", "Activity"]) {
     assert.doesNotMatch(shell, new RegExp(removedCopy));
@@ -28,7 +30,15 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /accountRole/);
   assert.match(shell, /avatarUrl/);
   assert.match(shell, /avatarFailed/);
-  assert.doesNotMatch(shell, /alertCount|<Bell/);
+  assert.match(shell, /Bell/);
+  assert.match(shell, /alertCount/);
+  assert.match(shell, /toWorkspacePath\("\/notifications"\)/);
+  assert.match(shell, /removeErrorNotification\(reportNotificationId\)/);
+  assert.match(shell, /createErrorNotification/);
+  assert.doesNotMatch(shell, /localStorage/);
+  assert.match(notificationsRoute, /requireExplicitWorkspaceRole\("MEMBER"\)/);
+  assert.match(notificationsRoute, /prisma\.errorNotification/);
+  assert.match(schema, /model ErrorNotification/);
   assert.match(shell, /workspace-rail[^>]*overflow-x-hidden/);
   assert.match(shell, /workspace-rail[^>]*lg:sticky lg:top-0/);
   assert.match(shell, /min-h-0 flex-1 overflow-y-auto overflow-x-hidden/);

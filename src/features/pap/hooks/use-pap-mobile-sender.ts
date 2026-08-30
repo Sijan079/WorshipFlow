@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { workspaceApiPath } from "@/lib/api-client";
+import { reportClientError, workspaceApiPath } from "@/lib/api-client";
 import { createPAPBatchFileName } from "../rtc/pap-file-names";
 import type { PAPConnectionState, PAPSendProgress, PAPServerScreenshot } from "../types";
 import { getPAPDeviceName } from "../pap-device-name";
@@ -69,6 +69,7 @@ export function usePAPMobileSender() {
           )
         );
       } catch (uploadError) {
+        reportClientError(uploadError, "/api/pap/uploads");
         setError(uploadError instanceof Error ? uploadError.message : "Failed to upload screenshots.");
         setProgress((currentProgress) => currentProgress.filter((item) => item.batchId !== batchId));
       }

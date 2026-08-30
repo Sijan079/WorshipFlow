@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, createErrorNotification, fetchErrorNotifications, removeErrorNotification, type ErrorNotificationRecord } from "@/lib/api-client";
 import { AnimatePresence, motion } from "motion/react";
 import BrandLogo from "@/components/brand-logo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +20,7 @@ import {
 import {
   AudioLines,
   AlertTriangle,
+  Bell,
   CalendarDays,
   Captions,
   ChevronDown,
@@ -71,6 +72,7 @@ const IN_PROGRESS_WARNINGS = {
 
 type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
 type SessionResponse = { authenticated: boolean; user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
+type ReportToast = { message: string; tone: "info" | "success" | "error"; reportMessage?: string; reportNotificationId?: string };
 
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
@@ -100,6 +102,21 @@ function getWarningKey(pathname: string, hash: string | null): InProgressWarning
 
 function formatWorkspaceRole(role?: string | null) {
   return role ? role.charAt(0) + role.slice(1).toLowerCase() : "Member";
+}
+
+function toSafeErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : typeof error === "object" && error && "message" in error && typeof error.message === "string" ? error.message : typeof error === "string" ? error : "Something went wrong.";
+  return message.trim().slice(0, 500) || "Something went wrong.";
+}
+
+function toErrorDetails(error: unknown, message: string) {
+  const context = typeof error === "object" && error ? error as { path?: unknown; status?: unknown; requestId?: unknown } : {};
+  return [
+    `What happened:\n${message}`,
+    typeof context.status === "number" ? `HTTP status: ${context.status}` : null,
+    typeof context.path === "string" ? `Endpoint: ${context.path}` : null,
+    typeof context.requestId === "string" ? `Vercel request ID: ${context.requestId}` : null,
+  ].filter(Boolean).join("\n\n");
 }
 
 function AccountMenu({ name, email, role, avatarUrl, onSignOut }: { name: string; email: string; role: string; avatarUrl?: string | null; onSignOut: () => void }) {
@@ -137,6 +154,7 @@ function AccountMenu({ name, email, role, avatarUrl, onSignOut }: { name: string
 
 export default function WorkspaceShell({ children, workspaceSlug }: { children: React.ReactNode; workspaceSlug?: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const workspaceBasePath = workspaceSlug ? `/w/${encodeURIComponent(workspaceSlug)}` : "";
   const localPathname = workspaceBasePath && pathname.startsWith(workspaceBasePath)
@@ -149,6 +167,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const warningKey = getWarningKey(localPathname, currentHash);
   const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
   const sessionQuery = useQuery({ queryKey: ["auth", "session", workspaceSlug], queryFn: () => apiFetch<SessionResponse>(`/api/auth/session${workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : ""}`) });
+  const errorNotificationsQuery = useQuery({ queryKey: ["error-notifications"], queryFn: fetchErrorNotifications });
   const accountName = sessionQuery.data?.user?.displayName || sessionQuery.data?.user?.email || "Workspace user";
   const accountEmail = sessionQuery.data?.user?.email || "";
   const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
@@ -159,17 +178,34 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<"ISSUE" | "FEEDBACK">("ISSUE");
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [reportToast, setReportToast] = useState<{ message: string; tone: "info" | "success" | "error" } | null>(null);
+  const [reportToast, setReportToast] = useState<ReportToast | null>(null);
+  const [reportNotificationId, setReportNotificationId] = useState<string | null>(null);
+  const alertCount = errorNotificationsQuery.data?.length ?? 0;
   const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
+  const showErrorReport = useCallback(async (error: unknown) => {
+    const message = toSafeErrorMessage(error);
+    const page = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const details = `${toErrorDetails(error, message)}\n\nPage: ${page}`;
+    setReportToast({ message, tone: "error", reportMessage: details });
+    try {
+      const notification = await createErrorNotification({ message, details, page });
+      setReportToast((current) => current?.reportMessage === details ? { ...current, reportNotificationId: notification.id } : current);
+      await queryClient.invalidateQueries({ queryKey: ["error-notifications"] });
+    } catch {
+      // The original error remains actionable in the toast even if persistence is temporarily unavailable.
+    }
+  }, [queryClient]);
   const feedbackMutation = useMutation({
     mutationFn: (payload: { kind: "ISSUE" | "FEEDBACK"; message: string }) => apiFetch("/api/feedback", { method: "POST", body: JSON.stringify(payload) }),
     onMutate: () => setReportToast({ message: "Sending report…", tone: "info" }),
     onSuccess: () => {
+      if (reportNotificationId) void removeErrorNotification(reportNotificationId).then(() => queryClient.invalidateQueries({ queryKey: ["error-notifications"] })).catch(() => undefined);
+      setReportNotificationId(null);
       setFeedbackMessage("");
       setFeedbackOpen(false);
       setReportToast({ message: "Report sent to GitHub.", tone: "success" });
     },
-    onError: () => setReportToast({ message: "Could not send report.", tone: "error" }),
+    onError: () => undefined,
   });
 
   useEffect(() => {
@@ -179,6 +215,43 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
 
     return () => window.removeEventListener("hashchange", syncHash);
   }, []);
+
+  useEffect(() => {
+    const showClientError = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: unknown; path?: string; status?: number; requestId?: string }>).detail;
+      if (detail?.path?.startsWith("/api/error-notifications")) return;
+      void showErrorReport(detail);
+    };
+    const showUnhandledError = (event: ErrorEvent) => void showErrorReport(event.error ?? event.message);
+    const showUnhandledRejection = (event: PromiseRejectionEvent) => void showErrorReport(event.reason);
+    window.addEventListener("worshipflow:error", showClientError);
+    window.addEventListener("error", showUnhandledError);
+    window.addEventListener("unhandledrejection", showUnhandledRejection);
+    const openNotificationReport = (event: Event) => {
+      const notification = (event as CustomEvent<ErrorNotificationRecord>).detail;
+      if (!notification) return;
+      setFeedbackKind("ISSUE");
+      setFeedbackMessage(notification.details);
+      setReportNotificationId(notification.id);
+      setFeedbackOpen(true);
+    };
+    window.addEventListener("worshipflow:report-error", openNotificationReport);
+    return () => {
+      window.removeEventListener("worshipflow:error", showClientError);
+      window.removeEventListener("error", showUnhandledError);
+      window.removeEventListener("unhandledrejection", showUnhandledRejection);
+      window.removeEventListener("worshipflow:report-error", openNotificationReport);
+    };
+  }, [showErrorReport]);
+
+  function openReportWithError() {
+    if (!reportToast?.reportMessage) return;
+    setFeedbackKind("ISSUE");
+    setFeedbackMessage(reportToast.reportMessage);
+    setReportNotificationId(reportToast.reportNotificationId ?? null);
+    setFeedbackOpen(true);
+    setReportToast(null);
+  }
 
   async function logout() {
     setSigningOut(true);
@@ -207,6 +280,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
           }`}
         >
           <span className="min-w-0 flex-1">{reportToast.message}</span>
+          {reportToast.tone === "error" && reportToast.reportMessage ? <button type="button" onClick={openReportWithError} className="pressable shrink-0 rounded-md px-2 py-1 text-xs font-semibold hover:bg-[color-mix(in_oklab,var(--state-danger)_12%,transparent)]">Report issue</button> : null}
           <button type="button" onClick={() => setReportToast(null)} className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md" aria-label="Dismiss report status">
             <X className="h-4 w-4" />
           </button>
@@ -226,6 +300,10 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               <p className="mt-0.5 text-[10px] text-white/70">{accountRole}</p>
             </div>
           </div>
+          <Link href={toWorkspacePath("/notifications")} className="pressable relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
+            <Bell className="h-5 w-5" />
+            {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
+          </Link>
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" aria-label="Production workspace">
           {NAV_GROUPS.map((group, groupIndex) => (
@@ -336,7 +414,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
         <div className="mt-4 border-t border-[var(--border-default)] pt-3">
           <button
             type="button"
-            onClick={() => setFeedbackOpen(true)}
+            onClick={() => { setReportNotificationId(null); setFeedbackOpen(true); }}
             className="workspace-nav-link pressable-subtle flex min-h-11 w-full items-center gap-3 border-l-2 border-transparent px-2 py-1.5 text-sm font-semibold text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] hover:text-white"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center text-white/70">
@@ -359,6 +437,10 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                 <BrandLogo className="h-9 w-40" />
               </Link>
               <div className="flex items-center gap-2">
+                <Link href={toWorkspacePath("/notifications")} className="pressable relative inline-flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
+                  <Bell className="h-5 w-5" />
+                  {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
+                </Link>
                 <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} onSignOut={() => setSignOutConfirmOpen(true)} />
               </div>
             </div>

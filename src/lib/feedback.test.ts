@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 export function runFeedbackTests() {
   const shell = readFileSync(join(process.cwd(), "src", "components", "workspace-shell.tsx"), "utf8");
+  const apiClient = readFileSync(join(process.cwd(), "src", "lib", "api-client.ts"), "utf8");
+  const papInbox = readFileSync(join(process.cwd(), "src", "features", "pap", "hooks", "use-pap-inbox.ts"), "utf8");
   const routePath = join(process.cwd(), "src", "app", "api", "feedback", "route.ts");
   const schema = readFileSync(join(process.cwd(), "prisma", "schema.prisma"), "utf8");
 
@@ -12,7 +14,12 @@ export function runFeedbackTests() {
   assert.match(shell, /apiFetch\("\/api\/feedback"/);
   assert.match(shell, /Sending report…/);
   assert.match(shell, /Report sent to GitHub\./);
-  assert.match(shell, /Could not send report\./);
+  assert.match(shell, /onError: \(\) => undefined/);
+  assert.match(shell, /worshipflow:error/);
+  assert.match(shell, /unhandledrejection/);
+  assert.match(shell, /Report issue/);
+  assert.match(shell, /setFeedbackKind\("ISSUE"\)/);
+  assert.match(shell, /setFeedbackMessage\(reportToast\.reportMessage\)/);
   assert.match(shell, /role="status"/);
   assert.match(shell, /<MessageSquare className="h-4 w-4" \/>[\s\S]*?Report\s*<\/button>/);
   assert.doesNotMatch(shell, /github\.com\/Sijan079\/WorshipFlow\/issues\/new/);
@@ -35,4 +42,11 @@ export function runFeedbackTests() {
   assert.match(schema, /model FeedbackRateLimit/);
   assert.match(schema, /@@unique\(\[userId, scope, windowStart\]\)/);
   assert.doesNotMatch(route, /prisma\.feedbackSubmission\.create/);
+  assert.match(apiClient, /export function reportClientError/);
+  assert.match(apiClient, /new CustomEvent\("worshipflow:error"/);
+  assert.match(apiClient, /reportClientError\(error, path\);/);
+  assert.match(apiClient, /requestId/);
+  assert.match(apiClient, /new ApiError\(message, response\.status/);
+  assert.match(apiClient, /x-vercel-id/);
+  assert.doesNotMatch(papInbox, /method: "DELETE",[\s\S]{0,80}\.catch\(\(\) => undefined\)/);
 }

@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, Eraser, Loader2, Upload } from "lucide-react";
-import { triggerBrowserDownload, workspaceApiPath } from "@/lib/api-client";
+import { ApiError, reportClientError, triggerBrowserDownload, workspaceApiPath } from "@/lib/api-client";
 import { MAX_HEIGHT, MAX_SOURCE_FILE_BYTES, MAX_TOTAL_PIXELS, MAX_WIDTH } from "@/lib/resize-image";
 
 type ToastTone = "info" | "success";
@@ -54,11 +54,11 @@ export default function BackgroundRemovalTool({ showToast }: { showToast: (messa
     try {
       const form = new FormData(); form.append("file", source.file);
       const response = await fetch(workspaceApiPath("/api/media/background-removal"), { method: "POST", body: form });
-      if (!response.ok) { const body = await response.json().catch(() => null) as { error?: string } | null; throw new Error(body?.error || "AI background removal failed."); }
+      if (!response.ok) { const body = await response.json().catch(() => null) as { error?: string } | null; throw new ApiError(body?.error || "AI background removal failed.", response.status, { path: "/api/media/background-removal", requestId: response.headers.get("x-vercel-id") ?? response.headers.get("x-request-id") ?? undefined }); }
       const output = await response.blob();
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResult(output); setResultUrl(URL.createObjectURL(output)); showToast("Background removed.", "success");
-    } catch (removalError) { const message = removalError instanceof Error ? removalError.message : "AI background removal failed."; setError(message); showToast(message); }
+    } catch (removalError) { const message = removalError instanceof Error ? removalError.message : "AI background removal failed."; reportClientError(removalError, "/api/media/background-removal"); setError(message); }
     finally { setProcessing(false); }
   }
 

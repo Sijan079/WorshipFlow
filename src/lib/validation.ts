@@ -24,6 +24,12 @@ export const FeedbackSubmissionSchema = z.object({
   message: z.string().trim().min(1, "Please enter a message").max(5000, "Message is too long"),
 });
 
+export const ErrorNotificationSchema = z.object({
+  message: z.string().trim().min(1).max(500),
+  details: z.string().trim().min(1).max(1000),
+  page: z.string().trim().min(1).max(1000),
+});
+
 export const ServiceBibleVerseSchema = z.object({
   verse: z.string().trim().min(1, "Bible verse is required"),
   order: z.number().int().min(0),

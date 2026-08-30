@@ -5,6 +5,7 @@ import SettingsPageClient from "@/components/settings-page-client";
 import TeamsPageClient from "@/components/teams-page-client";
 import WorshipServicePlannerClient from "@/components/worship-service-planner-client";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
+import ErrorNotificationsPage from "@/components/error-notifications-page";
 import { MEDIA_TOOLS_MODULE } from "@/lib/workspace-modules";
 import { getEnvironmentReport } from "@/lib/server-env";
 
@@ -37,6 +38,8 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       redirect(`/w/${encodeURIComponent(workspaceSlug)}/song-formatter/upload`);
     case "settings":
       return <SettingsPageClient environment={getEnvironmentReport()} />;
+    case "notifications":
+      return <ErrorNotificationsPage />;
     case "automation":
       return <ServiceBuilderClient module="automation" />;
     case "media-tools":
