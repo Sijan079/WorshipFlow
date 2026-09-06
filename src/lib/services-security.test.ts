@@ -22,4 +22,7 @@ export function runServicesSecurityTests() {
   assert.equal("bibleVerses" in serviceListRelations.include, false);
   assert.equal("servantAssignments" in serviceListRelations.include, false);
   assert.equal("hymnals" in serviceListRelations.include, false);
+  assert.equal("people" in serviceListRelations.include.blocks.include, true);
+  assert.equal("songs" in serviceListRelations.include.blocks.include, true);
+  assert.equal("details" in serviceListRelations.include.blocks.include, true);
 }

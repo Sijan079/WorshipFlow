@@ -77,6 +77,26 @@ export const serviceListRelations = Prisma.validator<Prisma.WorshipServiceDefaul
       orderBy: {
         order: "asc",
       },
+      include: {
+        people: {
+          orderBy: {
+            order: "asc",
+          },
+        },
+        songs: {
+          orderBy: {
+            order: "asc",
+          },
+          include: {
+            song: true,
+          },
+        },
+        details: {
+          orderBy: {
+            key: "asc",
+          },
+        },
+      },
     },
   },
 });

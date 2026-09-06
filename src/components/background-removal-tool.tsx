@@ -6,7 +6,7 @@ import { Download, Eraser, Loader2, Upload } from "lucide-react";
 import { ApiError, reportClientError, triggerBrowserDownload, workspaceApiPath } from "@/lib/api-client";
 import { MAX_HEIGHT, MAX_SOURCE_FILE_BYTES, MAX_TOTAL_PIXELS, MAX_WIDTH } from "@/lib/resize-image";
 
-type ToastTone = "info" | "success";
+type ToastTone = "info" | "success" | "error";
 type LoadedImage = { file: File; image: HTMLImageElement; objectUrl: string };
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
@@ -45,7 +45,7 @@ export default function BackgroundRemovalTool({ showToast }: { showToast: (messa
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     setResultUrl(null);
     try { setSource(await loadImage(file)); showToast("Image loaded. AI removal is ready.", "success"); }
-    catch (loadError) { const message = loadError instanceof Error ? loadError.message : "Image loading failed."; setError(message); showToast(message); }
+    catch (loadError) { const message = loadError instanceof Error ? loadError.message : "Image loading failed."; setError(message); showToast(message, "error"); }
   }
 
   async function removeBackground() {

@@ -19,7 +19,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { ProductionSelect } from "@/components/ui/production-select";
 
 type BackgroundGeneratorToolProps = {
-  showToast: (message: string, tone?: "success" | "info") => void;
+  showToast: (message: string, tone?: "success" | "info" | "error") => void;
 };
 
 type MoodValue = BackgroundGenerationRequestPayload["mood"];
@@ -99,7 +99,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
       setActiveStage("estimation");
       showToast("Generation estimate ready.", "success");
     },
-    onError: (error: Error) => showToast(error.message),
+    onError: (error: Error) => showToast(error.message, "error"),
   });
 
   const generateMutation = useMutation({
@@ -112,7 +112,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
       setActiveStage("output");
       showToast("Background generated.", "success");
     },
-    onError: (error: Error) => showToast(error.message),
+    onError: (error: Error) => showToast(error.message, "error"),
   });
 
   const updateRequest = (patch: Partial<BackgroundGeneratorFormState>) => {
@@ -175,7 +175,7 @@ export default function BackgroundGeneratorTool({ showToast }: BackgroundGenerat
         resetProcess();
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Download failed");
+      showToast(error instanceof Error ? error.message : "Download failed", "error");
     } finally {
       setDownloadingOutputId((current) => (current === outputId ? null : current));
     }

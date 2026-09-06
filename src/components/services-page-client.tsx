@@ -1113,7 +1113,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       setCreateErrors({});
     },
     onError: () => {
-      showToast("Service could not be created. Review the form and try again.");
+      showToast("Service could not be created. Review the form and try again.", "error");
     },
   });
   const songsQuery = useQuery({
@@ -1141,7 +1141,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     onSuccess: () => {
       setEditingServiceId(null);
     },
-    onError: (error: Error) => showToast(error.message || "Service could not be updated."),
+    onError: (error: Error) => showToast(error.message || "Service could not be updated.", "error"),
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ["services"] });
     },
@@ -1155,7 +1155,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["services"] });
     },
-    onError: (error: Error) => showToast(error.message || "Service could not be marked ready."),
+    onError: (error: Error) => showToast(error.message || "Service could not be marked ready.", "error"),
   });
 
   const createMissingServantsMutation = useMutation({
@@ -1308,7 +1308,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
           })),
         );
       } catch {
-        showToast("Failed to add selected servants to Teams.");
+        showToast("Failed to add selected servants to Teams.", "error");
         return;
       }
     }
@@ -1354,7 +1354,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
   return (
     <div className="services-page min-h-full space-y-6 py-1 lg:px-2">
-      <section className="services-header flex flex-col gap-4 border-b border-[var(--border-default)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <section className="services-header flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
             Worship Services

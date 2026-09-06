@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run dev:docker",
     "dev:docker": "node --env-file=.env.local.docker scripts/dev-docker.mjs",
     "build": "prisma generate && next build",
     "vercel-build": "node scripts/vercel-build.mjs",

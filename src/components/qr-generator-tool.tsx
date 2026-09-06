@@ -7,7 +7,7 @@ import QRCode from "qrcode";
 import { triggerBrowserDownload } from "@/lib/api-client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type ToastTone = "info" | "success";
+type ToastTone = "info" | "success" | "error";
 
 type QRGeneratorToolProps = {
   showToast: (message: string, tone?: ToastTone) => void;
@@ -230,7 +230,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
       triggerBrowserDownload(blob, `${downloadBaseName}.png`);
       showToast("PNG downloaded.", "success");
     } catch (downloadError) {
-      showToast(downloadError instanceof Error ? downloadError.message : "Could not download PNG.");
+      showToast(downloadError instanceof Error ? downloadError.message : "Could not download PNG.", "error");
     }
   }
 
@@ -253,7 +253,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       showToast("Image copied.", "success");
     } catch {
-      showToast("Could not copy image. Use download instead.");
+      showToast("Could not copy image. Use download instead.", "error");
     }
   }
 
@@ -263,7 +263,7 @@ export default function QRGeneratorTool({ showToast }: QRGeneratorToolProps) {
       await navigator.clipboard.writeText(trimmedDestination);
       showToast("Source copied.", "success");
     } catch {
-      showToast("Could not copy source text.");
+      showToast("Could not copy source text.", "error");
     }
   }
 

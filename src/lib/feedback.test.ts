@@ -19,8 +19,10 @@ export function runFeedbackTests() {
   assert.match(shell, /unhandledrejection/);
   assert.match(shell, /Report issue/);
   assert.match(shell, /setFeedbackKind\("ISSUE"\)/);
-  assert.match(shell, /setFeedbackMessage\(reportToast\.reportMessage\)/);
-  assert.match(shell, /role="status"/);
+  assert.match(shell, /setFeedbackMessage\(details\)/);
+  assert.match(shell, /action: \{ label: "Report issue"/);
+  assert.match(shell, /showToast\("Sending report/);
+  assert.match(shell, /showToast\("Report sent to GitHub\.", "success"\)/);
   assert.match(shell, /<MessageSquare className="h-4 w-4" \/>[\s\S]*?Report\s*<\/button>/);
   assert.doesNotMatch(shell, /github\.com\/Sijan079\/WorshipFlow\/issues\/new/);
   assert.ok(existsSync(routePath));

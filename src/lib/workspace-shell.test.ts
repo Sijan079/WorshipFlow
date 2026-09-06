@@ -5,6 +5,7 @@ import { join } from "node:path";
 export function runWorkspaceShellTests() {
   const shell = readFileSync(join(process.cwd(), "src", "components", "workspace-shell.tsx"), "utf8");
   const settings = readFileSync(join(process.cwd(), "src", "components", "settings-page-client.tsx"), "utf8");
+  const services = readFileSync(join(process.cwd(), "src", "components", "services-page-client.tsx"), "utf8");
   const settingsAdmin = readFileSync(join(process.cwd(), "src", "components", "settings-admin-sections.tsx"), "utf8");
   const settingsRoutes = readFileSync(join(process.cwd(), "src", "lib", "settings-routes.ts"), "utf8");
   const ministriesRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "ministries", "[id]", "route.ts"), "utf8");
@@ -20,7 +21,9 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /DropdownMenuTrigger/);
   assert.match(shell, /aria-label="Open account menu"/);
   assert.match(shell, /workspace-nav-surface/);
+  assert.doesNotMatch(shell, /workspace-nav-surface workspace-mobile-header border-b/);
   assert.match(shell, /workspace-content-light/);
+  assert.doesNotMatch(services, /services-header flex flex-col gap-4 border-b/);
   assert.match(shell, /href: "\/song-formatter\/upload"/);
   assert.doesNotMatch(shell, /href: "\/songs\/upload"/);
   assert.match(shell, /workspace-shell min-h-screen bg-white/);
@@ -45,7 +48,9 @@ export function runWorkspaceShellTests() {
   assert.doesNotMatch(shell, /github\.com\/Sijan079\/WorshipFlow\/issues\/new/);
   assert.match(shell, /Report issue or feedback/);
   assert.match(shell, /MessageSquare/);
-  assert.match(shell, /role=\{reportToast\.tone === "error" \? "alert" : "status"\}/);
+  assert.match(shell, /PAPToastViewport/);
+  assert.match(shell, /usePAPToasts/);
+  assert.doesNotMatch(shell, /reportToast/);
   assert.match(session, /avatarUrl/);
   assert.match(session, /identity_data/);
   assert.match(session, /workspaceSlug/);

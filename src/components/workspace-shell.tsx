@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { apiFetch, createErrorNotification, fetchErrorNotifications, removeError
 import { AnimatePresence, motion } from "motion/react";
 import BrandLogo from "@/components/brand-logo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,8 +73,6 @@ const IN_PROGRESS_WARNINGS = {
 
 type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
 type SessionResponse = { authenticated: boolean; user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
-type ReportToast = { message: string; tone: "info" | "success" | "error"; reportMessage?: string; reportNotificationId?: string };
-
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
@@ -178,32 +177,43 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<"ISSUE" | "FEEDBACK">("ISSUE");
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [reportToast, setReportToast] = useState<ReportToast | null>(null);
   const [reportNotificationId, setReportNotificationId] = useState<string | null>(null);
+  const reportNotificationIdRef = useRef<string | null>(null);
+  const { dismissToast, showToast, toasts } = usePAPToasts();
   const alertCount = errorNotificationsQuery.data?.length ?? 0;
   const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
+  const openReportWithError = useCallback((details: string, notificationId: string | null) => {
+    setFeedbackKind("ISSUE");
+    setFeedbackMessage(details);
+    setReportNotificationId(notificationId);
+    setFeedbackOpen(true);
+  }, []);
   const showErrorReport = useCallback(async (error: unknown) => {
     const message = toSafeErrorMessage(error);
     const page = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     const details = `${toErrorDetails(error, message)}\n\nPage: ${page}`;
-    setReportToast({ message, tone: "error", reportMessage: details });
+    showToast(message, "error", {
+      durationMs: null,
+      action: { label: "Report issue", onClick: () => openReportWithError(details, reportNotificationIdRef.current) },
+    });
     try {
       const notification = await createErrorNotification({ message, details, page });
-      setReportToast((current) => current?.reportMessage === details ? { ...current, reportNotificationId: notification.id } : current);
+      reportNotificationIdRef.current = notification.id;
       await queryClient.invalidateQueries({ queryKey: ["error-notifications"] });
     } catch {
       // The original error remains actionable in the toast even if persistence is temporarily unavailable.
     }
-  }, [queryClient]);
+  }, [openReportWithError, queryClient, showToast]);
   const feedbackMutation = useMutation({
     mutationFn: (payload: { kind: "ISSUE" | "FEEDBACK"; message: string }) => apiFetch("/api/feedback", { method: "POST", body: JSON.stringify(payload) }),
-    onMutate: () => setReportToast({ message: "Sending report…", tone: "info" }),
+    onMutate: () => showToast("Sending report…"),
     onSuccess: () => {
       if (reportNotificationId) void removeErrorNotification(reportNotificationId).then(() => queryClient.invalidateQueries({ queryKey: ["error-notifications"] })).catch(() => undefined);
       setReportNotificationId(null);
+      reportNotificationIdRef.current = null;
       setFeedbackMessage("");
       setFeedbackOpen(false);
-      setReportToast({ message: "Report sent to GitHub.", tone: "success" });
+      showToast("Report sent to GitHub.", "success");
     },
     onError: () => undefined,
   });
@@ -244,15 +254,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
     };
   }, [showErrorReport]);
 
-  function openReportWithError() {
-    if (!reportToast?.reportMessage) return;
-    setFeedbackKind("ISSUE");
-    setFeedbackMessage(reportToast.reportMessage);
-    setReportNotificationId(reportToast.reportNotificationId ?? null);
-    setFeedbackOpen(true);
-    setReportToast(null);
-  }
-
   async function logout() {
     setSigningOut(true);
     await createSupabaseClient().auth.signOut().catch(() => undefined);
@@ -268,24 +269,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
       >
         Skip to workspace content
       </a>
-      {reportToast ? (
-        <div
-          role={reportToast.tone === "error" ? "alert" : "status"}
-          className={`animate-toast-in fixed right-4 top-4 z-[100] flex max-w-sm items-center gap-3 rounded-[var(--radius-card)] border px-4 py-3 text-sm font-semibold shadow-[var(--elevation-raised)] ${
-            reportToast.tone === "success"
-              ? "border-[color-mix(in_oklab,var(--state-success)_32%,var(--border-default))] bg-[var(--state-success-soft)] text-[var(--text-success)]"
-              : reportToast.tone === "error"
-                ? "border-[color-mix(in_oklab,var(--state-danger)_32%,var(--border-default))] bg-[var(--state-danger-soft)] text-[var(--text-danger)]"
-                : "border-[var(--border-default)] bg-[var(--surface-panel-elevated)] text-[var(--text-primary)]"
-          }`}
-        >
-          <span className="min-w-0 flex-1">{reportToast.message}</span>
-          {reportToast.tone === "error" && reportToast.reportMessage ? <button type="button" onClick={openReportWithError} className="pressable shrink-0 rounded-md px-2 py-1 text-xs font-semibold hover:bg-[color-mix(in_oklab,var(--state-danger)_12%,transparent)]">Report issue</button> : null}
-          <button type="button" onClick={() => setReportToast(null)} className="pressable inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md" aria-label="Dismiss report status">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+      <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
       <aside className="workspace-nav-surface workspace-rail hidden overflow-x-hidden border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-3 py-4 lg:row-start-1 lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0 lg:self-start">
         <div className="mb-4 border-b border-[var(--border-default)] px-2 pb-4">
           <Link href={toWorkspacePath("/dashboard")} className="inline-flex min-h-11 items-center" aria-label="WorshipFlow dashboard">
@@ -426,7 +410,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
       </aside>
 
       <div className="workspace-main min-w-0 lg:col-start-2 lg:row-start-1">
-        <header className="workspace-nav-surface workspace-mobile-header border-b border-[var(--border-default)] bg-[var(--surface-canvas)] lg:hidden">
+        <header className="workspace-nav-surface workspace-mobile-header bg-[var(--surface-canvas)] lg:hidden">
           <div className="px-4 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <Link

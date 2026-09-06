@@ -116,18 +116,18 @@ against the local Docker Supabase stack.
    app at `http://localhost:3000/auth/callback`; the app callback does not
    belong in Google's redirect URI list.
 
-3. Restart Supabase after changing its config or OAuth credentials, then start
-   Next.js with the Docker environment:
+3. Launch local Supabase and Next.js together:
 
    ```powershell
-   npx supabase stop
-   npx supabase start
-   npm run dev:docker
+   npm run dev
    ```
 
-`dev:docker` loads `.env.local.docker` before Next.js starts, so those process
-variables override hosted values in `.env.local`. Normal `npm run dev` remains
-unchanged for developers intentionally using another environment.
+`npm run dev` starts Docker Desktop automatically on Windows when needed, waits
+for its daemon, starts the local Supabase Docker stack, then loads
+`.env.local.docker` before Next.js starts. Those process variables override
+hosted values in `.env.local`, keeping the OAuth callback on
+`http://localhost:3000/auth/callback`. Use `npm run dev:docker` for the same
+Docker-backed startup explicitly.
 
 The deployed app remains separate: Vercel must use the hosted Supabase URL,
 the hosted Supabase Site URL stays `https://sndev-worship-flow.vercel.app`, and

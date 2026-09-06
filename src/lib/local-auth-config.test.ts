@@ -14,8 +14,28 @@ export function runLocalAuthConfigTests() {
   const readme = read("README.md");
 
   assert.equal(
+    packageJson.scripts?.dev,
+    "npm run dev:docker",
+  );
+  assert.equal(
     packageJson.scripts?.["dev:docker"],
     "node --env-file=.env.local.docker scripts/dev-docker.mjs",
+  );
+  const dockerDevScript = read("scripts/dev-docker.mjs");
+  assert.match(
+    dockerDevScript,
+    /runOrExit\("npx", \["supabase", "start"\]\)/,
+    "The Docker dev entry point must start local Supabase services.",
+  );
+  assert.match(
+    dockerDevScript,
+    /Docker Desktop\.exe/,
+    "The Docker dev entry point must be able to launch Docker Desktop on Windows.",
+  );
+  assert.match(
+    dockerDevScript,
+    /ensureDockerReady/,
+    "The Docker dev entry point must wait for Docker before starting Supabase.",
   );
   assert.match(supabaseConfig, /site_url = "http:\/\/localhost:3000"/);
   assert.match(
@@ -31,6 +51,6 @@ export function runLocalAuthConfigTests() {
     supabaseConfig,
     /secret = "env\(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET\)"/,
   );
-  assert.match(readme, /npm run dev:docker/);
+  assert.match(readme, /npm run dev/);
   assert.match(readme, /http:\/\/127\.0\.0\.1:54321\/auth\/v1\/callback/);
 }

@@ -34,7 +34,7 @@ import {
   type SourceCrop,
 } from "@/lib/resize-image";
 
-type ToastTone = "info" | "success";
+type ToastTone = "info" | "success" | "error";
 type OutputFormat = "png" | "jpeg" | "webp";
 type BackgroundMode = "transparent" | "solid" | "blur" | "black" | "white";
 type EnhancementMode = "none" | "screenshot" | "photo";
@@ -284,7 +284,7 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
         showToast(successMessage, "success");
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Image loading failed.");
-        showToast("Image loading failed.");
+        showToast("Image loading failed.", "error");
       } finally {
         setIsLoading(false);
       }
@@ -395,7 +395,7 @@ export default function ResizeImageTool({ showToast }: ResizeImageToolProps) {
     } catch (downloadError) {
       const message = downloadError instanceof Error ? downloadError.message : "Image export failed.";
       setError(message);
-      showToast(message);
+      showToast(message, "error");
     } finally {
       setIsProcessing(false);
     }

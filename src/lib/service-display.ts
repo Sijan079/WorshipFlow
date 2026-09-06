@@ -67,3 +67,45 @@ export function selectCurrentService<T extends { serviceDate: string }>(services
 
   return ordered.find((service) => new Date(service.serviceDate).getTime() >= now) ?? ordered.at(-1);
 }
+
+function localDateKey(date: Date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+export function selectServiceForUpcomingSunday<T extends { serviceDate: string }>(services: readonly T[], now: Date = new Date()) {
+  const upcomingSunday = new Date(now);
+  upcomingSunday.setHours(0, 0, 0, 0);
+  upcomingSunday.setDate(upcomingSunday.getDate() + ((7 - upcomingSunday.getDay()) % 7));
+  const targetDate = localDateKey(upcomingSunday);
+
+  return services.find((service) => localDateKey(new Date(service.serviceDate)) === targetDate);
+}
+
+type ServiceBlockDisplaySource = {
+  fieldValues: unknown;
+  people?: readonly { personName: string }[];
+  songs?: readonly { song: { title: string } }[];
+  details?: readonly { value: string }[];
+};
+
+function getTextFieldValues(fieldValues: unknown) {
+  if (!fieldValues || typeof fieldValues !== "object" || Array.isArray(fieldValues)) return [];
+
+  return Object.entries(fieldValues as Record<string, unknown>).flatMap(([key, value]) => {
+    if (/ids?$/i.test(key)) return [];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return [String(value)];
+    if (Array.isArray(value) && value.every((item) => typeof item === "string" || typeof item === "number")) {
+      return value.map(String);
+    }
+    return [];
+  });
+}
+
+export function getServiceBlockDisplayValues(block: ServiceBlockDisplaySource) {
+  return [...new Set([
+    ...(block.songs ?? []).map(({ song }) => song.title),
+    ...(block.people ?? []).map(({ personName }) => personName),
+    ...(block.details ?? []).map(({ value }) => value),
+    ...getTextFieldValues(block.fieldValues),
+  ].map((value) => value.trim()).filter(Boolean))];
+}

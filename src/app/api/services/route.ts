@@ -29,6 +29,26 @@ export async function GET() {
           orderBy: {
             order: "asc",
           },
+          include: {
+            people: {
+              orderBy: {
+                order: "asc",
+              },
+            },
+            songs: {
+              orderBy: {
+                order: "asc",
+              },
+              include: {
+                song: true,
+              },
+            },
+            details: {
+              orderBy: {
+                key: "asc",
+              },
+            },
+          },
         },
       },
     });

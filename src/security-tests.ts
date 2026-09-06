@@ -15,6 +15,7 @@ import { runServiceTextAnalysisTests } from "./lib/service-text-analysis.test.ts
 import { runServiceBlockTests } from "./lib/service-blocks.test.ts";
 import { runServiceDisplayTests } from "./lib/service-display.test.ts";
 import { runProgramBlockTypeTests } from "./lib/program-block-types.test.ts";
+import { runRlsHardeningTests } from "./lib/rls-hardening.test.ts";
 import { runTemplateFieldTests } from "./lib/template-fields.test.ts";
 import { runServiceReadinessTests } from "./lib/service-readiness.test.ts";
 import { runSettingsPresetTests } from "./lib/settings-presets.test.ts";
@@ -42,6 +43,8 @@ import { runTemplateServiceTextParserTests } from "./lib/template-service-text-p
 import { runServiceTemplateRenderingTests } from "./lib/service-template-rendering.test.ts";
 import { runTeamMemberPickerTests } from "./lib/team-member-picker.test.ts";
 import { runDeploymentBuildTests } from "./lib/deployment-build.test.ts";
+import { runToastUiTests } from "./lib/toast-ui.test.ts";
+import { runDashboardTests } from "./lib/dashboard.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -61,6 +64,7 @@ runServiceTextAnalysisTests();
 runServiceBlockTests();
 runServiceDisplayTests();
 runProgramBlockTypeTests();
+runRlsHardeningTests();
 runTemplateFieldTests();
 runServiceReadinessTests();
 runSettingsPresetTests();
@@ -89,6 +93,8 @@ runTemplateServiceTextParserTests();
 runServiceTemplateRenderingTests();
 runTeamMemberPickerTests();
 runDeploymentBuildTests();
+runToastUiTests();
+runDashboardTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

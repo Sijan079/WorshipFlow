@@ -584,7 +584,7 @@ export default function ServiceBuilderClient({
       showToast(`${tag.label} tag added.`, "success");
     },
     onError: (error: Error) => {
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -599,7 +599,7 @@ export default function ServiceBuilderClient({
       showToast(`${tag.label} tag updated.`, "success");
     },
     onError: (error: Error) => {
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -613,7 +613,7 @@ export default function ServiceBuilderClient({
       showToast("Tag deleted.");
     },
     onError: (error: Error) => {
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -747,7 +747,7 @@ export default function ServiceBuilderClient({
     },
     onError: (error: Error) => {
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -779,7 +779,7 @@ export default function ServiceBuilderClient({
     },
     onError: (error: Error) => {
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -790,7 +790,7 @@ export default function ServiceBuilderClient({
       await queryClient.invalidateQueries({ queryKey: ["service"] });
       setFeedback("Block fields saved.");
     },
-    onError: (error: Error) => { setFeedback(error.message); showToast(error.message); },
+    onError: (error: Error) => { setFeedback(error.message); showToast(error.message, "error"); },
   });
 
   const participantMutation = useMutation({
@@ -896,7 +896,7 @@ export default function ServiceBuilderClient({
     },
     onError: (error: Error) => {
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -1044,7 +1044,7 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => {
       setExtractorStatus("Extraction failed.");
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -1065,7 +1065,7 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => {
       setExtractorStatus(error.message);
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -1087,7 +1087,7 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => {
       setExtractorStatus(error.message);
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -1105,7 +1105,7 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => {
       setExtractorStatus("DOCX generation failed.");
       setFeedback(error.message);
-      showToast(error.message);
+      showToast(error.message, "error");
     },
   });
 
@@ -1354,7 +1354,7 @@ export default function ServiceBuilderClient({
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to apply analysis.";
       setFeedback(message);
-      showToast(message);
+      showToast(message, "error");
     }
   };
 
