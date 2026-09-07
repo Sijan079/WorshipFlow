@@ -1,25 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, ChevronDown, ListOrdered } from "lucide-react";
-import { apiFetch, type ChecklistPresetRecord, type ServiceRecord } from "@/lib/api-client";
-import { getServiceBlockDisplayValues, selectServiceForUpcomingSunday } from "@/lib/service-display";
-
-function formatServiceDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(new Date(value));
-}
+import { Check, ChevronDown } from "lucide-react";
+import { apiFetch, type ChecklistPresetRecord } from "@/lib/api-client";
 
 export default function WorshipServicePlannerClient() {
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [completedChecklistItemIds, setCompletedChecklistItemIds] = useState<Set<string>>(() => new Set());
-  const [today] = useState(() => new Date());
-  const servicesQuery = useQuery({
-    queryKey: ["services"],
-    queryFn: () => apiFetch<ServiceRecord[]>("/api/services"),
-    staleTime: 30_000,
-  });
   const checklistQuery = useQuery({
     queryKey: ["settings", "checklists"],
     queryFn: () => apiFetch<ChecklistPresetRecord[]>("/api/settings/checklists"),
@@ -28,8 +16,6 @@ export default function WorshipServicePlannerClient() {
   const checklistItems = (activeChecklist?.items ?? [])
     .filter((item) => item.active)
     .sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
-  const currentService = selectServiceForUpcomingSunday(servicesQuery.data ?? [], today);
-  const serviceBlocks = currentService?.blocks ?? [];
   const completedCount = checklistItems.filter((item) => completedChecklistItemIds.has(item.id)).length;
 
   function toggleChecklistItem(id: string) {
@@ -53,7 +39,7 @@ export default function WorshipServicePlannerClient() {
         </p>
       </section>
 
-      <section className="space-y-4" aria-label="Sunday service and preparation checklist">
+      <section aria-label="Preparation checklist">
         <section
           className="rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]"
           aria-labelledby="dashboard-checklist-heading"
@@ -123,6 +109,7 @@ export default function WorshipServicePlannerClient() {
           </div>
         </section>
 
+        {/*
         <section className="max-w-6xl py-1">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -176,6 +163,7 @@ export default function WorshipServicePlannerClient() {
             </p>
           ) : null}
         </section>
+        */}
       </section>
     </div>
   );

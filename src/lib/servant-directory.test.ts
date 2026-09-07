@@ -79,6 +79,10 @@ export function runServantDirectoryTests() {
   const teamsPageSource = readFileSync(teamsPagePath, "utf8");
   assert.match(teamsPageSource, /TeamsPageClient/);
 
+  const teamsClientSource = readFileSync(join(process.cwd(), "src", "components", "teams-page-client.tsx"), "utf8");
+  assert.match(teamsClientSource, /teams-register ui-surface-elevated w-full overflow-hidden/);
+  assert.match(teamsClientSource, /teams-register-tools border-b border-\[var\(--rule-default\)\] px-4 py-4 sm:py-5/);
+
   const shellSource = readFileSync(join(process.cwd(), "src", "components", "workspace-shell.tsx"), "utf8");
   assert.match(shellSource, /href: "\/teams"/);
 }

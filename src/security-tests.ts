@@ -28,6 +28,7 @@ import { runUploadSecurityTests } from "./lib/upload-security.test.ts";
 import { runContentSecurityPolicyTests } from "./lib/content-security-policy.test.ts";
 import { runAuthRedirectTests } from "./lib/auth-redirect.test.ts";
 import { runLocalAuthConfigTests } from "./lib/local-auth-config.test.ts";
+import { runLocalWorkspaceImportTests } from "./lib/local-workspace-import.test.ts";
 import { runMembershipSectionUiTests } from "./components/membership-section-ui.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
@@ -45,6 +46,7 @@ import { runTeamMemberPickerTests } from "./lib/team-member-picker.test.ts";
 import { runDeploymentBuildTests } from "./lib/deployment-build.test.ts";
 import { runToastUiTests } from "./lib/toast-ui.test.ts";
 import { runDashboardTests } from "./lib/dashboard.test.ts";
+import { runCalendarDateTests } from "./lib/calendar-date.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -77,6 +79,7 @@ await runUploadSecurityTests();
 await runContentSecurityPolicyTests();
 runAuthRedirectTests();
 runLocalAuthConfigTests();
+runLocalWorkspaceImportTests();
 runMembershipSectionUiTests();
 runWorkspaceShellTests();
 runFeedbackTests();
@@ -95,6 +98,7 @@ runTeamMemberPickerTests();
 runDeploymentBuildTests();
 runToastUiTests();
 runDashboardTests();
+runCalendarDateTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

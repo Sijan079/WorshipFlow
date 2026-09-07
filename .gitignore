@@ -48,6 +48,8 @@
 /prisma-*.tgz
 /docs/videos/*.mp4
 /supabase_backups/
+/remote-supabase-*.sql
+/supabase_db_*-backup-*.tar.gz
 
 # local helper scripts
 /dev-pap-test.bat

@@ -496,8 +496,8 @@ export default function TeamsPageClient() {
         </button>
       </section>
 
-      <section className="teams-register w-full">
-        <div className="teams-register-tools border-y border-[var(--rule-default)] py-4">
+      <section className="teams-register ui-surface-elevated w-full overflow-hidden">
+        <div className="teams-register-tools border-b border-[var(--rule-default)] px-4 py-4 sm:py-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">

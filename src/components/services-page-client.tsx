@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
@@ -37,6 +37,7 @@ import { ServiceStatus } from "@/lib/service-constants";
 import { formatServantDisplayName, normalizeServantName, normalizeServantNameForComparison } from "@/lib/servants";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
 import { addTeamMember, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
 
@@ -101,9 +102,23 @@ function formatServiceStatus(status: string) {
 }
 
 function getServiceStatusColor(status: string) {
-  if (status === ServiceStatus.READY) return "var(--state-ready)";
+  if (status === ServiceStatus.READY) return "var(--state-success)";
+  if (status === ServiceStatus.DRAFT) return "var(--state-danger)";
   if (status === ServiceStatus.ARCHIVED) return "var(--state-idle)";
   return "var(--state-warning)";
+}
+
+function AnimatedTrashBinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
+      <g className="origin-[12px_6px] transition-transform duration-150 group-hover:-translate-y-1 group-hover:-rotate-12 motion-reduce:transform-none motion-reduce:transition-none">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+      </g>
+      <path d="m19 6-1 14H6L5 6" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
 }
 
 function ServicesListSkeleton() {
@@ -112,7 +127,7 @@ function ServicesListSkeleton() {
       {Array.from({ length: 5 }).map((_, index) => (
         <div
           key={`service-skeleton-${index}`}
-          className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px]"
+          className="grid grid-cols-[36px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px]"
         >
           <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--surface-panel-strong)]" />
           <div className="space-y-2">
@@ -543,16 +558,15 @@ export function ServiceFormFields({
           triggerClassName="bg-[var(--surface-panel)]"
         />
 
-        <label className="text-sm text-[var(--text-secondary)]">
-          Date
-          <input
-            type="date"
+        <div>
+          <ProductionDatePicker
+            label="Date"
             value={normalizedForm.serviceDate}
-            onChange={(event) => onChange({ ...normalizedForm, serviceDate: event.target.value })}
-            className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
+            onValueChange={(serviceDate) => onChange({ ...normalizedForm, serviceDate })}
+            triggerClassName="bg-[var(--surface-panel)]"
           />
           {errors.serviceDate ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.serviceDate}</p> : null}
-        </label>
+        </div>
 
         <ProductionSelect
           label="Template"
@@ -897,10 +911,10 @@ function TemplateDefinedServiceFields({
     <div className="space-y-4">
       <div className="ui-surface-panel grid gap-3 p-4 md:grid-cols-3">
         <ProductionSelect label="Assigned Ministry" value={form.assignedMinistry} onValueChange={(assignedMinistry) => onChange({ ...form, assignedMinistry })} options={ministryOptions} />
-        <label className="text-sm text-[var(--text-secondary)]">Date
-          <input type="date" value={form.serviceDate} onChange={(event) => onChange({ ...form, serviceDate: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-[var(--text-primary)]" />
+        <div>
+          <ProductionDatePicker label="Date" value={form.serviceDate} onValueChange={(serviceDate) => onChange({ ...form, serviceDate })} />
           {errors.serviceDate ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.serviceDate}</p> : null}
-        </label>
+        </div>
         <ProductionSelect label="Template" value={form.templateType} onValueChange={updateTemplate} options={templateOptions.map((option) => ({ value: option.value, label: option.label }))} disabled={templateOptions.length === 0} />
       </div>
       {!template ? <p className="text-sm text-[var(--state-warning)]">Select a saved template to load its service fields.</p> : null}
@@ -1038,6 +1052,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [pendingServiceSave, setPendingServiceSave] = useState<PendingServiceSave | null>(null);
   const [unlistedServantNames, setUnlistedServantNames] = useState<string[]>([]);
   const [selectedUnlistedServantNames, setSelectedUnlistedServantNames] = useState<string[]>([]);
+  const selectionCheckboxRef = useRef<HTMLInputElement>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -1093,10 +1108,20 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return matchesDate && matchesMinistry;
     });
   }, [dateFilter, ministryFilter, services]);
+  const selectedFilteredServiceCount = filteredServices.filter((service) => selectedServiceIds.includes(service.id)).length;
+  const allFilteredServicesSelected = filteredServices.length > 0 && selectedFilteredServiceCount === filteredServices.length;
+  const selectionStateLabel = allFilteredServicesSelected ? "All" : selectedFilteredServiceCount > 0 ? "Partial" : "None";
   const expandedService = filteredServices.find((service) => service.id === expandedServiceId)
     ?? services.find((service) => service.id === expandedServiceId)
     ?? null;
   const showTableSkeleton = servicesQuery.isLoading || servicesQuery.isFetching || !servicesQuery.data;
+  const isRefreshingServices = servicesQuery.isFetching;
+
+  useEffect(() => {
+    if (selectionCheckboxRef.current) {
+      selectionCheckboxRef.current.indeterminate = selectedFilteredServiceCount > 0 && !allFilteredServicesSelected;
+    }
+  }, [allFilteredServicesSelected, selectedFilteredServiceCount]);
 
   const createServiceMutation = useMutation({
     mutationFn: (payload: CreateServicePayload) =>
@@ -1333,6 +1358,17 @@ export default function ServicesPageClient({ initialServices }: { initialService
     );
   }
 
+  function toggleFilteredServiceSelection() {
+    const filteredServiceIds = new Set(filteredServices.map((service) => service.id));
+
+    setSelectedServiceIds((current) => {
+      const allSelected = filteredServices.length > 0 && filteredServices.every((service) => current.includes(service.id));
+      return allSelected
+        ? current.filter((serviceId) => !filteredServiceIds.has(serviceId))
+        : [...new Set([...current, ...filteredServiceIds])];
+    });
+  }
+
   function toggleExpandedService(service: ServiceRecord) {
     if (expandedServiceId === service.id) {
       setExpandedServiceId(null);
@@ -1375,27 +1411,18 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
       <section className="services-register ui-surface-elevated w-full overflow-hidden">
         <div className="services-register-tools border-b border-[var(--rule-default)] px-4 py-4 sm:py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">Service register</h2>
-              <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
-                {filteredServices.length} of {services.length} services
-              </p>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end lg:justify-end">
-              <label className="min-w-[180px] flex-1 text-xs font-medium text-[var(--text-muted)] sm:max-w-[220px]">
-                <span className="mb-1.5 block">Service date</span>
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(event) => setDateFilter(event.target.value)}
-                  className="block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-                />
-              </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <ProductionDatePicker
+                ariaLabel="Filter by service date"
+                value={dateFilter}
+                onValueChange={setDateFilter}
+                allowClear
+                className="min-w-[180px] flex-1 sm:max-w-[220px]"
+                triggerClassName="bg-[var(--surface-panel-alt)]"
+              />
 
               <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-                <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Ministry</span>
                 <ProductionSelect
                   ariaLabel="Filter by ministry"
                   value={ministryFilter}
@@ -1411,22 +1438,28 @@ export default function ServicesPageClient({ initialServices }: { initialService
                     setDateFilter("");
                     setMinistryFilter("");
                   }}
-                  className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--state-danger)]"
                 >
+                  <X className="h-4 w-4" aria-hidden="true" />
                   Clear filters
                 </button>
               ) : null}
+            </div>
 
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <p className="text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+                {filteredServices.length} of {services.length} services
+              </p>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedServiceIds([]);
                   void servicesQuery.refetch();
                 }}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--action-primary-bg)]"
                 aria-label="Refresh services"
               >
-                <RefreshCcw className="h-4 w-4" />
+                <RefreshCcw className={isRefreshingServices ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
               </button>
 
               {selectedServiceIds.length > 0 ? (
@@ -1434,10 +1467,10 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   type="button"
                   onClick={() => setDeleteConfirmOpen(true)}
                   disabled={deleteServicesMutation.isPending}
-                  className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--state-danger)] px-3 text-sm font-semibold text-[var(--text-danger)] disabled:opacity-50"
+                  className="group inline-flex h-10 w-10 items-center justify-center rounded-md bg-transparent text-[var(--text-danger)] disabled:opacity-50"
+                  aria-label={`Delete ${selectedServiceIds.length} selected service${selectedServiceIds.length === 1 ? "" : "s"}`}
                 >
-                  {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  Delete {selectedServiceIds.length}
+                  {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <AnimatedTrashBinIcon />}
                 </button>
               ) : null}
             </div>
@@ -1455,35 +1488,42 @@ export default function ServicesPageClient({ initialServices }: { initialService
           </div>
         ) : (
           <div>
-            <div
-              aria-hidden="true"
-              className="hidden grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
-            >
-              <span />
+            <div className="hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid">
+              <label className="flex items-center pr-4">
+                <input
+                  ref={selectionCheckboxRef}
+                  type="checkbox"
+                  checked={allFilteredServicesSelected}
+                  onChange={toggleFilteredServiceSelection}
+                  aria-label={`${selectionStateLabel}: select all filtered services`}
+                  className="ui-checkbox h-5 w-5"
+                />
+              </label>
               <span>Service</span>
               <span>Template</span>
               <span>Status</span>
               <span />
             </div>
-            <ul className="divide-y divide-[var(--rule-default)]">
-              {filteredServices.map((service) => {
+            <ul>
+              {filteredServices.map((service, index) => {
                 const isExpanded = expandedServiceId === service.id;
                 const isEditing = editingServiceId === service.id;
                 const isSelected = selectedServiceIds.includes(service.id);
+                const followsExpandedService = index > 0 && filteredServices[index - 1]?.id === expandedServiceId;
 
                 return (
                   <li
                     key={service.id}
-                    className={
+                    className={`group ${followsExpandedService ? "border-t border-[var(--rule-default)]" : ""} ${
                       isExpanded
-                        ? "border-l-4 border-[var(--action-primary-bg)] bg-[color:color-mix(in_srgb,var(--action-primary-bg)_7%,transparent)]"
+                        ? "relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-[var(--action-primary-bg)]"
                         : isSelected
-                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
-                        : "bg-transparent"
-                    }
+                        ? "border-b border-[var(--rule-default)] bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
+                        : "border-b border-[var(--rule-default)] bg-transparent"
+                    }`}
                   >
-                    <div className="grid grid-cols-[24px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[24px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] lg:items-center">
-                      <div className="pt-0.5 lg:pt-0">
+                    <div className="grid grid-cols-[36px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] lg:items-center">
+                      <div className="pr-3 pt-0.5 lg:pt-0">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1497,7 +1537,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{service.ministryLabel}</p>
                         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--text-muted)] lg:hidden">
                           <span>{service.templateLabel}</span>
-                          <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1.5" style={{ color: getServiceStatusColor(service.status) }}>
                             <span
                               aria-hidden="true"
                               className="h-1.5 w-1.5 rounded-full"
@@ -1508,7 +1548,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         </div>
                       </div>
                       <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">{service.templateLabel}</p>
-                      <span className="hidden items-center gap-2 text-xs font-medium text-[var(--text-secondary)] lg:inline-flex">
+                      <span className="hidden items-center gap-2 text-xs font-medium lg:inline-flex" style={{ color: getServiceStatusColor(service.status) }}>
                         <span
                           aria-hidden="true"
                           className="h-1.5 w-1.5 rounded-full"
@@ -1516,12 +1556,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         />
                         {formatServiceStatus(service.status)}
                       </span>
-                      <div>
+                      <div className="flex justify-end">
                           <button
                             type="button"
                             onClick={() => toggleExpandedService(service)}
                             aria-expanded={isExpanded}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:text-[var(--text-primary)]"
                             aria-label={isExpanded ? "Collapse service" : "Expand service"}
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -1534,9 +1574,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          className="border-t border-[var(--border-default)] bg-[var(--surface-panel)]"
                         >
-                            <div className="flex flex-col gap-3 border-b border-[var(--rule-default)] bg-[var(--surface-panel-strong)] px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
+                            <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
                               <div>
                                 <h3 className="text-base font-semibold text-[var(--text-primary)]">
                                   {isEditing ? "Edit service" : "Service flow"}
@@ -1595,16 +1634,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
                             <div className="px-4 py-4 lg:px-6">
                             {isEditing ? (
                               <div className="space-y-4">
-                                <label className="block max-w-xs text-sm font-medium text-[var(--text-secondary)]">
-                                  Service date
-                                  <input
-                                    type="date"
-                                    value={editServiceDate}
-                                    onChange={(event) => setEditServiceDate(event.target.value)}
-                                    aria-label="Service date"
-                                    className="mt-1 block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]"
-                                  />
-                                </label>
+                                <ProductionDatePicker
+                                  label="Service date"
+                                  value={editServiceDate}
+                                  onValueChange={setEditServiceDate}
+                                  className="max-w-xs"
+                                />
                                 <ServiceBlockEditor
                                   blocks={service.blocks}
                                   values={editBlockValues}
@@ -1752,26 +1787,27 @@ export default function ServicesPageClient({ initialServices }: { initialService
       <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(false)}>
         {deleteConfirmOpen ? (
           <DialogContent className="max-w-md">
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              aria-label="Close delete confirmation"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">
               Delete {selectedServiceIds.length} service{selectedServiceIds.length === 1 ? "" : "s"}?
             </DialogTitle>
             <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               This will permanently remove the selected worship service records from the workspace.
             </DialogDescription>
 
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="pressable rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
-              >
-                Cancel
-              </button>
+            <div className="mt-5 flex justify-end">
               <button
                 type="button"
                 onClick={() => deleteServicesMutation.mutate(selectedServiceIds)}
                 disabled={deleteServicesMutation.isPending}
-                className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--state-danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:border-transparent hover:bg-[var(--state-danger)] hover:text-[var(--action-primary-ink)] active:border-transparent active:bg-[var(--state-danger)] active:text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete Selected

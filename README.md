@@ -124,10 +124,25 @@ against the local Docker Supabase stack.
 
 `npm run dev` starts Docker Desktop automatically on Windows when needed, waits
 for its daemon, starts the local Supabase Docker stack, then loads
-`.env.local.docker` before Next.js starts. Those process variables override
-hosted values in `.env.local`, keeping the OAuth callback on
+`.env.local.docker`, and applies the checked-in Prisma migrations before Next.js
+starts. On a fresh local database, it safely bootstraps the Prisma baseline before
+applying future migrations. Those process variables override hosted values in `.env.local`, keeping the OAuth callback on
 `http://localhost:3000/auth/callback`. Use `npm run dev:docker` for the same
 Docker-backed startup explicitly.
+
+### Importing a Remote Workspace Locally
+
+To copy only the remote workspaces where a locally signed-in user has active
+membership, first create a local Auth account by signing in at
+`http://localhost:3000`. Then, after making a local database backup, run:
+
+```powershell
+node scripts/import-remote-workspace.mjs --email owner@example.com --apply --reset-local
+```
+
+This replaces local app tables only. It preserves local Supabase Auth, maps the
+matching app user to the local Auth identity, and skips encrypted integrations
+and file-backed records until Storage objects are copied separately.
 
 The deployed app remains separate: Vercel must use the hosted Supabase URL,
 the hosted Supabase Site URL stays `https://sndev-worship-flow.vercel.app`, and

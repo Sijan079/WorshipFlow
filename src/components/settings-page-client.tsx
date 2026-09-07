@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { ChevronDown, Eye, EyeOff, GripVertical, LayoutTemplate, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, X, UsersRound } from "lucide-react";
+import { Camera, ChevronDown, Cloud, Eye, EyeOff, Globe2, GripVertical, LayoutTemplate, Link2, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, UsersRound, Video, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -88,6 +88,7 @@ const SETTINGS_TABS = [
   { id: "templates", label: "Templates" },
   { id: "tags", label: "Tags" },
   { id: "checklist", label: "Checklist" },
+  { id: "integrations", label: "Integrations" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
@@ -95,6 +96,7 @@ type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 const SETTINGS_NAV_GROUPS: Array<{ label: string; tabs: SettingsTab[] }> = [
   { label: "Workspace", tabs: ["general", "membership"] },
   { label: "Service setup", tabs: ["templates", "tags", "checklist"] },
+  { label: "Connections", tabs: ["integrations"] },
 ];
 
 type ProgramFieldForm = {
@@ -1590,6 +1592,62 @@ function ProgramBlockTypesSection({ records }: { records: ProgramBlockTypeRecord
 
 type ProgramBlockTypeTypeVersionResponse = { id: string };
 
+const CONNECTION_OPTIONS = [
+  { id: "google-drive", name: "Google Drive", detail: "Bring service plans and production files into one handoff point.", icon: Cloud },
+  { id: "youtube", name: "YouTube", detail: "Prepare service video handoff details for your channel.", icon: Video },
+  { id: "facebook-pages", name: "Facebook Pages", detail: "Prepare a worship-service post handoff for your church page.", icon: Globe2 },
+  { id: "instagram", name: "Instagram", detail: "Prepare a worship-service post handoff for your church account.", icon: Camera },
+] as const;
+
+function IntegrationsSection() {
+  const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
+  const selected = CONNECTION_OPTIONS.find((connection) => connection.id === selectedConnection);
+
+  return (
+    <SectionShell
+      title="Integrations"
+      description="Connect the handoff tools your team uses around a worship service."
+      flat
+    >
+      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
+        <div className="divide-y divide-[var(--border-default)]">
+          {CONNECTION_OPTIONS.map((connection) => {
+            const Icon = connection.icon;
+            return (
+              <div key={connection.id} className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-accent)]" aria-hidden="true">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">{connection.name}</h3>
+                    <span className="font-[var(--font-mono)] text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Not connected</span>
+                  </div>
+                  <p className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">{connection.detail}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedConnection(connection.id)}
+                  className="ui-btn-secondary pressable inline-flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-semibold"
+                  aria-describedby={selectedConnection === connection.id ? "integration-setup-message" : undefined}
+                >
+                  <Link2 className="h-4 w-4" />
+                  Connect
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {selected ? (
+          <div id="integration-setup-message" role="status" className="border-t border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 text-sm text-[var(--text-secondary)] sm:px-6">
+            {selected.name} connection setup needs its OAuth app credentials and redirect URL before authorization can begin.
+          </div>
+        ) : null}
+      </div>
+    </SectionShell>
+  );
+}
+
 export default function SettingsPageClient({ environment }: { environment: EnvironmentReport }) {
   void environment;
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -1726,6 +1784,10 @@ export default function SettingsPageClient({ environment }: { environment: Envir
         <CollectionState label="Checklist sets" isLoading={checklistQuery.isLoading} error={checklistQuery.error} onRetry={() => void checklistQuery.refetch()}>
           <ChecklistSection records={checklistQuery.data ?? []} />
         </CollectionState>
+      </div>
+
+      <div id="settings-panel-integrations" role="tabpanel" aria-labelledby="settings-tab-integrations" tabIndex={0} hidden={activeTab !== "integrations"} className="space-y-5">
+        {activeTab === "integrations" ? <IntegrationsSection /> : null}
       </div>
 
         </div>

@@ -362,6 +362,12 @@ textarea:focus-visible {
   border-color: var(--action-primary-bg-hover);
 }
 
+.ui-checkbox:indeterminate {
+  background-color: var(--action-primary-bg);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8h8' fill='none' stroke='%23fff' stroke-linecap='round' stroke-width='2'/%3E%3C/svg%3E");
+  border-color: var(--action-primary-bg-hover);
+}
+
 .ui-color-cell {
   background: transparent;
   border: 0;

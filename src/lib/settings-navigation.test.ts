@@ -8,9 +8,13 @@ export function runSettingsNavigationTests() {
   assert.doesNotMatch(settings, /id: "block-types", label: "Block types"/);
   assert.doesNotMatch(settings, /settings-panel-block-types/);
   assert.doesNotMatch(settings, /<ProgramBlockTypesSection/);
-  assert.doesNotMatch(settings, /id: "integrations", label: "Integrations"/);
+  assert.match(settings, /id: "integrations", label: "Integrations"/);
   assert.doesNotMatch(settings, /id: "usage-billing", label: "Usage & billing"/);
-  assert.doesNotMatch(settings, /settings-panel-integrations/);
+  assert.match(settings, /settings-panel-integrations/);
+  assert.match(settings, /Google Drive/);
+  assert.match(settings, /YouTube/);
+  assert.match(settings, /Facebook Pages/);
+  assert.match(settings, /Instagram/);
   assert.doesNotMatch(settings, /settings-panel-usage-billing/);
   assert.match(settings, /title="Service Templates"\s+description="Build reusable service flows\. Their stored order is copied into every new service\."\s+flat/);
   assert.match(settings, /overflow-hidden rounded-md border border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\] shadow-\[var\(--elevation-subtle\)\]/);
