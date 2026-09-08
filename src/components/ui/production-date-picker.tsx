@@ -16,6 +16,7 @@ type ProductionDatePickerProps = {
   label?: string;
   ariaLabel?: string;
   className?: string;
+  labelClassName?: string;
   triggerClassName?: string;
   allowClear?: boolean;
 };
@@ -26,6 +27,7 @@ export function ProductionDatePicker({
   label,
   ariaLabel,
   className,
+  labelClassName,
   triggerClassName,
   allowClear = false,
 }: ProductionDatePickerProps) {
@@ -49,7 +51,7 @@ export function ProductionDatePicker({
 
   return (
     <div className={className}>
-      {label ? <span id={labelId} className="technical-label mb-1 block">{label}</span> : null}
+      {label ? <span id={labelId} className={cn(labelClassName ?? "technical-label mb-1 block")}>{label}</span> : null}
       <Popover.Root open={open} onOpenChange={handleOpenChange}>
         <Popover.Trigger asChild>
           <button

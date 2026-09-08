@@ -23,6 +23,10 @@ export function runWorkspaceRouteTests() {
     join(process.cwd(), "src", "components", "error-notifications-page.tsx"),
     "utf8",
   );
+  const serviceCatchAllRoute = readFileSync(
+    join(process.cwd(), "src", "app", "api", "services", "[id]", "[...segments]", "route.ts"),
+    "utf8",
+  );
 
   assert.match(page, /case "song-formatter\/upload":/);
   assert.match(page, /case "song-formatter\/format":/);
@@ -57,6 +61,8 @@ export function runWorkspaceRouteTests() {
   assert.doesNotMatch(backgroundRemovalRoute, /integration\?\.backgroundImageModel/);
   assert.match(notifications, /worshipflow:report-error/);
   assert.match(notifications, /No unresolved errors/);
+  assert.match(serviceCatchAllRoute, /import \* as blockValuesRoute from "\.\.\/blocks\/\[blockId\]\/values\/route"/);
+  assert.match(serviceCatchAllRoute, /first === "blocks" && second && third === "values" && !fourth/);
   const servicesPage = readFileSync(join(process.cwd(), "src", "components", "services-page-client.tsx"), "utf8");
   assert.match(servicesPage, /parseTemplateServiceText/);
   assert.doesNotMatch(servicesPage, /analyzeServiceText/);

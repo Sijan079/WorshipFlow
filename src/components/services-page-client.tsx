@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, Menu, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -37,6 +37,7 @@ import { ServiceStatus } from "@/lib/service-constants";
 import { formatServantDisplayName, normalizeServantName, normalizeServantNameForComparison } from "@/lib/servants";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
 import { addTeamMember, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
@@ -956,36 +957,44 @@ function ServiceBlockEditor({
   const updateValue = (blockId: string, nextValues: Record<string, unknown>) => {
     onChange({ ...values, [blockId]: nextValues });
   };
+  const autoSizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
 
   return (
-    <div className="space-y-5">
-      <p className="text-sm text-[var(--text-secondary)]">Edit the fields copied into this service. Template updates will not change this service.</p>
+    <div className="grid gap-3 md:grid-cols-2">
       {blocks.map((block) => {
         const blockValues = values[block.id] ?? (block.kind === "PERSON" ? { personIds: [] } : { text: "" });
         const personIds = Array.isArray(blockValues.personIds)
           ? blockValues.personIds.filter((id): id is string => typeof id === "string")
           : [];
+        const textValue = typeof blockValues.text === "string" ? blockValues.text : "";
 
         return (
-          <section key={block.id} className="border-t border-[var(--rule-default)] pt-5">
+          <section key={block.id} className="min-w-0 space-y-2">
             <h4 className="text-sm font-semibold text-[var(--text-primary)]">{block.label}</h4>
-            {block.kind === "PERSON" ? (
-              <TeamMemberPicker
-                members={servants}
-                personIds={personIds}
-                onChange={(nextPersonIds) => updateValue(block.id, { personIds: nextPersonIds })}
-              />
-            ) : (
-              <label className="mt-3 block text-sm text-[var(--text-secondary)]">
-                Text
-                <textarea
-                  value={typeof blockValues.text === "string" ? blockValues.text : ""}
-                  onChange={(event) => updateValue(block.id, { text: event.target.value })}
-                  rows={4}
-                  className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)]"
+            <div>
+              {block.kind === "PERSON" ? (
+                <TeamMemberPicker
+                  members={servants}
+                  personIds={personIds}
+                  onChange={(nextPersonIds) => updateValue(block.id, { personIds: nextPersonIds })}
                 />
-              </label>
-            )}
+              ) : (
+                <textarea
+                  ref={autoSizeTextarea}
+                  aria-label={block.label}
+                  value={textValue}
+                  onChange={(event) => updateValue(block.id, { text: event.target.value })}
+                  onInput={(event) => autoSizeTextarea(event.currentTarget)}
+                  rows={2}
+                  className="service-block-textarea min-h-14 w-full resize-none overflow-hidden rounded-md border border-[var(--border-default)] bg-transparent px-3 py-2 text-[var(--text-primary)] shadow-none"
+                  style={{ backgroundColor: "transparent", boxShadow: "none" }}
+                />
+              )}
+            </div>
           </section>
         );
       })}
@@ -1039,9 +1048,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editBlockValues, setEditBlockValues] = useState<ServiceBlockValues>({});
   const [editServiceDate, setEditServiceDate] = useState("");
+  const [editMinistryPresetCode, setEditMinistryPresetCode] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createParserOpen, setCreateParserOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteServiceIds, setPendingDeleteServiceIds] = useState<string[] | null>(null);
   const [createForm, setCreateForm] = useState<ServiceFormState>(() => createBlankServiceForm());
   const [createParserText, setCreateParserText] = useState("");
   const [createParserResult, setCreateParserResult] = useState<TemplateTextParseResult | null>(null);
@@ -1116,6 +1127,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     ?? null;
   const showTableSkeleton = servicesQuery.isLoading || servicesQuery.isFetching || !servicesQuery.data;
   const isRefreshingServices = servicesQuery.isFetching;
+  const deleteServiceIds = pendingDeleteServiceIds ?? selectedServiceIds;
 
   useEffect(() => {
     if (selectionCheckboxRef.current) {
@@ -1148,10 +1160,14 @@ export default function ServicesPageClient({ initialServices }: { initialService
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, blockValues, serviceDate }: { id: string; blockValues: ServiceBlockValues; serviceDate: string }) => {
+    mutationFn: async ({ id, blockValues, serviceDate, assignedMinistry, ministryPresetCode }: { id: string; blockValues: ServiceBlockValues; serviceDate: string; assignedMinistry: AssignedMinistry; ministryPresetCode: string }) => {
       const service = await apiFetch<ServiceRecord>(`/api/services/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ serviceDate: new Date(serviceDate).toISOString() }),
+        body: JSON.stringify({
+          serviceDate: new Date(serviceDate).toISOString(),
+          assignedMinistry,
+          ministryPresetCode,
+        }),
       });
       await Promise.all(
         Object.entries(blockValues).map(([blockId, values]) =>
@@ -1211,6 +1227,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
         setExpandedServiceId(null);
         setEditingServiceId(null);
       }
+      setPendingDeleteServiceIds(null);
       setDeleteConfirmOpen(false);
     },
   });
@@ -1231,7 +1248,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    updateServiceMutation.mutate({ id: nextPendingSave.serviceId, blockValues: editBlockValues, serviceDate: editServiceDate });
+    updateServiceMutation.mutate(buildEditServiceMutationInput(nextPendingSave.serviceId));
   }
 
   function prepareServiceSave(action: "create" | "update", form: ServiceFormState, serviceId?: string) {
@@ -1264,7 +1281,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
         return;
       }
 
-      updateServiceMutation.mutate({ id: serviceId, blockValues: editBlockValues, serviceDate: editServiceDate });
+      updateServiceMutation.mutate(buildEditServiceMutationInput(serviceId));
       return;
     }
 
@@ -1293,6 +1310,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
     }));
   }
 
+  function closeDeleteConfirm() {
+    setPendingDeleteServiceIds(null);
+    setDeleteConfirmOpen(false);
+  }
+
   function applyCreateParser() {
     if (!createParserResult) return;
     setCreateForm((current) => ({
@@ -1314,7 +1336,23 @@ export default function ServicesPageClient({ initialServices }: { initialService
       return;
     }
 
-    updateServiceMutation.mutate({ id: expandedService.id, blockValues: editBlockValues, serviceDate: editServiceDate });
+    if (!ministryOptions.some((option) => option.value === editMinistryPresetCode)) {
+      showToast("Select a ministry.");
+      return;
+    }
+
+    updateServiceMutation.mutate(buildEditServiceMutationInput(expandedService.id));
+  }
+
+  function buildEditServiceMutationInput(id: string) {
+    const ministryOption = ministryOptions.find((option) => option.value === editMinistryPresetCode);
+    return {
+      id,
+      blockValues: editBlockValues,
+      serviceDate: editServiceDate,
+      assignedMinistry: ministryOption?.assignedMinistry ?? "MIXED",
+      ministryPresetCode: editMinistryPresetCode,
+    };
   }
 
   async function addSelectedServantsAndSave() {
@@ -1386,6 +1424,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     setEditingServiceId(service.id);
     setEditBlockValues(getServiceBlockValues(service.blocks));
     setEditServiceDate(new Date(service.serviceDate).toISOString().slice(0, 10));
+    setEditMinistryPresetCode(service.ministryPresetCode ?? service.assignedMinistry ?? ministryOptions[0]?.value ?? "");
   }
 
   return (
@@ -1488,7 +1527,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
           </div>
         ) : (
           <div>
-            <div className="hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid">
+            <div className="hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid">
               <label className="flex items-center pr-4">
                 <input
                   ref={selectionCheckboxRef}
@@ -1522,7 +1561,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         : "border-b border-[var(--rule-default)] bg-transparent"
                     }`}
                   >
-                    <div className="grid grid-cols-[36px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px] lg:items-center">
+                    <div className="grid grid-cols-[36px_minmax(0,1fr)_88px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] lg:items-center">
                       <div className="pr-3 pt-0.5 lg:pt-0">
                           <input
                             type="checkbox"
@@ -1556,7 +1595,45 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         />
                         {formatServiceStatus(service.status)}
                       </span>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-transparent text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:text-[var(--text-primary)]"
+                              aria-label={`Actions for ${service.dateLabel}`}
+                              title="Service actions"
+                            >
+                              <Menu className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" side="left" sideOffset={8} className="workspace-content-light w-40 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1 text-[var(--text-primary)] shadow-[var(--elevation-raised)]">
+                            <DropdownMenuItem
+                              onSelect={() => startEditingService(service)}
+                              className="service-row-menu-action-edit min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" /> Edit
+                            </DropdownMenuItem>
+                            {service.status === ServiceStatus.DRAFT ? (
+                              <DropdownMenuItem
+                                onSelect={() => markReadyMutation.mutate(service.id)}
+                                disabled={markReadyMutation.isPending}
+                                className="service-row-menu-action-edit min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
+                              >
+                                {markReadyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Mark ready
+                              </DropdownMenuItem>
+                            ) : null}
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setPendingDeleteServiceIds([service.id]);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              className="service-row-menu-action-delete min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-danger)] focus:[&_svg]:!text-[var(--text-danger)] data-[highlighted]:!text-[var(--text-danger)] data-[highlighted]:[&_svg]:!text-[var(--text-danger)]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                           <button
                             type="button"
                             onClick={() => toggleExpandedService(service)}
@@ -1575,24 +1652,47 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
                         >
-                            <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
-                              <div>
-                                <h3 className="text-base font-semibold text-[var(--text-primary)]">
-                                  {isEditing ? "Edit service" : "Service flow"}
-                                </h3>
-                                <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                                  {isEditing ? "Edit the fields copied into this service." : `${service.blocks.length} ordered blocks`}
-                                </p>
-                              </div>
-
+                            {isEditing ? (
+                              <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-end md:justify-between lg:px-6">
                               {isEditing ? (
-                                <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                                  <ProductionDatePicker
+                                    label="Service date"
+                                    value={editServiceDate}
+                                    onValueChange={setEditServiceDate}
+                                    className="w-full md:w-44"
+                                    labelClassName="mb-1 block text-sm font-semibold text-[var(--text-primary)]"
+                                    triggerClassName="bg-transparent"
+                                  />
+                                  <ProductionSelect
+                                    label="Assigned ministry"
+                                    value={editMinistryPresetCode}
+                                    onValueChange={setEditMinistryPresetCode}
+                                    options={ministryOptions}
+                                    className="w-full md:w-52"
+                                    labelClassName="mb-1 block text-sm font-semibold text-[var(--text-primary)]"
+                                    triggerClassName="bg-transparent"
+                                  />
+                                </div>
+                              ) : null}
+                              </div>
+                            ) : null}
+                            <div className="px-4 py-4 lg:px-6">
+                            {isEditing ? (
+                              <div className="space-y-3">
+                                <ServiceBlockEditor
+                                  blocks={service.blocks}
+                                  values={editBlockValues}
+                                  servants={servantsQuery.data ?? []}
+                                  onChange={setEditBlockValues}
+                                />
+                                <div className="flex flex-wrap justify-end gap-3 pt-1">
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setEditingServiceId(null);
                                     }}
-                                    className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-secondary)]"
+                                    className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--state-danger)] hover:text-[var(--state-danger)]"
                                   >
                                     <X className="h-4 w-4" />
                                     Cancel
@@ -1607,45 +1707,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                     Save changes
                                   </button>
                                 </div>
-                              ) : (
-                                <div className="flex flex-wrap items-center gap-3">
-                                  {service.status === ServiceStatus.DRAFT ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => markReadyMutation.mutate(service.id)}
-                                      disabled={markReadyMutation.isPending}
-                                      className="pressable inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
-                                    >
-                                      {markReadyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                      Mark ready
-                                    </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditingService(service)}
-                                    className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
-                                  >
-                                    <Edit3 className="h-4 w-4" />
-                                    Edit service
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            <div className="px-4 py-4 lg:px-6">
-                            {isEditing ? (
-                              <div className="space-y-4">
-                                <ProductionDatePicker
-                                  label="Service date"
-                                  value={editServiceDate}
-                                  onValueChange={setEditServiceDate}
-                                  className="max-w-xs"
-                                />
-                                <ServiceBlockEditor
-                                  blocks={service.blocks}
-                                  values={editBlockValues}
-                                  servants={servantsQuery.data ?? []}
-                                  onChange={setEditBlockValues}
-                                />
                               </div>
                             ) : (
                               <ReadOnlyServiceDetails service={service} servants={servantsQuery.data ?? []} />
@@ -1784,19 +1845,19 @@ export default function ServicesPageClient({ initialServices }: { initialService
         ) : null}
       </Dialog>
 
-      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(false)}>
+      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => !open && closeDeleteConfirm()}>
         {deleteConfirmOpen ? (
           <DialogContent className="max-w-md">
             <button
               type="button"
-              onClick={() => setDeleteConfirmOpen(false)}
+              onClick={closeDeleteConfirm}
               className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               aria-label="Close delete confirmation"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
             <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">
-              Delete {selectedServiceIds.length} service{selectedServiceIds.length === 1 ? "" : "s"}?
+              Delete {deleteServiceIds.length} service{deleteServiceIds.length === 1 ? "" : "s"}?
             </DialogTitle>
             <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               This will permanently remove the selected worship service records from the workspace.
@@ -1805,12 +1866,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
             <div className="mt-5 flex justify-end">
               <button
                 type="button"
-                onClick={() => deleteServicesMutation.mutate(selectedServiceIds)}
+                onClick={() => deleteServicesMutation.mutate(deleteServiceIds)}
                 disabled={deleteServicesMutation.isPending}
                 className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:border-transparent hover:bg-[var(--state-danger)] hover:text-[var(--action-primary-ink)] active:border-transparent active:bg-[var(--state-danger)] active:text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 {deleteServicesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Delete Selected
+                {deleteServiceIds.length === 1 ? "Delete service" : "Delete Selected"}
               </button>
             </div>
           </DialogContent>

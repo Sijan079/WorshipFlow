@@ -166,6 +166,11 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+.service-block-textarea:focus-visible {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
 ::selection {
   background: color-mix(in oklab, var(--action-primary-bg) 52%, transparent);
   color: var(--text-primary);
@@ -416,6 +421,27 @@ textarea:focus-visible {
   letter-spacing: var(--type-technical-tracking);
   line-height: 1rem;
   text-transform: uppercase;
+}
+
+.service-row-menu-action-edit,
+.service-row-menu-action-delete {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.service-row-menu-action-edit svg,
+.service-row-menu-action-delete svg {
+  color: inherit !important;
+}
+
+.service-row-menu-action-edit:hover,
+.service-row-menu-action-edit[data-highlighted] {
+  color: var(--text-accent) !important;
+}
+
+.service-row-menu-action-delete:hover,
+.service-row-menu-action-delete[data-highlighted] {
+  color: var(--text-danger) !important;
 }
 
 .production-panel {

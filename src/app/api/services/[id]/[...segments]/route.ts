@@ -2,6 +2,7 @@ import * as automationBatchRoute from "../automation-batches/route";
 import * as automationBatchDeleteRoute from "../automation-batches/[batchId]/route";
 import * as blockPeopleRoute from "../blocks/[blockId]/people/route";
 import * as blockPersonRoute from "../blocks/[blockId]/people/[personId]/route";
+import * as blockValuesRoute from "../blocks/[blockId]/values/route";
 import * as detailsRoute from "../details/route";
 import * as extractorRoute from "../extractor/route";
 import * as extractorAiRoute from "../extractor/ai/route";
@@ -84,6 +85,10 @@ async function resolveRoute(context: CatchAllParams): Promise<ResolvedRoute | nu
 
   if (first === "blocks" && second && third === "people" && !fourth) {
     return { module: blockPeopleRoute, params: { id, blockId: second } };
+  }
+
+  if (first === "blocks" && second && third === "values" && !fourth) {
+    return { module: blockValuesRoute, params: { id, blockId: second } };
   }
 
   if (first === "blocks" && second && third === "people" && fourth) {

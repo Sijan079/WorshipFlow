@@ -13,6 +13,7 @@ type ProductionSelectProps<T extends string> = {
   label?: string;
   ariaLabel?: string;
   className?: string;
+  labelClassName?: string;
   triggerClassName?: string;
   disabled?: boolean;
   name?: string;
@@ -25,6 +26,7 @@ export function ProductionSelect<T extends string>({
   label,
   ariaLabel,
   className,
+  labelClassName,
   triggerClassName,
   disabled,
   name,
@@ -33,7 +35,7 @@ export function ProductionSelect<T extends string>({
 
   return (
     <div className={className}>
-      {label ? <span id={labelId} className="technical-label mb-1 block">{label}</span> : null}
+      {label ? <span id={labelId} className={cn(labelClassName ?? "technical-label mb-1 block")}>{label}</span> : null}
       <Select
         value={value || EMPTY_VALUE}
         onValueChange={(nextValue) => onValueChange((nextValue === EMPTY_VALUE ? "" : nextValue) as T)}
