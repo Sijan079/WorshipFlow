@@ -985,7 +985,7 @@ function ServiceBlockEditor({
               ) : (
                 <textarea
                   ref={autoSizeTextarea}
-                  aria-label={block.label}
+                  aria-label={block.label ?? undefined}
                   value={textValue}
                   onChange={(event) => updateValue(block.id, { text: event.target.value })}
                   onInput={(event) => autoSizeTextarea(event.currentTarget)}
