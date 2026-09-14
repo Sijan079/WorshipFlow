@@ -8,6 +8,7 @@ const DEFAULT_SONG_TAG_PRESETS = [
   { label: "Title", token: "Title", color: "#DDECCB", isDefault: true },
   { label: "Verse", token: "Verse", color: "#F7E7B2", isDefault: true },
   { label: "Chorus", token: "Chorus", color: "#FFDCC8", isDefault: true },
+  { label: "Refrain", token: "Refrain", color: "#FFDCC8", isDefault: true },
   { label: "Bridge", token: "Bridge", color: "#CFE8F6", isDefault: true },
   { label: "Pre-Chorus", token: "Pre-Chorus", color: "#E8D7F1", isDefault: true },
   { label: "Outro", token: "Outro", color: "#F7D7DF", isDefault: true },
@@ -16,8 +17,13 @@ const DEFAULT_SONG_TAG_PRESETS = [
 export async function GET() {
   try {
     const workspaceId = (await requireExplicitWorkspaceRole("MEMBER")).workspaceId;
-    const tagCount = await prisma.songTagPreset.count({ where: { workspaceId } });
-    if (tagCount === 0) {
+    const defaultTagCount = await prisma.songTagPreset.count({
+      where: {
+        workspaceId,
+        token: { in: DEFAULT_SONG_TAG_PRESETS.map((preset) => preset.token) },
+      },
+    });
+    if (defaultTagCount < DEFAULT_SONG_TAG_PRESETS.length) {
       await prisma.songTagPreset.createMany({
         data: DEFAULT_SONG_TAG_PRESETS.map((preset) => ({ ...preset, workspaceId })),
         skipDuplicates: true,

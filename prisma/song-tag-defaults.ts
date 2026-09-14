@@ -6,6 +6,7 @@ export const DEFAULT_SONG_TAG_PRESETS = [
   { label: "Title", token: "Title", color: "#DDECCB", isDefault: true },
   { label: "Verse", token: "Verse", color: "#F7E7B2", isDefault: true },
   { label: "Chorus", token: "Chorus", color: "#FFDCC8", isDefault: true },
+  { label: "Refrain", token: "Refrain", color: "#FFDCC8", isDefault: true },
   { label: "Bridge", token: "Bridge", color: "#CFE8F6", isDefault: true },
   { label: "Pre-Chorus", token: "Pre-Chorus", color: "#E8D7F1", isDefault: true },
   { label: "Outro", token: "Outro", color: "#F7D7DF", isDefault: true },

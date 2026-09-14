@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   CloudUpload,
   Copy,
   FileText,
@@ -66,7 +67,12 @@ import {
   ServiceVariantValues,
   SongRole,
 } from "@/lib/service-constants";
-import type { LyricsExtractorAiRetryDescriptor, LyricsExtractorSafeOutput } from "@/lib/extractor-types";
+import type {
+  ExtractorWarningCode,
+  LyricsExtractorAiRetryDescriptor,
+  LyricsExtractorSafeOutput,
+} from "@/lib/extractor-types";
+import { normalizeExtractorWarnings } from "@/lib/extractor-warnings";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import QRGeneratorTool from "@/components/qr-generator-tool";
@@ -107,6 +113,8 @@ type FormatterDraftSession = {
   text: string;
   songTitle: string;
   retry: LyricsExtractorAiRetryDescriptor | null;
+  warningCodes: ExtractorWarningCode[];
+  warningsDismissed: boolean;
   lastSavedAt: number;
   directAiReformatUsed: boolean;
 };
@@ -537,6 +545,12 @@ export default function ServiceBuilderClient({
   const [extractorFileLabel, setExtractorFileLabel] = useState<string | null>(null);
   const [extractorSongTitle, setExtractorSongTitle] = useState(cachedFormatterDraft?.songTitle ?? "");
   const [extractorAiRetry, setExtractorAiRetry] = useState<LyricsExtractorAiRetryDescriptor | null>(cachedFormatterDraft?.retry ?? null);
+  const [extractorWarningCodes, setExtractorWarningCodes] = useState<ExtractorWarningCode[]>(
+    cachedFormatterDraft?.warningCodes ?? cachedFormatterDraft?.retry?.warningCodes ?? [],
+  );
+  const [extractorWarningsDismissed, setExtractorWarningsDismissed] = useState(
+    cachedFormatterDraft?.warningsDismissed ?? false,
+  );
   const [directAiReformatUsed, setDirectAiReformatUsed] = useState(cachedFormatterDraft?.directAiReformatUsed ?? false);
   const [extractorDraftText, setExtractorDraftText] = useState(cachedFormatterDraft?.text ?? "");
   const [extractorUndoStack, setExtractorUndoStack] = useState<string[]>([]);
@@ -558,6 +572,10 @@ export default function ServiceBuilderClient({
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
   const editorDraftTextFromSectionsRef = useRef<string | null>(null);
+  const normalizedExtractorWarnings = useMemo(
+    () => normalizeExtractorWarnings(extractorWarningCodes),
+    [extractorWarningCodes],
+  );
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -639,10 +657,12 @@ export default function ServiceBuilderClient({
       text: extractorDraftText,
       songTitle: extractorSongTitle,
       retry: extractorAiRetry,
+      warningCodes: extractorWarningCodes,
+      warningsDismissed: extractorWarningsDismissed,
       lastSavedAt: extractorLastSavedAt ?? Date.now(),
       directAiReformatUsed,
     } satisfies FormatterDraftSession);
-  }, [directAiReformatUsed, extractorAiRetry, extractorDraftText, extractorLastSavedAt, extractorSongTitle, formatterDraftQueryKey, queryClient]);
+  }, [directAiReformatUsed, extractorAiRetry, extractorDraftText, extractorLastSavedAt, extractorSongTitle, extractorWarningCodes, extractorWarningsDismissed, formatterDraftQueryKey, queryClient]);
 
   const commitExtractorDraftText = (nextText: string) => {
     setExtractorDraftText((currentText) => {
@@ -975,6 +995,8 @@ export default function ServiceBuilderClient({
       text: result.text,
       songTitle: extractorSongTitle,
       retry: result.retry ?? null,
+      warningCodes: result.outputJson.warningCodes,
+      warningsDismissed: false,
       lastSavedAt,
       directAiReformatUsed: false,
     } satisfies FormatterDraftSession);
@@ -985,6 +1007,8 @@ export default function ServiceBuilderClient({
     setEditorClock(Date.now());
     setDirectAiReformatUsed(false);
     setExtractorAiRetry(result.retry ?? null);
+    setExtractorWarningCodes(result.outputJson.warningCodes);
+    setExtractorWarningsDismissed(false);
 
     if (result.retry) {
       setExtractorStatus("Local extraction is ready for review, but confidence is low.");
@@ -1275,6 +1299,8 @@ export default function ServiceBuilderClient({
 
     setFeedback(null);
     setExtractorAiRetry(null);
+    setExtractorWarningCodes([]);
+    setExtractorWarningsDismissed(false);
 
     if (!extractorSelectedFile) {
       setFeedback("Select a song file before processing.");
@@ -2360,11 +2386,15 @@ export default function ServiceBuilderClient({
                               setExtractorFileLabel(null);
                               setExtractorStatus("No file selected.");
                               setExtractorAiRetry(null);
+                              setExtractorWarningCodes([]);
+                              setExtractorWarningsDismissed(false);
                               return;
                             }
 
                             setFeedback(null);
                             setExtractorAiRetry(null);
+                            setExtractorWarningCodes([]);
+                            setExtractorWarningsDismissed(false);
                             setExtractorSelectedFile(file);
                             setExtractorFileLabel(`${file.name} - ${Math.ceil(file.size / 1024)} KB`);
                             setExtractorSongTitle(getFileNameWithoutExtension(file.name));
@@ -2494,24 +2524,6 @@ export default function ServiceBuilderClient({
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-3">
-                          {extractorAiRetry ? (
-                            <div className="group relative flex items-center">
-                              <span
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--state-warning)] bg-[var(--state-warning-soft)] text-sm font-black text-[var(--text-warning)]"
-                                aria-label="Confidence warning"
-                              >
-                                !
-                              </span>
-                              <div className="pointer-events-none absolute right-0 top-10 z-20 hidden w-80 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-3 text-xs leading-5 text-[var(--text-secondary)] shadow-[var(--elevation-raised)] group-hover:block">
-                                <p className="font-bold text-[var(--text-primary)]">
-                                  Confidence: {extractorAiRetry.confidence.toUpperCase()}
-                                </p>
-                                <p className="mt-1">
-                                  {extractorAiRetry.warningCodes.join(", ")}
-                                </p>
-                              </div>
-                            </div>
-                          ) : null}
                           <button
                             type="button"
                             onClick={() => {
@@ -2816,6 +2828,37 @@ export default function ServiceBuilderClient({
                             className="min-h-0 flex-1 overflow-y-auto p-6"
                           >
                             <div className="min-h-full space-y-4">
+                            {!extractorWarningsDismissed && normalizedExtractorWarnings.length > 0 ? (
+                              <section
+                                aria-label="Formatter warnings"
+                                className="flex items-start gap-3 rounded-lg border border-[var(--state-warning)] bg-[var(--state-warning-soft)] p-4 text-[var(--text-primary)] shadow-[var(--elevation-subtle)]"
+                              >
+                                <AlertTriangle
+                                  className="mt-0.5 h-5 w-5 shrink-0 text-[var(--text-warning)]"
+                                  aria-hidden="true"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="text-sm font-bold">Review the formatted lyrics</h3>
+                                  <ul className="mt-2 space-y-2">
+                                    {normalizedExtractorWarnings.map((warning) => (
+                                      <li key={warning.code} className="text-xs leading-5 text-[var(--text-secondary)]">
+                                        <span className="font-bold text-[var(--text-primary)]">{warning.title}:</span>{" "}
+                                        {warning.message}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setExtractorWarningsDismissed(true)}
+                                  className="ui-modal-close shrink-0"
+                                  aria-label="Dismiss formatter warnings"
+                                  title="Dismiss warnings"
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </section>
+                            ) : null}
                             {editorSections.map((section, index) => {
                               const tag = section.tag ?? "Section";
                               const matchingTag = songTags.find((item) => item.token.toLowerCase() === tag.toLowerCase());
@@ -2934,6 +2977,8 @@ export default function ServiceBuilderClient({
                                 queryClient.removeQueries({ queryKey: formatterDraftQueryKey, exact: true });
                                 commitExtractorDraftText("");
                                 setExtractorAiRetry(null);
+                                setExtractorWarningCodes([]);
+                                setExtractorWarningsDismissed(false);
                                 setExtractorStatus("Draft cleared.");
                                 showToast("Draft cleared.");
                                 router.push(workspaceFormatterPath("upload"));

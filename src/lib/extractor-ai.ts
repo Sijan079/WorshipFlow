@@ -25,13 +25,15 @@ function buildExtractorPrompt(params: AiCleanupParams) {
     "- If multiple song versions are present, keep only the first complete arrangement/version, not merely the first verse or chorus.",
     "- Keep every vocal section from that arrangement: all verses, choruses, bridges, endings, tags, and repeated lyric sections.",
     "- Never summarize, shorten, paraphrase, compress, or stop after an early verse/chorus.",
-    "- Remove chord-only lines, intro sections, instrumental/interlude sections, directive noise, and variant headings like '(Transposed)' or '(Lyrics)'.",
+    "- Remove chord-only lines, including chords with Unicode accidentals such as ♯ or ♭, and remove bracketed inline chords without changing their lyric text.",
+    "- Remove intro sections, instrumental/interlude sections, directive noise, and variant headings like '(Transposed)' or '(Lyrics)'.",
     "- Discard Instrumental sections completely, including Instrumental (X2), Instrumenta (X2), instrumental repeats, and any non-lyric instrumental marker.",
-    "- Normalize numbered headings like Verse 1, Verse 2, Chorus 3, Bridge 2, Tag, Outro, and End into bracket tags like [Verse], [Chorus], [Bridge], [Tag], [Outro], and [End].",
+    "- Normalize numbered headings like Verse 1, Verse 2, Chorus 3, Refrain 2, Bridge 2, Tag, and Outro into bracket tags like [Verse], [Chorus], [Refrain], [Bridge], [Tag], and [Outro].",
+    "- Always normalize End or Ending headings to [Outro]; never emit an [End] section.",
     "- Treat bare numbers in headings as section numbers, not repeat counts: Verse 2 means the second verse, Chorus 3 means the third chorus, and Bridge 2 means the second bridge.",
     "- Only explicit x-markers mean repeats. If a vocal heading says Chorus 2x, Chorus x2, Bridge 3x, or Verse (X2), emit that many consecutive tagged lyric sections with the same lyric block.",
     "- Repeat markers apply only to vocal lyric sections. Never duplicate instrumental, intro, interlude, or other non-lyric sections.",
-    "- Normalize structure into plain text with tags like [Title], [Verse], [Chorus], [Bridge], [Tag], [Outro], and [End] when inferable.",
+    "- Normalize structure into plain text with tags like [Title], [Verse], [Chorus], [Refrain], [Bridge], [Tag], and [Outro] when inferable.",
     "- Do not include markdown fences, explanations, notes, or extra commentary.",
     "- Keep repeated chorus blocks only when they are part of the actual song flow.",
     hints,
@@ -53,8 +55,8 @@ function isDirectiveLine(line: string) {
 }
 
 function isHeadingLine(line: string) {
-  return /^\[(?:title|verse|chorus|bridge|pre-chorus|prechorus|tag|outro|end)\]$/i.test(line)
-    || /^(?:title|verse|chorus|bridge|pre-chorus|prechorus|tag|outro|end)\b/i.test(line);
+  return /^\[(?:title|verse|chorus|refrain|bridge|pre-chorus|prechorus|tag|outro|end|ending)\]$/i.test(line)
+    || /^(?:title|verse|chorus|refrain|bridge|pre-chorus|prechorus|tag|outro|end|ending)\b/i.test(line);
 }
 
 function isLikelyLyricLine(line: string) {
@@ -75,7 +77,7 @@ function countLikelyLyricLines(text: string) {
 
 function countVocalHeadings(text: string) {
   return getMeaningfulLines(text).filter((line) =>
-    /^\[?(?:verse|chorus|bridge|pre-chorus|prechorus|tag|outro|end)\b/i.test(line)
+    /^\[?(?:verse|chorus|refrain|bridge|pre-chorus|prechorus|tag|outro|end|ending)\b/i.test(line)
   ).length;
 }
 
@@ -108,6 +110,9 @@ function normalizeSectionName(value: string) {
   if (normalized === "prechorus") {
     return "Pre-Chorus";
   }
+  if (normalized === "end" || normalized === "ending") {
+    return "Outro";
+  }
 
   return normalized
     .split("-")
@@ -118,7 +123,7 @@ function normalizeSectionName(value: string) {
 function parseRepeatHeading(line: string) {
   const match = line
     .trim()
-    .match(/^(verse|chorus|bridge|pre[-\s]?chorus|tag|outro|end)\s*(?:\d+)?\s*(?:\(?\s*(?:x\s*([2-9])|([2-9])\s*x)\s*\)?)?$/i);
+    .match(/^(verse|chorus|refrain|bridge|pre[-\s]?chorus|tag|outro|end|ending)\s*(?:\d+)?\s*(?:\(?\s*(?:x\s*([2-9])|([2-9])\s*x)\s*\)?)?$/i);
 
   if (!match) {
     return null;

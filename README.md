@@ -235,6 +235,7 @@ npm run dev:docker # Local development with Docker Supabase
 npm run build     # Prisma generation and production build
 npm run lint      # ESLint
 npm test          # Security and domain checks
+npm run test:formatter-file -- "C:\\path\\song.docx" # Print formatter output for a DOCX or PDF
 ```
 
 ## Design Rules

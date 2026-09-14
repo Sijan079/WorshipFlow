@@ -5,7 +5,9 @@ export const EXTRACTOR_CONFIDENCE_LEVELS = ["high", "medium", "low"] as const;
 export const EXTRACTOR_MODES = ["local", "ai_fallback"] as const;
 export const EXTRACTOR_WARNING_CODES = [
   "variant_heading_detected",
+  "multiple_arrangements_detected",
   "directive_noise_detected",
+  "possible_trailing_content_detected",
   "repeated_restart_detected",
   "repeated_sections_detected",
   "truncated_output_detected",

@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types src/security-tests.ts",
+    "test:formatter-file": "node --experimental-strip-types scripts/inspect-formatter-file.ts",
     "test:migrations": "node scripts/verify-current-migration-order.mjs",
     "seed:song-tags": "tsx prisma/seed-song-tags.ts",
     "provision:workspace": "tsx scripts/provision-workspace.ts",

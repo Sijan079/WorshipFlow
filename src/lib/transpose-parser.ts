@@ -14,21 +14,43 @@ function normalizeLineSpacing(line: string) {
   return line.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function isChordHeavyLine(line: string) {
-  const trimmed = line.trim();
-  if (!trimmed) {
-    return false;
-  }
+function normalizeChordSymbols(value: string) {
+  return value.replace(/♯/g, "#").replace(/♭/g, "b");
+}
 
-  const withoutPunctuation = trimmed.replace(/[()[\]|,-]/g, " ");
-  const tokens = withoutPunctuation.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) {
-    return false;
-  }
+function isChordToken(value: string) {
+  const token = normalizeChordSymbols(value)
+    .replace(/^[([{]+/, "")
+    .replace(/[\])},;:]+$/, "");
+  return /^[A-G](?:#|b)?(?:(?:maj|min|m|dim|aug|sus|add|omit|no)\d*|\d+(?:#|b)?|[+°ø])*(?:\([^)]*\))?(?:\/[A-G](?:#|b)?)?$/i.test(token);
+}
 
-  const chordPattern = /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?)?$/i;
-  const chordLike = tokens.filter((token) => chordPattern.test(token)).length;
-  return chordLike > 0 && chordLike >= Math.ceil(tokens.length * 0.6);
+function isRepeatToken(value: string) {
+  return /^(?:x\s*[2-9]|[2-9]\s*x)$/i.test(value.replace(/[()]/g, "").trim());
+}
+
+function isChordOnlyLine(line: string) {
+  const tokens = normalizeChordSymbols(line)
+    .replace(/[\[\]]/g, " ")
+    .replace(/[-–—|,;]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+
+  const chordCount = tokens.filter(isChordToken).length;
+  return chordCount > 0 && tokens.every((token) => isChordToken(token) || isRepeatToken(token));
+}
+
+function removeBracketedInlineChords(line: string) {
+  return line
+    .replace(/\[([^\]]+)\]/g, (match, candidate: string) => (isChordToken(candidate.trim()) ? "" : match))
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function isPdfPageMarker(line: string) {
+  return /^--\s*\d+\s+of\s+\d+\s*--$/i.test(line.trim());
 }
 
 function isInstrumentSection(line: string) {
@@ -39,8 +61,19 @@ function isRepeatDirective(line: string) {
   return /^\.{2,}|\brepeat as needed\b/i.test(line.trim());
 }
 
+type ArrangementKind = "chords" | "lyrics" | "unknown";
+
+function getArrangementMarker(line: string): ArrangementKind | null {
+  const match = line.trim().match(/^(?:\((chords?|lyrics|transposed)\)|\[(chords?|lyrics|transposed)\]|(chords?|lyrics|transposed)\s*:)$/i);
+  const marker = (match?.[1] ?? match?.[2] ?? match?.[3])?.toLowerCase();
+  if (!marker) return null;
+  if (marker.startsWith("chord")) return "chords";
+  if (marker === "lyrics") return "lyrics";
+  return "unknown";
+}
+
 function isVariantHeading(line: string) {
-  return /\((?:transposed|lyrics|chords?)\)/i.test(line.trim());
+  return getArrangementMarker(line) !== null;
 }
 
 function isLikelyStandaloneTitle(line: string) {
@@ -86,7 +119,7 @@ function isLikelyTitleCandidate(line: string) {
 }
 
 function toSectionLabel(line: string) {
-  const trimmed = line.trim();
+  const trimmed = line.trim().replace(/^\[([^\]]+)\]$/, "$1");
   if (/^verse\b/i.test(trimmed)) {
     return "[Verse]";
   }
@@ -95,6 +128,9 @@ function toSectionLabel(line: string) {
   }
   if (/^pre[-\s]?chorus\b/i.test(trimmed)) {
     return "[Pre-Chorus]";
+  }
+  if (/^refrain\b/i.test(trimmed)) {
+    return "[Refrain]";
   }
   if (/^bridge\b/i.test(trimmed)) {
     return "[Bridge]";
@@ -105,8 +141,8 @@ function toSectionLabel(line: string) {
   if (/^outro\b/i.test(trimmed)) {
     return "[Outro]";
   }
-  if (/^end\b/i.test(trimmed)) {
-    return "[End]";
+  if (/^(?:end|ending)\b/i.test(trimmed)) {
+    return "[Outro]";
   }
 
   return null;
@@ -121,6 +157,7 @@ function getVocalRepeatCount(line: string) {
 type FilteredSong = {
   title?: string;
   lines: string[];
+  multipleArrangementsDetected: boolean;
 };
 
 type ExtractionAssessment = {
@@ -130,6 +167,9 @@ type ExtractionAssessment = {
 
 function filterNormalizedLines(rawLines: string[]) {
   const filteredLines: string[] = [];
+  const firstContentIndex = rawLines.findIndex((line) => line.trim().length > 0);
+  const protectedTitleIndex =
+    firstContentIndex >= 0 && isLikelyTitleCandidate(rawLines[firstContentIndex]) ? firstContentIndex : -1;
   let repeatedSection:
     | {
         label: string;
@@ -160,7 +200,8 @@ function filterNormalizedLines(rawLines: string[]) {
     repeatedSection = null;
   }
 
-  for (const line of rawLines) {
+  for (const [lineIndex, rawLine] of rawLines.entries()) {
+    const line = removeBracketedInlineChords(rawLine);
     if (!line) {
       if (filteredLines.at(-1) !== "") {
         filteredLines.push("");
@@ -168,7 +209,13 @@ function filterNormalizedLines(rawLines: string[]) {
       continue;
     }
 
-    if (isInstrumentSection(line) || isChordHeavyLine(line) || isRepeatDirective(line) || isVariantHeading(line)) {
+    if (
+      isInstrumentSection(line) ||
+      (lineIndex !== protectedTitleIndex && isChordOnlyLine(line)) ||
+      isRepeatDirective(line) ||
+      isVariantHeading(line) ||
+      isPdfPageMarker(line)
+    ) {
       continue;
     }
 
@@ -194,121 +241,108 @@ function filterNormalizedLines(rawLines: string[]) {
   return filteredLines;
 }
 
-function segmentRawSongCandidates(rawLines: string[]) {
+type SongCandidate = {
+  kind: ArrangementKind;
+  lines: string[];
+};
+
+function hasCredibleSectionContent(lines: string[]) {
+  const sectionCount = lines.filter((line) => toSectionLabel(line) !== null).length;
+  const lyricLineCount = lines.filter((line) => {
+    const trimmed = line.trim();
+    return (
+      trimmed.length > 0 &&
+      toSectionLabel(trimmed) === null &&
+      !isChordOnlyLine(trimmed) &&
+      !isInstrumentSection(trimmed) &&
+      !isRepeatDirective(trimmed) &&
+      !isVariantHeading(trimmed)
+    );
+  }).length;
+  return sectionCount > 0 && lyricLineCount >= 2;
+}
+
+function segmentRawSongCandidates(rawLines: string[]): SongCandidate[] {
   const initialTitleIndex = rawLines.findIndex((line) => isLikelyTitleCandidate(line));
   const initialTitle = initialTitleIndex >= 0 ? rawLines[initialTitleIndex].trim().toLowerCase() : null;
-  const segments: string[][] = [];
+  const segments: SongCandidate[] = [];
   let current: string[] = [];
-  let contentCount = 0;
+  let currentKind: ArrangementKind = "unknown";
 
-  for (const line of rawLines) {
-    const normalized = line.trim().toLowerCase();
-    const isBoundary =
-      isVariantHeading(line) || (initialTitle !== null && normalized === initialTitle && contentCount >= 12);
-
-    if (isBoundary) {
-      if (current.some((entry) => entry.trim().length > 0)) {
-        segments.push(current);
+  for (const [index, line] of rawLines.entries()) {
+    const marker = getArrangementMarker(line);
+    if (marker) {
+      if (hasCredibleSectionContent(current)) {
+        segments.push({ kind: currentKind, lines: current });
+        current = [];
+      } else {
+        current = current.filter((entry) => isLikelyTitleCandidate(entry));
       }
-      current = [];
-      contentCount = 0;
+      currentKind = marker;
+      continue;
+    }
+
+    const normalized = line.trim().toLowerCase();
+    const isRepeatedTitleBoundary =
+      initialTitle !== null &&
+      normalized === initialTitle &&
+      index !== initialTitleIndex &&
+      hasCredibleSectionContent(current) &&
+      hasCredibleSectionContent(rawLines.slice(index + 1));
+
+    if (isRepeatedTitleBoundary) {
+      segments.push({ kind: currentKind, lines: current });
+      current = [line];
+      currentKind = "unknown";
       continue;
     }
 
     current.push(line);
-    if (line.trim().length > 0) {
-      contentCount += 1;
-    }
   }
 
   if (current.some((entry) => entry.trim().length > 0)) {
-    segments.push(current);
+    segments.push({ kind: currentKind, lines: current });
   }
 
-  return segments.length > 0 ? segments : [rawLines];
+  return segments.length > 0 ? segments : [{ kind: "unknown", lines: rawLines }];
 }
 
 function filterSongLines(text: string): FilteredSong {
   const rawLines = normalizeExtractedText(text).split("\n").map(normalizeLineSpacing);
   const candidates = segmentRawSongCandidates(rawLines)
-    .map(filterNormalizedLines)
-    .map(trimDuplicateRestart)
-    .filter((lines) => lines.some((line) => line.trim().length > 0));
+    .map((candidate) => ({ ...candidate, lines: filterNormalizedLines(candidate.lines) }))
+    .filter((candidate) => candidate.lines.some((line) => line.trim().length > 0));
 
   const selectedCandidate = selectPrimarySongCandidate(candidates);
-  const title = selectedCandidate.find((line) => line && !line.startsWith("[") && isLikelyTitleCandidate(line));
+  const documentTitle = rawLines.find((line) => isLikelyTitleCandidate(line));
+  const title = documentTitle ?? selectedCandidate.lines.find((line) => line && !line.startsWith("[") && isLikelyTitleCandidate(line));
   return {
     title: title || undefined,
     lines:
-      title && selectedCandidate[0]?.trim().toLowerCase() === title.trim().toLowerCase()
-        ? selectedCandidate
+      title && selectedCandidate.lines[0]?.trim().toLowerCase() === title.trim().toLowerCase()
+        ? selectedCandidate.lines
         : title
-          ? [title, ...selectedCandidate]
-          : selectedCandidate,
+          ? [title, ...selectedCandidate.lines]
+          : selectedCandidate.lines,
+    multipleArrangementsDetected: candidates.length > 1,
   };
 }
 
-function selectPrimarySongCandidate(candidates: string[][]) {
+function selectPrimarySongCandidate(candidates: SongCandidate[]) {
   const scored = candidates
     .map((candidate, index) => ({
       index,
       candidate,
-      score: scoreSongCandidate(candidate),
+      score: scoreSongCandidate(candidate.lines),
     }))
-    .filter(({ candidate }) => candidate.filter((line) => line.trim().length > 0).length > 0);
+    .filter(({ candidate }) => candidate.lines.some((line) => line.trim().length > 0));
 
-  const completeCandidates = scored.filter(({ score }) => score >= 12);
-  if (completeCandidates.length > 0) {
-    return completeCandidates[0].candidate;
+  for (const kind of ["chords", "lyrics", "unknown"] satisfies ArrangementKind[]) {
+    const completeCandidate = scored.find(({ candidate, score }) => candidate.kind === kind && score >= 12);
+    if (completeCandidate) return completeCandidate.candidate;
   }
 
-  return scored.sort((a, b) => b.score - a.score || a.index - b.index)[0]?.candidate ?? candidates[0] ?? [];
-}
-
-function trimDuplicateRestart(lines: string[]) {
-  const normalized = lines.map((line) => line.trim().toLowerCase());
-  const contentIndexes = normalized
-    .map((line, index) => ({ line, index }))
-    .filter(({ line }) => line.length > 0 && !line.startsWith("["))
-    .map(({ index }) => index);
-
-  const firstLyricIndex = contentIndexes.find((index) => !isLikelyStandaloneTitle(lines[index])) ?? contentIndexes[0];
-  if (firstLyricIndex === undefined) {
-    return lines;
-  }
-
-  const firstLyric = normalized[firstLyricIndex];
-  for (const index of contentIndexes) {
-    if (index <= firstLyricIndex + 2) {
-      continue;
-    }
-
-    if (normalized[index] !== firstLyric) {
-      continue;
-    }
-
-    const prefix = normalized
-      .slice(firstLyricIndex, index)
-      .filter((line) => line.length > 0);
-    const suffix = normalized.slice(index).filter((line) => line.length > 0);
-    const compareLength = Math.min(prefix.length, suffix.length, 24);
-    if (compareLength < 6) {
-      continue;
-    }
-
-    let matches = 0;
-    for (let offset = 0; offset < compareLength; offset += 1) {
-      if (prefix[offset] === suffix[offset]) {
-        matches += 1;
-      }
-    }
-
-    if (matches / compareLength >= 0.65) {
-      return lines.slice(0, index);
-    }
-  }
-
-  return lines;
+  return scored.sort((a, b) => b.score - a.score || a.index - b.index)[0]?.candidate ?? candidates[0] ?? { kind: "unknown", lines: [] };
 }
 
 function scoreSongCandidate(lines: string[]) {
@@ -338,20 +372,36 @@ function scoreSongCandidate(lines: string[]) {
   return score;
 }
 
+function hasPossibleTrailingContent(rawText: string) {
+  const lines = normalizeExtractedText(rawText).split("\n").map(normalizeLineSpacing);
+  const firstSectionIndex = lines.findIndex((line) => toSectionLabel(line) !== null);
+  if (firstSectionIndex < 0) return false;
+
+  return lines.slice(firstSectionIndex + 1).some((line) => {
+    const trimmed = line.trim();
+    return (
+      /^(?:production\s+)?notes?\b|^credits?\b|^copyright\b|^written\s+by\b|^arranged\s+by\b|^contact\b|^license\b|^ccli\b|^all rights reserved\b/i.test(trimmed) ||
+      /(?:https?:\/\/|www\.|\S+@\S+\.\S+|©)/i.test(trimmed)
+    );
+  });
+}
+
 function normalizeLyricsText(text: string) {
-  const { title, lines: filteredLines } = filterSongLines(text);
-  const seenLines = new Set<string>();
+  const { title, lines: filteredLines, multipleArrangementsDetected } = filterSongLines(text);
   const outputLines: string[] = [];
 
   if (title) {
     outputLines.push("[Title]", title, "");
-    seenLines.add(title.toLowerCase());
   }
 
-  let previousWasSection = false;
-
+  let skippedSourceTitle = false;
   for (const line of filteredLines) {
-    if (!line || (title && line.toLowerCase() === title.toLowerCase())) {
+    if (!line) {
+      continue;
+    }
+
+    if (!skippedSourceTitle && title && line.toLowerCase() === title.toLowerCase()) {
+      skippedSourceTitle = true;
       continue;
     }
 
@@ -360,22 +410,10 @@ function normalizeLyricsText(text: string) {
         outputLines.push("");
       }
       outputLines.push(line);
-      previousWasSection = true;
-      continue;
-    }
-
-    if (previousWasSection) {
-      seenLines.clear();
-      previousWasSection = false;
-    }
-
-    const normalizedKey = line.toLowerCase();
-    if (seenLines.has(normalizedKey)) {
       continue;
     }
 
     outputLines.push(`${line}  `);
-    seenLines.add(normalizedKey);
   }
 
   const compactLines: string[] = [];
@@ -386,8 +424,7 @@ function normalizeLyricsText(text: string) {
     compactLines.push(line);
   }
 
-  const dedupedSongLines = removeRepeatedSongTail(compactLines, title);
-  const regroupedLines = trimRepeatedBlockSuffix(regroupSectionBodies(dedupedSongLines));
+  const regroupedLines = regroupSectionBodies(compactLines);
 
   const sectionCount = regroupedLines.filter((line) => line.startsWith("[") && line !== "[Title]").length;
 
@@ -396,18 +433,30 @@ function normalizeLyricsText(text: string) {
     text: finalText,
     sectionCount,
     normalizationApplied: true,
-    ...assessExtractionConfidence(text, finalText),
+    ...assessExtractionConfidence(text, finalText, multipleArrangementsDetected),
   };
 }
 
-function assessExtractionConfidence(rawText: string, finalText: string): ExtractionAssessment {
+function assessExtractionConfidence(
+  rawText: string,
+  finalText: string,
+  multipleArrangementsDetected: boolean,
+): ExtractionAssessment {
   const warningCodes: ExtractorWarningCode[] = [];
   const normalizedRaw = normalizeExtractedText(rawText);
   const normalizedFinal = normalizeExtractedText(finalText);
   const finalLower = normalizedFinal.toLowerCase();
 
-  if (/\((?:transposed|lyrics|chords?)\)/i.test(normalizedRaw)) {
+  if (normalizedRaw.split("\n").some(isVariantHeading)) {
     warningCodes.push("variant_heading_detected");
+  }
+
+  if (multipleArrangementsDetected) {
+    warningCodes.push("multiple_arrangements_detected");
+  }
+
+  if (hasPossibleTrailingContent(normalizedRaw)) {
+    warningCodes.push("possible_trailing_content_detected");
   }
 
   if (/(instrumental|intro|interlude|outro|repeat as needed)/i.test(normalizedRaw)) {
@@ -467,10 +516,13 @@ function assessExtractionConfidence(rawText: string, finalText: string): Extract
   let confidence: ExtractorConfidenceLevel = "high";
   if (
     uniqueWarnings.includes("variant_heading_detected") ||
+    uniqueWarnings.includes("multiple_arrangements_detected") ||
     uniqueWarnings.includes("truncated_output_detected") ||
     uniqueWarnings.includes("sparse_output_detected")
   ) {
     confidence = "low";
+  } else if (uniqueWarnings.includes("possible_trailing_content_detected")) {
+    confidence = "medium";
   } else if (uniqueWarnings.length >= 2) {
     confidence = "medium";
   }
@@ -483,52 +535,6 @@ function assessExtractionConfidence(rawText: string, finalText: string): Extract
     confidence,
     warningCodes: uniqueWarnings,
   };
-}
-
-function removeRepeatedSongTail(lines: string[], title?: string) {
-  if (!title) {
-    return lines;
-  }
-
-  const normalizedTitle = title.toLowerCase();
-  const titleIndexes = lines
-    .map((line, index) => ({ line: line.trim().toLowerCase(), index }))
-    .filter((entry) => entry.line === normalizedTitle)
-    .map((entry) => entry.index);
-
-  if (titleIndexes.length < 2) {
-    return lines;
-  }
-
-  const firstTitleIndex = titleIndexes[0];
-  for (const candidateIndex of titleIndexes.slice(1)) {
-    const prefix = lines
-      .slice(firstTitleIndex, candidateIndex)
-      .filter((line) => line.trim().length > 0)
-      .map((line) => line.trim().toLowerCase());
-    const suffix = lines
-      .slice(candidateIndex)
-      .filter((line) => line.trim().length > 0)
-      .map((line) => line.trim().toLowerCase());
-
-    if (prefix.length >= 8 && suffix.length >= 4) {
-      const compareLength = Math.min(prefix.length, suffix.length);
-      let matches = 0;
-      for (let index = 0; index < compareLength; index += 1) {
-        if (prefix[index] === suffix[index]) {
-          matches += 1;
-        }
-      }
-
-      if (matches / compareLength >= 0.75) {
-        return lines.slice(0, candidateIndex).filter((line, index, array) => {
-          return !(line === "" && array[index - 1] === "");
-        });
-      }
-    }
-  }
-
-  return lines;
 }
 
 function regroupSectionBodies(lines: string[]) {
@@ -591,113 +597,6 @@ function regroupSectionBodies(lines: string[]) {
   return result.filter((line, idx, array) => !(line === "" && array[idx - 1] === ""));
 }
 
-function trimRepeatedBlockSuffix(lines: string[]) {
-  const titleBlock: string[] = [];
-  let index = 0;
-
-  if (lines[0] === "[Title]") {
-    while (index < lines.length) {
-      const line = lines[index];
-      titleBlock.push(line);
-      index += 1;
-      if (index >= lines.length || (lines[index]?.startsWith("[") && lines[index] !== "[Title]")) {
-        break;
-      }
-    }
-  }
-
-  const blocks: string[][] = [];
-  let currentBlock: string[] = [];
-
-  for (; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line) {
-      if (currentBlock.length > 0) {
-        blocks.push(currentBlock);
-        currentBlock = [];
-      }
-      continue;
-    }
-
-    if (line.startsWith("[") && currentBlock.length > 0) {
-      blocks.push(currentBlock);
-      currentBlock = [line];
-      continue;
-    }
-
-    currentBlock.push(line);
-  }
-
-  if (currentBlock.length > 0) {
-    blocks.push(currentBlock);
-  }
-
-  const trimmedBlocks = [...blocks];
-  for (let suffixStart = 1; suffixStart < trimmedBlocks.length; suffixStart += 1) {
-    const suffixLength = trimmedBlocks.length - suffixStart;
-    if (suffixLength < 2) {
-      continue;
-    }
-
-    for (let compareStart = 0; compareStart + suffixLength <= suffixStart; compareStart += 1) {
-      let matches = true;
-      for (let offset = 0; offset < suffixLength; offset += 1) {
-        if (trimmedBlocks[compareStart + offset].join("\n") !== trimmedBlocks[suffixStart + offset].join("\n")) {
-          matches = false;
-          break;
-        }
-      }
-
-      if (matches) {
-        trimmedBlocks.splice(suffixStart);
-        suffixStart = trimmedBlocks.length;
-        break;
-      }
-    }
-  }
-
-  if (trimmedBlocks.length >= 4) {
-    for (
-      let repeatedPrefixSize = 2;
-      repeatedPrefixSize <= Math.min(6, Math.floor(trimmedBlocks.length / 2) + 1);
-      repeatedPrefixSize += 1
-    ) {
-      const prefix = trimmedBlocks.slice(0, repeatedPrefixSize).map((block) => block.join("\n"));
-      const suffix = trimmedBlocks.slice(-repeatedPrefixSize).map((block) => block.join("\n"));
-      if (prefix.length === suffix.length && prefix.every((block, index) => block === suffix[index])) {
-        trimmedBlocks.splice(trimmedBlocks.length - repeatedPrefixSize, repeatedPrefixSize);
-        break;
-      }
-    }
-  }
-
-  if (trimmedBlocks.length >= 5) {
-    for (let repeatedPrefixSize = 2; repeatedPrefixSize <= Math.min(6, trimmedBlocks.length - 1); repeatedPrefixSize += 1) {
-      const prefix = trimmedBlocks.slice(0, repeatedPrefixSize).map((block) => block.join("\n"));
-      const suffix = trimmedBlocks.slice(-repeatedPrefixSize).map((block) => block.join("\n"));
-      const matches = prefix.every((block, index) => block === suffix[index]);
-      if (matches) {
-        trimmedBlocks.splice(trimmedBlocks.length - repeatedPrefixSize, repeatedPrefixSize);
-        break;
-      }
-    }
-  }
-
-  const rebuilt: string[] = [];
-  if (titleBlock.length > 0) {
-    rebuilt.push(...titleBlock);
-  }
-
-  for (const block of trimmedBlocks) {
-    if (rebuilt.length > 0 && rebuilt.at(-1) !== "") {
-      rebuilt.push("");
-    }
-    rebuilt.push(...block);
-  }
-
-  return rebuilt.filter((line, idx, array) => !(line === "" && array[idx - 1] === ""));
-}
-
 function decodeXmlText(value: string) {
   return value
     .replace(/&lt;/g, "<")
@@ -707,16 +606,47 @@ function decodeXmlText(value: string) {
     .replace(/&amp;/g, "&");
 }
 
+function getWordAttribute(xml: string, element: string, attribute: string) {
+  return xml.match(new RegExp(`<w:${element}[^>]*w:${attribute}="([^"]+)"`, "i"))?.[1];
+}
+
+function isRedWordColor(value?: string) {
+  if (!value || !/^[0-9a-f]{6}$/i.test(value)) return false;
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return red >= 160 && red >= green * 1.5 && red >= blue * 1.5;
+}
+
+function extractDocxRunText(runXml: string) {
+  return [...runXml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\s*\/>|<w:br(?:\s[^>]*)?\/>/gi)]
+    .map((match) => {
+      if (match[0].startsWith("<w:tab")) return "\t";
+      if (match[0].startsWith("<w:br")) return "\n";
+      return decodeXmlText(match[1] ?? "");
+    })
+    .join("");
+}
+
 function extractDocxParagraphs(xml: string) {
   const paragraphs = xml.match(/<w:p[\s\S]*?<\/w:p>/g) ?? [];
   const lines: string[] = [];
 
   for (const paragraph of paragraphs) {
-    const text = [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)]
-      .map((match) => decodeXmlText(match[1]))
+    const runs = [...paragraph.matchAll(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/gi)].map((match) => ({
+      text: extractDocxRunText(match[0]),
+      color: getWordAttribute(match[0], "color", "val"),
+    }));
+    const paragraphText = runs.map((run) => run.text).join("");
+    const hasNonChordContent = runs.some((run) => run.text.trim() && !isChordOnlyLine(run.text));
+    const text = runs
+      .map((run) => {
+        if (hasNonChordContent && isRedWordColor(run.color) && isChordOnlyLine(run.text)) return "";
+        return run.text;
+      })
       .join("");
 
-    if (text.trim()) {
+    if (paragraphText.trim() && text.trim()) {
       lines.push(text);
     }
   }
