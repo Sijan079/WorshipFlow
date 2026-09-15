@@ -15,7 +15,23 @@ function normalizeLineSpacing(line: string) {
 }
 
 function normalizeChordSymbols(value: string) {
-  return value.replace(/♯/g, "#").replace(/♭/g, "b");
+  const superscriptDigits: Record<string, string> = {
+    "⁰": "0",
+    "¹": "1",
+    "²": "2",
+    "³": "3",
+    "⁴": "4",
+    "⁵": "5",
+    "⁶": "6",
+    "⁷": "7",
+    "⁸": "8",
+    "⁹": "9",
+  };
+  return value
+    .replace(/♯/g, "#")
+    .replace(/♭/g, "b")
+    .replace(/[Δ△]/g, "maj")
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (digit) => superscriptDigits[digit]);
 }
 
 function isChordToken(value: string) {
@@ -29,17 +45,63 @@ function isRepeatToken(value: string) {
   return /^(?:x\s*[2-9]|[2-9]\s*x)$/i.test(value.replace(/[()]/g, "").trim());
 }
 
-function isChordOnlyLine(line: string) {
-  const tokens = normalizeChordSymbols(line)
+type ChordLineClassification = "confirmed" | "possible" | "not_chord";
+
+const CHORD_DIRECTION_PATTERN = "(?:fade(?:\\s+out)?|hold|let\\s+ring|ring\\s+out|build|stop|[1-9]\\d*\\s+bars?)";
+
+function tokenizeChordLine(line: string) {
+  return line
     .replace(/[\[\]]/g, " ")
     .replace(/[-–—|,;]/g, " ")
     .split(/\s+/)
     .map((token) => token.trim())
     .filter(Boolean);
-  if (tokens.length === 0) return false;
+}
+
+function isNumberSystemChordLine(tokens: string[]) {
+  if (tokens.length < 3) return false;
+  const nashvilleToken = /^[1-7](?:#|b)?(?:(?:maj|min|m|dim|aug|sus|add)\d*|\d+)*(?:\/[1-7](?:#|b)?)?$/i;
+  const romanToken = /^[iv]+(?:#|b)?(?:(?:maj|min|m|dim|aug|sus|add)\d*|\d+)*$/i;
+  return tokens.every((token) => nashvilleToken.test(token)) || tokens.every((token) => romanToken.test(token));
+}
+
+function classifyChordLine(line: string): ChordLineClassification {
+  const normalized = normalizeChordSymbols(line).trim();
+  if (/^(?:N\.?C\.?|tacet)$/i.test(normalized)) return "confirmed";
+
+  const chordContent = normalized.replace(
+    new RegExp(`\\s+(?:\\(${CHORD_DIRECTION_PATTERN}\\)|[-–—]\\s*${CHORD_DIRECTION_PATTERN})\\s*$`, "i"),
+    "",
+  );
+  const tokens = chordContent
+    ? tokenizeChordLine(chordContent)
+    : [];
+  if (tokens.length === 0) return "not_chord";
 
   const chordCount = tokens.filter(isChordToken).length;
-  return chordCount > 0 && tokens.every((token) => isChordToken(token) || isRepeatToken(token));
+  const onlyStandardChordSyntax = tokens.every(
+    (token) => isChordToken(token) || isRepeatToken(token) || token.toLowerCase() === "then",
+  );
+  const connectorIsValid = !tokens.some((token) => token.toLowerCase() === "then") || chordCount >= 2;
+  if ((chordCount > 0 && onlyStandardChordSyntax && connectorIsValid) || isNumberSystemChordLine(tokens)) {
+    return "confirmed";
+  }
+
+  const beginsWithChord = isChordToken(tokens[0]);
+  const hasAnnotationShape = /[()[\]]/.test(normalized) || /\s[-–—]\s/.test(normalized);
+  if (
+    (beginsWithChord && hasAnnotationShape) ||
+    chordCount >= 2 ||
+    (beginsWithChord && tokens.length <= 4 && chordCount / tokens.length >= 0.5)
+  ) {
+    return "possible";
+  }
+
+  return "not_chord";
+}
+
+function isChordOnlyLine(line: string) {
+  return classifyChordLine(line) === "confirmed";
 }
 
 function removeBracketedInlineChords(line: string) {
@@ -63,13 +125,36 @@ function isRepeatDirective(line: string) {
 
 type ArrangementKind = "chords" | "lyrics" | "unknown";
 
-function getArrangementMarker(line: string): ArrangementKind | null {
+function toArrangementKind(marker: string): ArrangementKind {
+  if (marker.toLowerCase().startsWith("chord")) return "chords";
+  if (marker.toLowerCase() === "lyrics") return "lyrics";
+  return "unknown";
+}
+
+function getTitleAttachedArrangementMarker(line: string) {
+  const match = line.trim().match(/^(.+?)\s+\((chords?|lyrics)\)$/i);
+  if (!match || !isLikelyTitleCandidate(match[1])) return null;
+  return {
+    title: match[1].trim(),
+    kind: toArrangementKind(match[2]),
+  };
+}
+
+function getArrangementMarker(line: string, documentTitle?: string | null): ArrangementKind | null {
   const match = line.trim().match(/^(?:\((chords?|lyrics|transposed)\)|\[(chords?|lyrics|transposed)\]|(chords?|lyrics|transposed)\s*:)$/i);
   const marker = (match?.[1] ?? match?.[2] ?? match?.[3])?.toLowerCase();
-  if (!marker) return null;
-  if (marker.startsWith("chord")) return "chords";
-  if (marker === "lyrics") return "lyrics";
-  return "unknown";
+  if (marker) return toArrangementKind(marker);
+
+  const titleAttachedMarker = getTitleAttachedArrangementMarker(line);
+  if (
+    titleAttachedMarker &&
+    documentTitle &&
+    titleAttachedMarker.title.toLowerCase() === documentTitle.trim().toLowerCase()
+  ) {
+    return titleAttachedMarker.kind;
+  }
+
+  return null;
 }
 
 function isVariantHeading(line: string) {
@@ -263,14 +348,17 @@ function hasCredibleSectionContent(lines: string[]) {
 }
 
 function segmentRawSongCandidates(rawLines: string[]): SongCandidate[] {
-  const initialTitleIndex = rawLines.findIndex((line) => isLikelyTitleCandidate(line));
-  const initialTitle = initialTitleIndex >= 0 ? rawLines[initialTitleIndex].trim().toLowerCase() : null;
+  const documentTitle = findDocumentTitle(rawLines);
+  const initialTitle = documentTitle?.toLowerCase() ?? null;
+  const initialTitleIndex = documentTitle
+    ? rawLines.findIndex((line) => line.trim().toLowerCase() === documentTitle.toLowerCase())
+    : -1;
   const segments: SongCandidate[] = [];
   let current: string[] = [];
   let currentKind: ArrangementKind = "unknown";
 
   for (const [index, line] of rawLines.entries()) {
-    const marker = getArrangementMarker(line);
+    const marker = getArrangementMarker(line, documentTitle);
     if (marker) {
       if (hasCredibleSectionContent(current)) {
         segments.push({ kind: currentKind, lines: current });
@@ -314,7 +402,7 @@ function filterSongLines(text: string): FilteredSong {
     .filter((candidate) => candidate.lines.some((line) => line.trim().length > 0));
 
   const selectedCandidate = selectPrimarySongCandidate(candidates);
-  const documentTitle = rawLines.find((line) => isLikelyTitleCandidate(line));
+  const documentTitle = findDocumentTitle(rawLines);
   const title = documentTitle ?? selectedCandidate.lines.find((line) => line && !line.startsWith("[") && isLikelyTitleCandidate(line));
   return {
     title: title || undefined,
@@ -337,7 +425,7 @@ function selectPrimarySongCandidate(candidates: SongCandidate[]) {
     }))
     .filter(({ candidate }) => candidate.lines.some((line) => line.trim().length > 0));
 
-  for (const kind of ["chords", "lyrics", "unknown"] satisfies ArrangementKind[]) {
+  for (const kind of ["chords", "unknown", "lyrics"] satisfies ArrangementKind[]) {
     const completeCandidate = scored.find(({ candidate, score }) => candidate.kind === kind && score >= 12);
     if (completeCandidate) return completeCandidate.candidate;
   }
@@ -384,6 +472,15 @@ function hasPossibleTrailingContent(rawText: string) {
       /(?:https?:\/\/|www\.|\S+@\S+\.\S+|©)/i.test(trimmed)
     );
   });
+}
+
+function findDocumentTitle(lines: string[]) {
+  for (const line of lines) {
+    if (isLikelyTitleCandidate(line)) return line.trim();
+    const titleAttachedMarker = getTitleAttachedArrangementMarker(line);
+    if (titleAttachedMarker) return titleAttachedMarker.title;
+  }
+  return null;
 }
 
 function normalizeLyricsText(text: string) {
@@ -447,12 +544,18 @@ function assessExtractionConfidence(
   const normalizedFinal = normalizeExtractedText(finalText);
   const finalLower = normalizedFinal.toLowerCase();
 
-  if (normalizedRaw.split("\n").some(isVariantHeading)) {
+  const rawLines = normalizedRaw.split("\n");
+  const documentTitle = findDocumentTitle(rawLines);
+  if (rawLines.some((line) => getArrangementMarker(line, documentTitle) !== null)) {
     warningCodes.push("variant_heading_detected");
   }
 
   if (multipleArrangementsDetected) {
     warningCodes.push("multiple_arrangements_detected");
+  }
+
+  if (rawLines.some((line) => classifyChordLine(line) === "possible")) {
+    warningCodes.push("possible_chord_line_detected");
   }
 
   if (hasPossibleTrailingContent(normalizedRaw)) {
@@ -521,7 +624,10 @@ function assessExtractionConfidence(
     uniqueWarnings.includes("sparse_output_detected")
   ) {
     confidence = "low";
-  } else if (uniqueWarnings.includes("possible_trailing_content_detected")) {
+  } else if (
+    uniqueWarnings.includes("possible_chord_line_detected") ||
+    uniqueWarnings.includes("possible_trailing_content_detected")
+  ) {
     confidence = "medium";
   } else if (uniqueWarnings.length >= 2) {
     confidence = "medium";

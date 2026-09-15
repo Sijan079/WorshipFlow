@@ -19,6 +19,10 @@ const EXTRACTOR_WARNING_MESSAGES = {
     title: "Performance directions found",
     message: "The source contains directions such as Instrumental, Intro, Interlude, or repeat notes. Confirm the surrounding lyrics.",
   },
+  possible_chord_line_detected: {
+    title: "Possible chord line kept",
+    message: "A line resembles chord notation but contains an unfamiliar cue. It was kept so you can confirm whether it is a lyric.",
+  },
   possible_trailing_content_detected: {
     title: "Possible content after the song",
     message: "Notes, credits, licensing details, or contact information may appear after the lyrics. They were kept so you can review them.",

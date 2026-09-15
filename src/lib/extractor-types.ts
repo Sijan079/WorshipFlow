@@ -7,6 +7,7 @@ export const EXTRACTOR_WARNING_CODES = [
   "variant_heading_detected",
   "multiple_arrangements_detected",
   "directive_noise_detected",
+  "possible_chord_line_detected",
   "possible_trailing_content_detected",
   "repeated_restart_detected",
   "repeated_sections_detected",

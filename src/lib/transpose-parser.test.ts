@@ -233,6 +233,97 @@ export async function runTransposeParserTests() {
   assert.equal(labeledArrangementsResult.confidence, "low");
   assert.ok(labeledArrangementsResult.warningCodes.includes("multiple_arrangements_detected"));
 
+  const titleAttachedLyricsResult = extractTextFromPasteInput([
+    "Way Maker",
+    "Verse 1",
+    "C G Am F",
+    "Instrument arrangement verse one",
+    "Instrument arrangement verse two",
+    "Instrument arrangement verse three",
+    "Instrument arrangement verse four",
+    "Chorus",
+    "F C G Am",
+    "Instrument arrangement chorus one",
+    "Instrument arrangement chorus two",
+    "Instrument arrangement chorus three",
+    "Instrument arrangement chorus four",
+    "Way Maker (Lyrics)",
+    "Verse 1",
+    "Singer arrangement verse one",
+    "Singer arrangement verse two",
+    "Singer arrangement verse three",
+    "Singer arrangement verse four",
+    "Chorus",
+    "Singer arrangement chorus one",
+    "Singer arrangement chorus two",
+    "Singer arrangement chorus three",
+    "Singer arrangement chorus four",
+  ].join("\n"));
+  assert.match(titleAttachedLyricsResult.text, /Instrument arrangement verse one/);
+  assert.doesNotMatch(titleAttachedLyricsResult.text, /Singer arrangement verse one/);
+  assert.doesNotMatch(titleAttachedLyricsResult.text, /Way Maker \(Lyrics\)/);
+  assert.equal(titleAttachedLyricsResult.confidence, "low");
+  assert.ok(titleAttachedLyricsResult.warningCodes.includes("multiple_arrangements_detected"));
+
+  const chordFadeResult = extractTextFromPasteInput([
+    "Fade Direction Song",
+    "Verse 1",
+    "A (Fade)",
+    "(You're turning lives around)",
+    "This lyric must remain",
+  ].join("\n"));
+  assert.doesNotMatch(chordFadeResult.text, /^A \(Fade\)/m);
+  assert.match(
+    chordFadeResult.text,
+    /^\(You're turning lives around\)  $/m,
+    "parenthesized lyrics remain when they are not attached to chord-only content",
+  );
+
+  const extendedChordResult = extractTextFromPasteInput([
+    "Extended Chord Song",
+    "Verse 1",
+    "G (Hold)",
+    "D (Let ring)",
+    "A (Build)",
+    "C (2 bars)",
+    "F#m - stop",
+    "G/B then C",
+    "N.C.",
+    "Tacet",
+    "1 5 6m 4",
+    "I V vi IV",
+    "CΔ7",
+    "A mighty fortress is our God",
+    "I will hold You close",
+  ].join("\n"));
+  for (const removedLine of [
+    "G (Hold)",
+    "D (Let ring)",
+    "A (Build)",
+    "C (2 bars)",
+    "F#m - stop",
+    "G/B then C",
+    "N.C.",
+    "Tacet",
+    "1 5 6m 4",
+    "I V vi IV",
+    "CΔ7",
+  ]) {
+    assert.doesNotMatch(extendedChordResult.text, new RegExp(`^${removedLine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"));
+  }
+  assert.match(extendedChordResult.text, /^A mighty fortress is our God  $/m);
+  assert.match(extendedChordResult.text, /^I will hold You close$/m);
+
+  const ambiguousChordResult = extractTextFromPasteInput([
+    "Ambiguous Chord Song",
+    "Verse 1",
+    "A (Cue worship leader)",
+    "First definite lyric line",
+    "Second definite lyric line",
+  ].join("\n"));
+  assert.match(ambiguousChordResult.text, /^A \(Cue worship leader\)  $/m);
+  assert.ok(ambiguousChordResult.warningCodes.includes("possible_chord_line_detected"));
+
   const unlabeledArrangementsResult = extractTextFromPasteInput([
     "Unlabeled Song",
     "Verse 1",
