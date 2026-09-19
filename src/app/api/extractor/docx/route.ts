@@ -2,7 +2,7 @@ import { LyricsExtractorDocxRequestSchema } from "@/lib/extractor-types";
 import { getErrorMessage } from "@/lib/errors";
 import { createLyricsDocx } from "@/lib/lyrics-docx";
 import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
-import { sanitizeExtractorFileNameSegment } from "@/lib/extractor-workflow";
+import { songDownloadDisposition } from "@/features/song-formatter/filename";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -25,18 +25,16 @@ export async function POST(request: Request) {
     }
 
     const bytes = await createLyricsDocx(parsed.data.text);
-    const fileName = `${sanitizeExtractorFileNameSegment(parsed.data.songTitle || "reviewed-song")}-lyrics.docx`;
 
     return new Response(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": songDownloadDisposition(parsed.data.songTitle ?? ""),
         "Cache-Control": "no-store",
       },
     });
   } catch (error: unknown) {
-    console.error("POST /api/extractor/docx error:", error);
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to generate lyrics DOCX") },
       { status: 500 }

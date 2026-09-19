@@ -18,7 +18,6 @@ export async function GET() {
     });
     return NextResponse.json(songs);
   } catch (error: unknown) {
-    console.error("GET /api/songs error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch songs") }, { status: 500 });
   }
 }
@@ -39,7 +38,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newSong, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/songs error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to create song") }, { status: 500 });
   }
 }

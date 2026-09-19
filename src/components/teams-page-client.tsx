@@ -1,7 +1,15 @@
 "use client";
 
-import { startTransition, useDeferredValue, useMemo, useState } from "react";
-import { Loader2, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, UsersRound, X } from "lucide-react";
+import {
+  startTransition,
+  type PointerEvent as ReactPointerEvent,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Loader2, Menu, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, UserRoundCheck, UsersRound, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiFetch,
@@ -21,6 +29,12 @@ import {
   type ServantGroup,
 } from "@/lib/servants";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ProductionSelect } from "@/components/ui/production-select";
 
 type ServantFormState = CreateServantPayload;
@@ -42,6 +56,19 @@ const EMPTY_FORM: ServantFormState = {
   group: null,
   groupCode: null,
 };
+
+const SERVANT_LONG_PRESS_MS = 1_000;
+const SERVANT_LONG_PRESS_MOVE_TOLERANCE = 10;
+
+type ServantLongPressState = {
+  startX: number;
+  startY: number;
+  timerId: number;
+};
+
+function isInteractiveRowTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest("button, input, a, [role='menuitem'], [data-row-interactive]"));
+}
 
 function buildGroupOptions(records: EditableSettingsPresetRecord[] = []): GroupOption[] {
   if (records.length > 0) {
@@ -96,6 +123,27 @@ function TeamsListSkeleton() {
   );
 }
 
+function AnimatedTrashBinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
+      <g className="origin-[12px_6px] transition-transform duration-150 group-hover:-translate-y-1 group-hover:-rotate-12 motion-reduce:transform-none motion-reduce:transition-none">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+      </g>
+      <path d="m19 6-1 14H6L5 6" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+function AnimatedAssignIcon() {
+  return (
+    <span className="inline-flex transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none">
+      <UserRoundCheck className="h-5 w-5 transition-colors duration-150 group-hover:text-[var(--action-primary-bg)]" aria-hidden="true" />
+    </span>
+  );
+}
+
 function BulkAssignModal({
   form,
   groupOptions,
@@ -118,8 +166,7 @@ function BulkAssignModal({
       <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="technical-label">BULK ASSIGN</p>
-            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">
               Update {selectedCount} servant{selectedCount === 1 ? "" : "s"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -129,7 +176,7 @@ function BulkAssignModal({
           <button
             type="button"
             onClick={onClose}
-            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
+            className="ui-modal-close pressable"
             aria-label="Close bulk assign modal"
           >
             <X className="h-4 w-4" />
@@ -141,6 +188,7 @@ function BulkAssignModal({
             label="Gender"
             value={form.gender}
             onValueChange={(value) => onChange({ ...form, gender: value as BulkAssignFormState["gender"] })}
+            triggerClassName="bg-[var(--surface-panel-strong)]"
             options={[
               { value: "", label: "Leave unchanged" },
               { value: "null", label: "Set to Not set" },
@@ -152,6 +200,7 @@ function BulkAssignModal({
             label="Group"
             value={form.groupCode}
             onValueChange={(value) => onChange({ ...form, groupCode: value })}
+            triggerClassName="bg-[var(--surface-panel-strong)]"
             options={[
               { value: "", label: "Leave unchanged" },
               { value: "null", label: "Set to Not set" },
@@ -160,12 +209,12 @@ function BulkAssignModal({
           />
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end">
           <button
             type="button"
             onClick={onApply}
             disabled={pending}
-            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+            className="ui-btn-primary pressable inline-flex min-h-10 items-center gap-2 px-4 py-2 text-sm font-semibold disabled:opacity-60"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
             Apply changes
@@ -200,18 +249,14 @@ function ServantModal({
       <DialogContent className="max-w-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="technical-label">{servant ? "EDIT SERVANT" : "ADD SERVANT"}</p>
-            <DialogTitle className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
-              {servant ? form.name || "Edit servant" : "Create servant"}
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">
+              {servant ? "Edit Servant" : "Create Servant"}
             </DialogTitle>
-            <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
-              Keep the profile lightweight for service assignment and filtering.
-            </DialogDescription>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
+            className="ui-modal-close pressable"
             aria-label="Close servant modal"
           >
             <X className="h-4 w-4" />
@@ -225,7 +270,7 @@ function ServantModal({
               type="text"
               value={form.name}
               onChange={(event) => onChange({ ...form, name: event.target.value })}
-              className="mt-1 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+              className="ui-field ui-field-inactive mt-1 w-full px-3 py-2 outline-none"
             />
             {errors.name ? <p className="mt-1 text-xs text-[var(--state-danger)]">{errors.name}</p> : null}
           </label>
@@ -235,6 +280,7 @@ function ServantModal({
               label="Gender"
               value={form.gender ?? ""}
               onValueChange={(value) => onChange({ ...form, gender: (value || null) as NullableServantGender })}
+              triggerClassName="bg-[var(--surface-panel-strong)]"
               options={[{ value: "", label: "Not set" }, ...SERVANT_GENDER_OPTIONS]}
             />
 
@@ -249,6 +295,7 @@ function ServantModal({
                     groupCode: value || null,
                   });
                 }}
+              triggerClassName="bg-[var(--surface-panel-strong)]"
               options={[
                 { value: "", label: "Not set" },
                 ...groupOptions.map((option) => ({ value: option.value, label: option.label })),
@@ -257,12 +304,12 @@ function ServantModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end">
           <button
             type="button"
             onClick={onSubmit}
             disabled={pending}
-            className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+            className="ui-btn-primary pressable inline-flex min-h-10 items-center gap-2 px-4 py-2 text-sm font-semibold disabled:opacity-60"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             {servant ? "Save changes" : "Create servant"}
@@ -279,12 +326,20 @@ export default function TeamsPageClient() {
   const deferredSearch = useDeferredValue(search);
   const [groupFilter, setGroupFilter] = useState("");
   const [selectedServantIds, setSelectedServantIds] = useState<string[]>([]);
+  const [pendingDeleteServantIds, setPendingDeleteServantIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [editingServant, setEditingServant] = useState<ServantRecord | null>(null);
   const [form, setForm] = useState<ServantFormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<ServantFormErrors>({});
   const [bulkAssignForm, setBulkAssignForm] = useState<BulkAssignFormState>({ gender: "", groupCode: "" });
+  const servantLongPressRef = useRef<ServantLongPressState | null>(null);
+
+  useEffect(() => () => {
+    if (servantLongPressRef.current) {
+      window.clearTimeout(servantLongPressRef.current.timerId);
+    }
+  }, []);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -297,6 +352,11 @@ export default function TeamsPageClient() {
   const servantsQuery = useQuery({
     queryKey: ["servants", queryString],
     queryFn: () => apiFetch<ServantRecord[]>(`/api/servants${queryString}`),
+  });
+  const allServantsQuery = useQuery({
+    queryKey: ["servants", "total"],
+    queryFn: () => apiFetch<ServantRecord[]>("/api/servants"),
+    enabled: Boolean(queryString),
   });
   const servantGroupsQuery = useQuery({
     queryKey: ["settings", "servant-groups"],
@@ -342,6 +402,7 @@ export default function TeamsPageClient() {
     onSuccess: async (_, ids) => {
       await queryClient.invalidateQueries({ queryKey: ["servants"] });
       setSelectedServantIds((current) => current.filter((id) => !ids.includes(id)));
+      setPendingDeleteServantIds([]);
     },
   });
 
@@ -435,16 +496,50 @@ export default function TeamsPageClient() {
     );
   }
 
-  async function deleteSelectedServants() {
-    if (selectedServantIds.length === 0) {
+  function clearServantLongPress() {
+    if (servantLongPressRef.current) {
+      window.clearTimeout(servantLongPressRef.current.timerId);
+      servantLongPressRef.current = null;
+    }
+  }
+
+  function startServantLongPress(event: ReactPointerEvent<HTMLElement>, servantId: string) {
+    if (!event.isPrimary || event.button !== 0 || isInteractiveRowTarget(event.target)) {
       return;
     }
 
-    if (!window.confirm(`Delete ${selectedServantIds.length} servant${selectedServantIds.length === 1 ? "" : "s"}?`)) {
-      return;
-    }
+    clearServantLongPress();
+    servantLongPressRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      timerId: window.setTimeout(() => {
+        servantLongPressRef.current = null;
+        toggleServantSelection(servantId);
+      }, SERVANT_LONG_PRESS_MS),
+    };
+  }
 
-    await deleteServantMutation.mutateAsync(selectedServantIds);
+  function moveServantLongPress(event: ReactPointerEvent<HTMLElement>) {
+    const press = servantLongPressRef.current;
+    if (
+      press
+      && (Math.abs(event.clientX - press.startX) > SERVANT_LONG_PRESS_MOVE_TOLERANCE
+        || Math.abs(event.clientY - press.startY) > SERVANT_LONG_PRESS_MOVE_TOLERANCE)
+    ) {
+      clearServantLongPress();
+    }
+  }
+
+  function requestServantDelete(ids: string[]) {
+    if (ids.length > 0) {
+      setPendingDeleteServantIds(ids);
+    }
+  }
+
+  async function confirmServantDelete() {
+    if (pendingDeleteServantIds.length > 0) {
+      await deleteServantMutation.mutateAsync(pendingDeleteServantIds);
+    }
   }
 
   async function applyBulkAssign() {
@@ -471,56 +566,45 @@ export default function TeamsPageClient() {
   }
 
   const servants = servantsQuery.data ?? [];
+  const totalServantCount = queryString ? (allServantsQuery.data?.length ?? servants.length) : servants.length;
   const pending = createServantMutation.isPending || updateServantMutation.isPending;
   const showListSkeleton = servantsQuery.isLoading || servantsQuery.isFetching;
   const filtersActive = Boolean(search.trim() || groupFilter);
 
   return (
     <div className="teams-page min-h-full space-y-6 py-1 lg:px-2">
-      <section className="teams-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section className="teams-header ui-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
-            Teams
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+          <h1 className="ui-page-title">Teams</h1>
+          <p className="ui-page-description">
             Keep the servant roster ready for fast, accurate worship service assignments.
           </p>
         </div>
         <button
           type="button"
           onClick={openCreateModal}
-          className="pressable inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] sm:self-auto"
+          className="ui-btn-primary pressable inline-flex min-h-11 items-center justify-center gap-2 self-start px-4 py-2.5 text-sm font-semibold sm:self-auto"
         >
           <Plus className="h-4 w-4" />
           Add servant
         </button>
       </section>
 
-      <section className="teams-register ui-surface-elevated w-full overflow-hidden">
-        <div className="teams-register-tools border-b border-[var(--rule-default)] px-4 py-4 sm:py-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
-                <UsersRound className="h-4 w-4 text-[var(--text-accent)]" />
-                Team roster
-              </h2>
-              <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
-                {servants.length} {filtersActive ? "matching " : ""}servant{servants.length === 1 ? "" : "s"}
-              </p>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end xl:justify-end">
+      <section className="teams-register ui-surface-elevated ui-operational-register">
+        <div className="teams-register-tools ui-register-toolbar">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <label className="min-w-[220px] flex-1 sm:max-w-[280px]">
                 <span className="sr-only">Search team</span>
                 <span className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search servant name"
-                    className="block min-h-10 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] py-2 pl-10 pr-3 text-sm text-[var(--text-primary)]"
-                />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search servant name"
+                    className="ui-field block min-h-10 w-full py-2 pl-10 pr-3 text-sm"
+                  />
                 </span>
               </label>
 
@@ -543,22 +627,28 @@ export default function TeamsPageClient() {
                     setSearch("");
                     setGroupFilter("");
                   }}
-                  className="inline-flex min-h-10 items-center justify-center px-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="pressable inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--state-danger)]"
                 >
+                  <X className="h-3.5 w-3.5" />
                   Clear filters
                 </button>
               ) : null}
+            </div>
 
+            <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+              <p className="text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+                {servants.length} of {totalServantCount} servants
+              </p>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedServantIds([]);
                   void servantsQuery.refetch();
                 }}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] hover:text-[var(--text-primary)]"
+                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-accent)]"
                 aria-label="Refresh servants"
               >
-                <RefreshCcw className="h-4 w-4" />
+                <RefreshCcw className={`h-4 w-4 ${servantsQuery.isFetching ? "animate-spin" : ""}`} />
               </button>
 
               {selectedServantIds.length > 0 ? (
@@ -567,19 +657,21 @@ export default function TeamsPageClient() {
                     type="button"
                     onClick={openBulkAssignModal}
                     disabled={bulkAssignMutation.isPending}
-                    className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-50"
+                    className="group inline-flex h-10 w-10 items-center justify-center rounded-md bg-transparent text-[var(--text-secondary)] hover:text-[var(--action-primary-bg)] disabled:opacity-50"
+                    aria-label={`Assign ${selectedServantIds.length} selected servant${selectedServantIds.length === 1 ? "" : "s"}`}
+                    title={`Assign ${selectedServantIds.length} selected servant${selectedServantIds.length === 1 ? "" : "s"}`}
                   >
-                    {bulkAssignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
-                    Assign {selectedServantIds.length}
+                    {bulkAssignMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <AnimatedAssignIcon />}
                   </button>
                   <button
                     type="button"
-                    onClick={() => void deleteSelectedServants()}
+                    onClick={() => requestServantDelete(selectedServantIds)}
                     disabled={deleteServantMutation.isPending}
-                    className="pressable inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--state-danger)] px-3 text-sm font-semibold text-[var(--text-danger)] disabled:opacity-50"
+                    className="group inline-flex h-10 w-10 items-center justify-center rounded-md bg-transparent text-[var(--text-danger)] disabled:opacity-50"
+                    aria-label={`Delete ${selectedServantIds.length} selected servant${selectedServantIds.length === 1 ? "" : "s"}`}
+                    title={`Delete ${selectedServantIds.length} selected servant${selectedServantIds.length === 1 ? "" : "s"}`}
                   >
-                    {deleteServantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    Delete {selectedServantIds.length}
+                    {deleteServantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <AnimatedTrashBinIcon />}
                   </button>
                 </>
               ) : null}
@@ -601,7 +693,7 @@ export default function TeamsPageClient() {
           <div>
             <div
               aria-hidden="true"
-              className="hidden grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px] items-center gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid"
+              className="ui-ledger-header hidden grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px] items-center gap-3 px-4 py-2.5 lg:grid"
             >
               <span />
               <span />
@@ -610,7 +702,7 @@ export default function TeamsPageClient() {
               <span>Group</span>
               <span />
             </div>
-            <ul className="divide-y divide-[var(--rule-default)]">
+            <ul>
               {servants.map((servant) => {
                 const isSelected = selectedServantIds.includes(servant.id);
                 const groupLabel = getGroupLabel(servant, groupOptions);
@@ -618,20 +710,31 @@ export default function TeamsPageClient() {
                 return (
                   <li
                     key={servant.id}
-                    className={
-                      isSelected
-                        ? "bg-[color:color-mix(in_srgb,var(--action-primary-bg)_8%,transparent)]"
-                        : "bg-transparent"
-                    }
+                    className="group ui-ledger-row ui-ledger-row-holdable select-none"
+                    data-selected={isSelected}
+                    onPointerDown={(event) => startServantLongPress(event, servant.id)}
+                    onPointerMove={moveServantLongPress}
+                    onPointerUp={clearServantLongPress}
+                    onPointerCancel={clearServantLongPress}
+                    onPointerLeave={clearServantLongPress}
+                    onContextMenu={(event) => {
+                      if (!isInteractiveRowTarget(event.target)) event.preventDefault();
+                    }}
+                    title="Press and hold for one second to select"
                   >
                     <div className="grid grid-cols-[24px_40px_minmax(0,1fr)_44px] items-center gap-3 px-4 py-4 lg:grid-cols-[24px_40px_minmax(0,1.3fr)_minmax(120px,.6fr)_minmax(140px,.75fr)_44px]">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleServantSelection(servant.id)}
-                        aria-label={`Select ${servant.name}`}
-                        className="ui-checkbox h-5 w-5"
-                      />
+                      <label
+                        data-row-interactive="true"
+                        className="flex h-10 w-10 items-center justify-center justify-self-center"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleServantSelection(servant.id)}
+                          aria-label={`Select ${servant.name}`}
+                          className="ui-checkbox h-5 w-5"
+                        />
+                      </label>
                       <span
                         aria-hidden="true"
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-panel-strong)] text-sm font-semibold text-[var(--text-accent)]"
@@ -650,14 +753,39 @@ export default function TeamsPageClient() {
                       <span className="hidden w-fit max-w-full truncate rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] lg:block">
                         {groupLabel}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(servant)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
-                        aria-label={`Edit ${servant.name}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="ui-row-menu-trigger ui-row-menu-trigger-edge"
+                            aria-label={`Actions for ${servant.name}`}
+                            title={`Actions for ${servant.name}`}
+                          >
+                            <Menu className="h-5 w-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          side="left"
+                          sideOffset={8}
+                          className="workspace-content-light ui-action-menu-content w-40"
+                        >
+                          <DropdownMenuItem
+                            onSelect={() => openEditModal(servant)}
+                            className="ui-action-menu-item gap-2 px-2"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => requestServantDelete([servant.id])}
+                            className="ui-action-menu-item ui-action-menu-item-danger gap-2 px-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </li>
                 );
@@ -691,6 +819,48 @@ export default function TeamsPageClient() {
           selectedCount={selectedServantIds.length}
         />
       ) : null}
+
+      <Dialog
+        open={pendingDeleteServantIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open && !deleteServantMutation.isPending) {
+            setPendingDeleteServantIds([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <button
+            type="button"
+            onClick={() => setPendingDeleteServantIds([])}
+            disabled={deleteServantMutation.isPending}
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            aria-label="Close delete confirmation"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">
+            Delete {pendingDeleteServantIds.length} servant{pendingDeleteServantIds.length === 1 ? "" : "s"}?
+          </DialogTitle>
+          <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+            This will permanently remove the selected servant records from the team roster.
+          </DialogDescription>
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void confirmServantDelete()}
+              disabled={deleteServantMutation.isPending}
+              className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:border-transparent hover:bg-[var(--state-danger)] hover:text-[var(--action-primary-ink)] active:border-transparent active:bg-[var(--state-danger)] active:text-[var(--action-primary-ink)] disabled:opacity-60"
+            >
+              {deleteServantMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              {pendingDeleteServantIds.length === 1 ? "Delete servant" : "Delete Selected"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

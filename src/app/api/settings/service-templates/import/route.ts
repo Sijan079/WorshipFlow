@@ -46,7 +46,6 @@ export async function POST(request: Request) {
       await parser.destroy();
     }
   } catch (error: unknown) {
-    console.error("POST /api/settings/service-templates/import error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Could not import this program PDF.", { exposeInternal: process.env.NODE_ENV !== "production" }) }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { downloadFileName } from "@/features/song-formatter/filename";
 import type { ServiceDetailPayload, ServiceListPayload, SongRepositoryItem } from "@/lib/service-data";
 import type { BlockPerson, JobStatus, JobType, OutputType, ServiceStatus, ServiceVariant, SongRole } from "@prisma/client";
 import type {
@@ -155,11 +156,10 @@ async function downloadBinaryResponse(path: string, options?: RequestInit) {
   const response = await fetchOrThrow(path, options);
   const blob = await response.blob();
   const contentDisposition = response.headers.get("Content-Disposition") ?? "";
-  const fileNameMatch = /filename="([^"]+)"/i.exec(contentDisposition);
 
   return {
     blob,
-    fileName: fileNameMatch?.[1] ?? "download.bin",
+    fileName: downloadFileName(contentDisposition),
   };
 }
 

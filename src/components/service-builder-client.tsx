@@ -1,31 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useServerDraft } from "@/features/song-formatter/use-server-draft";
+import { formatLastTouchedAge } from "@/features/song-formatter/recent-conversion";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
+import { Popover } from "radix-ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AlertTriangle,
+  Check,
   CloudUpload,
-  Copy,
   FileText,
   History,
-  ListMusic,
+  Info,
   Loader2,
   Maximize2,
   Eraser,
   Plus,
+  Pencil,
   QrCode,
   RefreshCcw,
-  Redo2,
   Save,
-  Settings2,
-  ShieldCheck,
   Smartphone,
   Trash2,
-  Undo2,
   Upload,
   WandSparkles,
   X,
@@ -37,7 +37,6 @@ import {
   apiFetch,
   type CreateAutomationJobPayload,
   type CreateParticipantPayload,
-  type CreateSongTagPresetPayload,
   type CreateServicePayload,
   type CreateServiceSongPayload,
   type CreateSongPayload,
@@ -48,7 +47,6 @@ import {
   type SongTagPresetRecord,
   type UpdateParticipantPayload,
   type UpdateServicePayload,
-  type UpdateSongTagPresetPayload,
   type UpsertServiceDetailPayload,
   generateLyricsDocx,
   runAiLyricsExtractorRetry,
@@ -109,16 +107,6 @@ type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
 export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image" | "background-removal";
 
-type FormatterDraftSession = {
-  text: string;
-  songTitle: string;
-  retry: LyricsExtractorAiRetryDescriptor | null;
-  warningCodes: ExtractorWarningCode[];
-  warningsDismissed: boolean;
-  lastSavedAt: number;
-  directAiReformatUsed: boolean;
-};
-
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
   { id: "flow", label: "Flow Hub", description: "Assign people, songs, and details by block." },
@@ -164,107 +152,6 @@ const MEDIA_TOOLS_HOME_COPY = {
   description:
     "Transfer, generate, and prepare worship-service media for projection and booth handoff.",
 };
-
-const DEFAULT_SONG_TAG_COLOR = "#CFE8F6";
-
-type TaggedDraftSection = {
-  tag: string | null;
-  lines: string[];
-};
-
-function normalizeEditorTag(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function parseTaggedDraft(text: string) {
-  const sections: TaggedDraftSection[] = [];
-  let current: TaggedDraftSection = { tag: null, lines: [] };
-
-  for (const line of text.split(/\r?\n/)) {
-    const tagMatch = line.trim().match(/^\[([^\]]+)\]$/);
-    if (tagMatch) {
-      if (current.tag !== null || current.lines.some((entry) => entry.trim().length > 0)) {
-        sections.push(current);
-      }
-      current = { tag: tagMatch[1].trim(), lines: [] };
-      continue;
-    }
-
-    current.lines.push(line);
-  }
-
-  if (current.tag !== null || current.lines.some((entry) => entry.trim().length > 0)) {
-    sections.push(current);
-  }
-
-  return sections;
-}
-
-type SerializeTaggedDraftOptions = {
-  preserveWhitespace?: boolean;
-};
-
-function serializeTaggedDraft(sections: TaggedDraftSection[], options: SerializeTaggedDraftOptions = {}) {
-  const preserveWhitespace = options.preserveWhitespace ?? false;
-  const serializedSections = sections
-    .map((section) => {
-      const body = preserveWhitespace ? section.lines.join("\n") : section.lines.join("\n").trim();
-      return section.tag ? [`[${section.tag}]`, body].filter(Boolean).join("\n") : body;
-    })
-    .filter((section) => section.trim().length > 0);
-
-  if (!preserveWhitespace) {
-    return serializedSections.join("\n\n").trim();
-  }
-
-  return serializedSections.reduce((draft, section) => {
-    if (!draft) {
-      return section;
-    }
-
-    return `${draft}${draft.endsWith("\n") ? "" : "\n"}${section}`;
-  }, "").trimStart();
-}
-
-function regroupDraftTagSections(text: string, tagToken: string, groupSize: 2 | 3) {
-  const targetTag = normalizeEditorTag(tagToken);
-  const sourceSections = parseTaggedDraft(text);
-  const regrouped: TaggedDraftSection[] = [];
-  let index = 0;
-
-  while (index < sourceSections.length) {
-    const section = sourceSections[index];
-    if (!section.tag || normalizeEditorTag(section.tag) !== targetTag) {
-      regrouped.push(section);
-      index += 1;
-      continue;
-    }
-
-    const run: TaggedDraftSection[] = [];
-    while (
-      index < sourceSections.length &&
-      sourceSections[index].tag &&
-      normalizeEditorTag(sourceSections[index].tag ?? "") === targetTag
-    ) {
-      run.push(sourceSections[index]);
-      index += 1;
-    }
-
-    const lyricLines = run
-      .flatMap((entry) => entry.lines)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    for (let lineIndex = 0; lineIndex < lyricLines.length; lineIndex += groupSize) {
-      regrouped.push({
-        tag: run[0].tag,
-        lines: lyricLines.slice(lineIndex, lineIndex + groupSize),
-      });
-    }
-  }
-
-  return serializeTaggedDraft(regrouped);
-}
 
 const JOB_DESCRIPTIONS: Record<JobType, string> = {
   TRANSPOSE: "Extract lyrics from a secure temporary chord-sheet input.",
@@ -412,72 +299,8 @@ function getExtractorSummary(outputJson: unknown) {
   return `${record.extractedLineCount} extracted lines${sectionText}`;
 }
 
-function getExtractorParser(outputJson: unknown) {
-  if (!outputJson || typeof outputJson !== "object") {
-    return null;
-  }
-
-  const parser = (outputJson as Partial<LyricsExtractorSafeOutput>).parser;
-  return parser ? parser.toUpperCase() : null;
-}
-
-function getExtractorSource(inputJson: unknown) {
-  if (!inputJson || typeof inputJson !== "object") {
-    return "Formatter";
-  }
-
-  const sourceMode = (inputJson as { sourceMode?: unknown }).sourceMode;
-  return sourceMode === "paste" ? "Pasted lyrics" : sourceMode === "upload" ? "Uploaded file" : "Formatter";
-}
-
-function getExtractorSourceLabel(inputJson: unknown) {
-  if (!inputJson || typeof inputJson !== "object") {
-    return null;
-  }
-
-  const sourceLabel = (inputJson as { sourceLabel?: unknown }).sourceLabel;
-  return typeof sourceLabel === "string" && sourceLabel.trim() ? sourceLabel.trim() : null;
-}
-
-function isUploadedExtractorJob(inputJson: unknown) {
-  return Boolean(inputJson && typeof inputJson === "object" && (inputJson as { sourceMode?: unknown }).sourceMode === "upload");
-}
-
 function getFileNameWithoutExtension(fileName: string) {
   return fileName.replace(/\.[^/.]+$/, "").trim();
-}
-
-function formatRecentConversionTime(value: string, now: number) {
-  const createdAt = new Date(value).getTime();
-  if (!Number.isFinite(createdAt)) {
-    return "Recently";
-  }
-
-  const minutesAgo = Math.max(0, Math.floor((now - createdAt) / 60000));
-  if (minutesAgo < 1) {
-    return "Just now";
-  }
-  if (minutesAgo < 60) {
-    return `${minutesAgo}m ago`;
-  }
-
-  return `${Math.floor(minutesAgo / 60)}h ago`;
-}
-
-function formatSavedStatus(savedAt: number | null, now: number) {
-  if (!savedAt) {
-    return "Not saved";
-  }
-
-  const minutesAgo = Math.max(0, Math.floor((now - savedAt) / 60000));
-  if (minutesAgo < 1) {
-    return "Saved just now";
-  }
-  if (minutesAgo === 1) {
-    return "Saved 1m ago";
-  }
-
-  return `Saved ${minutesAgo}m ago`;
 }
 
 function replaceDraftParticipant(
@@ -507,6 +330,11 @@ function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upl
   return fallback;
 }
 
+const SongDocumentEditor = dynamic(() => import("@/features/song-formatter/song-document-editor"), {
+  ssr: false,
+  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editor…</p>,
+});
+
 export default function ServiceBuilderClient({
   module,
   mediaTool,
@@ -524,16 +352,10 @@ export default function ServiceBuilderClient({
     `${workspaceRoutePrefix}/song-formatter/${step}`;
   const workspaceMediaToolsPath = (tool?: MediaTool) =>
     `${workspaceRoutePrefix}/media-tools${tool ? `/${tool}` : ""}`;
-  const formatterDraftQueryKey = useMemo(
-    () => ["song-formatter-draft", workspaceRoutePrefix] as const,
-    [workspaceRoutePrefix],
-  );
-  const cachedFormatterDraft = queryClient.getQueryData<FormatterDraftSession>(formatterDraftQueryKey);
   const activeSongStep = songStep ?? getSongWorkflowStep(pathname);
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const [activeServiceStep, setActiveServiceStep] = useState<ServiceWorkflowStep>("setup");
   const [activeServiceBlockId, setActiveServiceBlockId] = useState<string | null>(null);
-  const [recentConversionNow] = useState(() => Date.now());
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [newServiceModalOpen, setNewServiceModalOpen] = useState(false);
   const [automationJobType, setAutomationJobType] = useState<JobType>(JobType.FREESHOW_GENERATE);
@@ -543,35 +365,36 @@ export default function ServiceBuilderClient({
   const [extractorStatus, setExtractorStatus] = useState<string | null>(null);
   const [extractorSelectedFile, setExtractorSelectedFile] = useState<File | null>(null);
   const [extractorFileLabel, setExtractorFileLabel] = useState<string | null>(null);
-  const [extractorSongTitle, setExtractorSongTitle] = useState(cachedFormatterDraft?.songTitle ?? "");
-  const [extractorAiRetry, setExtractorAiRetry] = useState<LyricsExtractorAiRetryDescriptor | null>(cachedFormatterDraft?.retry ?? null);
-  const [extractorWarningCodes, setExtractorWarningCodes] = useState<ExtractorWarningCode[]>(
-    cachedFormatterDraft?.warningCodes ?? cachedFormatterDraft?.retry?.warningCodes ?? [],
-  );
-  const [extractorWarningsDismissed, setExtractorWarningsDismissed] = useState(
-    cachedFormatterDraft?.warningsDismissed ?? false,
-  );
-  const [directAiReformatUsed, setDirectAiReformatUsed] = useState(cachedFormatterDraft?.directAiReformatUsed ?? false);
-  const [extractorDraftText, setExtractorDraftText] = useState(cachedFormatterDraft?.text ?? "");
-  const [extractorUndoStack, setExtractorUndoStack] = useState<string[]>([]);
-  const [extractorRedoStack, setExtractorRedoStack] = useState<string[]>([]);
-  const [extractorLastSavedAt, setExtractorLastSavedAt] = useState<number | null>(cachedFormatterDraft?.lastSavedAt ?? null);
-  const [editorClock, setEditorClock] = useState(() => Date.now());
-  const [editorDraftSections, setEditorDraftSections] = useState<TaggedDraftSection[]>([]);
-  const [draggedEditorSectionIndex, setDraggedEditorSectionIndex] = useState<number | null>(null);
-  const [sectionFormatTag, setSectionFormatTag] = useState("Verse");
-  const [sectionLineGroupSize, setSectionLineGroupSize] = useState<2 | 3>(2);
-  const [editorControlsWidth, setEditorControlsWidth] = useState(360);
-  const [tagSettingsOpen, setTagSettingsOpen] = useState(false);
-  const [tagForm, setTagForm] = useState<CreateSongTagPresetPayload>({
-    label: "",
-    token: "",
-    color: DEFAULT_SONG_TAG_COLOR,
-  });
-  const extractorEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [extractorSongTitle, setExtractorSongTitle] = useState("");
+  const [extractorAiRetry, setExtractorAiRetry] = useState<LyricsExtractorAiRetryDescriptor | null>(null);
+  const [extractorWarningCodes, setExtractorWarningCodes] = useState<ExtractorWarningCode[]>([]);
+  const [extractorWarningsDismissed, setExtractorWarningsDismissed] = useState(false);
+  const [directAiReformatUsed, setDirectAiReformatUsed] = useState(false);
+  const [extractorDraftText, setExtractorDraftText] = useState("");
+  const [formatterDraftOpened, setFormatterDraftOpened] = useState(false);
   const extractorFileInputRef = useRef<HTMLInputElement | null>(null);
-  const editorScrollRef = useRef<HTMLDivElement | null>(null);
-  const editorDraftTextFromSectionsRef = useRef<string | null>(null);
+  const recoveryDraft = useMemo(() => ({
+    text: extractorDraftText,
+    songTitle: extractorSongTitle,
+    warningCodes: extractorWarningCodes,
+    warningsDismissed: extractorWarningsDismissed,
+    directAiReformatUsed,
+  }), [extractorDraftText, extractorSongTitle, extractorWarningCodes, extractorWarningsDismissed, directAiReformatUsed]);
+  const recovery = useServerDraft({
+    enabled: module === "songs",
+    editing: module === "songs" && activeSongStep === "format",
+    workspaceSlug: workspaceRoutePrefix.split("/")[2],
+    draft: recoveryDraft,
+    onRestore: draft => {
+      setFormatterDraftOpened(Boolean(draft.text));
+      setExtractorDraftText(draft.text);
+      setExtractorSongTitle(draft.songTitle);
+      setExtractorWarningCodes(draft.warningCodes);
+      setExtractorWarningsDismissed(draft.warningsDismissed);
+      setDirectAiReformatUsed(draft.directAiReformatUsed);
+      setExtractorAiRetry(null);
+    },
+  });
   const normalizedExtractorWarnings = useMemo(
     () => normalizeExtractorWarnings(extractorWarningCodes),
     [extractorWarningCodes],
@@ -588,125 +411,6 @@ export default function ServiceBuilderClient({
 
   const services = servicesQuery.data ?? [];
   const songTags = songTagsQuery.data ?? [];
-
-  const createSongTagMutation = useMutation({
-    mutationFn: (payload: CreateSongTagPresetPayload) =>
-      apiFetch<SongTagPresetRecord>("/api/song-tags", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: async (tag) => {
-      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
-      setSectionFormatTag(tag.token);
-      setTagForm({ label: "", token: "", color: DEFAULT_SONG_TAG_COLOR });
-      showToast(`${tag.label} tag added.`, "success");
-    },
-    onError: (error: Error) => {
-      showToast(error.message, "error");
-    },
-  });
-
-  const updateSongTagMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateSongTagPresetPayload }) =>
-      apiFetch<SongTagPresetRecord>(`/api/song-tags/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: async (tag) => {
-      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
-      showToast(`${tag.label} tag updated.`, "success");
-    },
-    onError: (error: Error) => {
-      showToast(error.message, "error");
-    },
-  });
-
-  const deleteSongTagMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ success: boolean }>(`/api/song-tags/${id}`, {
-        method: "DELETE",
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["song-tags"] });
-      showToast("Tag deleted.");
-    },
-    onError: (error: Error) => {
-      showToast(error.message, "error");
-    },
-  });
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setEditorClock(Date.now()), 30000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (editorDraftTextFromSectionsRef.current === extractorDraftText) {
-      return;
-    }
-
-    setEditorDraftSections(parseTaggedDraft(extractorDraftText));
-  }, [extractorDraftText]);
-
-  useEffect(() => {
-    if (!extractorDraftText) {
-      return;
-    }
-
-    queryClient.setQueryData(formatterDraftQueryKey, {
-      text: extractorDraftText,
-      songTitle: extractorSongTitle,
-      retry: extractorAiRetry,
-      warningCodes: extractorWarningCodes,
-      warningsDismissed: extractorWarningsDismissed,
-      lastSavedAt: extractorLastSavedAt ?? Date.now(),
-      directAiReformatUsed,
-    } satisfies FormatterDraftSession);
-  }, [directAiReformatUsed, extractorAiRetry, extractorDraftText, extractorLastSavedAt, extractorSongTitle, extractorWarningCodes, extractorWarningsDismissed, formatterDraftQueryKey, queryClient]);
-
-  const commitExtractorDraftText = (nextText: string) => {
-    setExtractorDraftText((currentText) => {
-      if (currentText === nextText) {
-        return currentText;
-      }
-
-      setExtractorUndoStack((currentStack) => [...currentStack.slice(-49), currentText]);
-      setExtractorRedoStack([]);
-      setExtractorLastSavedAt(Date.now());
-      setEditorClock(Date.now());
-      return nextText;
-    });
-  };
-
-  const undoExtractorDraft = () => {
-    setExtractorUndoStack((currentStack) => {
-      const previousText = currentStack.at(-1);
-      if (previousText === undefined) {
-        return currentStack;
-      }
-
-      setExtractorRedoStack((currentRedoStack) => [...currentRedoStack, extractorDraftText]);
-      setExtractorDraftText(previousText);
-      setExtractorLastSavedAt(Date.now());
-      setEditorClock(Date.now());
-      return currentStack.slice(0, -1);
-    });
-  };
-
-  const redoExtractorDraft = () => {
-    setExtractorRedoStack((currentStack) => {
-      const nextText = currentStack.at(-1);
-      if (nextText === undefined) {
-        return currentStack;
-      }
-
-      setExtractorUndoStack((currentUndoStack) => [...currentUndoStack, extractorDraftText]);
-      setExtractorDraftText(nextText);
-      setExtractorLastSavedAt(Date.now());
-      setEditorClock(Date.now());
-      return currentStack.slice(0, -1);
-    });
-  };
 
   const createServiceForm = useForm<CreateServiceFormValues>({
     resolver: zodResolver(createServiceFormSchema),
@@ -961,50 +665,8 @@ export default function ServiceBuilderClient({
     onError: (error: Error) => setFeedback(error.message),
   });
 
-  const applySongTagToDraft = (tag: SongTagPresetRecord) => {
-    const editor = extractorEditorRef.current;
-    const marker = `[${tag.token}]`;
-
-    if (!editor) {
-      commitExtractorDraftText(`${extractorDraftText}${extractorDraftText.endsWith("\n") || !extractorDraftText ? "" : "\n"}${marker}\n`);
-      showToast(`${tag.label} tag inserted.`, "success");
-      return;
-    }
-
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const before = extractorDraftText.slice(0, start);
-    const selected = extractorDraftText.slice(start, end);
-    const after = extractorDraftText.slice(end);
-    const needsLeadingBreak = before.length > 0 && !before.endsWith("\n");
-    const insertion = selected ? `${marker}\n${selected}` : `${marker}\n`;
-    const nextText = `${before}${needsLeadingBreak ? "\n" : ""}${insertion}${after}`;
-    const cursorPosition = before.length + (needsLeadingBreak ? 1 : 0) + insertion.length;
-
-    commitExtractorDraftText(nextText);
-    showToast(`${tag.label} tag applied.`, "success");
-    window.requestAnimationFrame(() => {
-      editor.focus();
-      editor.setSelectionRange(cursorPosition, cursorPosition);
-    });
-  };
-
   const applyExtractorResult = (result: LyricsExtractorEditableResponse) => {
-    const lastSavedAt = Date.now();
-    queryClient.setQueryData(formatterDraftQueryKey, {
-      text: result.text,
-      songTitle: extractorSongTitle,
-      retry: result.retry ?? null,
-      warningCodes: result.outputJson.warningCodes,
-      warningsDismissed: false,
-      lastSavedAt,
-      directAiReformatUsed: false,
-    } satisfies FormatterDraftSession);
     setExtractorDraftText(result.text);
-    setExtractorUndoStack([]);
-    setExtractorRedoStack([]);
-    setExtractorLastSavedAt(lastSavedAt);
-    setEditorClock(Date.now());
     setDirectAiReformatUsed(false);
     setExtractorAiRetry(result.retry ?? null);
     setExtractorWarningCodes(result.outputJson.warningCodes);
@@ -1060,6 +722,7 @@ export default function ServiceBuilderClient({
         aiExtractorRetryMutation.mutate({
           serviceId: variables.serviceId,
           retryToken: result.retry.retryToken,
+          conversionId: result.conversionId,
         });
         return;
       }
@@ -1073,8 +736,10 @@ export default function ServiceBuilderClient({
   });
 
   const aiExtractorRetryMutation = useMutation({
-    mutationFn: async ({ serviceId, retryToken }: { serviceId?: string; retryToken: string }) => {
-      return applyExtractorResult(await runAiLyricsExtractorRetry({ serviceId, retryToken }));
+    mutationFn: async ({ serviceId, retryToken, conversionId }: { serviceId?: string; retryToken: string; conversionId?: string }) => {
+      const result = await runAiLyricsExtractorRetry({ serviceId, retryToken });
+      await recovery.commitContent({ ...recoveryDraft, text: result.text, warningCodes: result.outputJson.warningCodes, warningsDismissed: false, directAiReformatUsed: true }, conversionId);
+      return result;
     },
     onSuccess: async (_result, variables) => {
       setExtractorAiRetry(null);
@@ -1094,8 +759,10 @@ export default function ServiceBuilderClient({
   });
 
   const aiLyricsReformatMutation = useMutation({
-    mutationFn: async ({ serviceId, text, songTitle }: { serviceId?: string; text: string; songTitle?: string }) => {
-      return applyExtractorResult(await runAiLyricsReformat({ serviceId, text, songTitle }));
+    mutationFn: async ({ serviceId, text, songTitle, conversionId }: { serviceId?: string; text: string; songTitle?: string; conversionId?: string }) => {
+      const result = await runAiLyricsReformat({ serviceId, text, songTitle });
+      await recovery.commitContent({ ...recoveryDraft, text: result.text, warningCodes: result.outputJson.warningCodes, warningsDismissed: false, directAiReformatUsed: true }, conversionId);
+      return result;
     },
     onSuccess: async (_result, variables) => {
       setDirectAiReformatUsed(true);
@@ -1123,7 +790,7 @@ export default function ServiceBuilderClient({
     },
     onSuccess: (fileName) => {
       setExtractorStatus(`DOCX generated: ${fileName}`);
-      setFeedback("Reviewed lyrics downloaded as DOCX. Edited lyrics were not stored.");
+      setFeedback("Reviewed lyrics downloaded as DOCX. Your temporary draft remains editable.");
       showToast(`${fileName} downloaded.`, "success");
     },
     onError: (error: Error) => {
@@ -1214,84 +881,7 @@ export default function ServiceBuilderClient({
     if (!window.confirm(`Remove ${getBlockLabel(activeServiceBlock)} from this service?`)) return;
     saveServiceBlocks(selectedServiceBlocks.filter((block) => block.id !== activeServiceBlock.id));
   };
-  const recentSongConversions = selectedService
-    ? selectedService.jobs
-        .filter((job) => job.jobType === JobType.TRANSPOSE && isUploadedExtractorJob(job.inputJson))
-        .slice(0, 5)
-    : [];
   const isFormatterProcessing = uploadExtractorMutation.isPending || aiExtractorRetryMutation.isPending;
-  const editorSections = editorDraftSections;
-
-  const commitEditorSections = (nextSections: TaggedDraftSection[], options: SerializeTaggedDraftOptions = {}) => {
-    const nextText = serializeTaggedDraft(nextSections, options);
-    setEditorDraftSections(nextSections);
-    editorDraftTextFromSectionsRef.current = nextText;
-    commitExtractorDraftText(nextText);
-  };
-
-  const updateEditorSection = (sectionIndex: number, section: TaggedDraftSection) => {
-    const nextSections = editorSections.map((item, index) => (index === sectionIndex ? section : item));
-    commitEditorSections(nextSections, { preserveWhitespace: true });
-  };
-
-  const reorderEditorSection = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
-      return;
-    }
-
-    const nextSections = [...editorSections];
-    const [movedSection] = nextSections.splice(fromIndex, 1);
-    if (!movedSection) {
-      return;
-    }
-
-    nextSections.splice(toIndex, 0, movedSection);
-    commitEditorSections(nextSections);
-    setDraggedEditorSectionIndex(null);
-    showToast("Section reordered.", "success");
-  };
-
-  const autoScrollEditorDuringDrag = (clientY: number) => {
-    const container = editorScrollRef.current;
-    if (!container) {
-      return;
-    }
-
-    const rect = container.getBoundingClientRect();
-    const edgeSize = 96;
-    const maxStep = 22;
-
-    if (clientY < rect.top + edgeSize) {
-      const intensity = (rect.top + edgeSize - clientY) / edgeSize;
-      container.scrollTop -= Math.ceil(maxStep * intensity);
-      return;
-    }
-
-    if (clientY > rect.bottom - edgeSize) {
-      const intensity = (clientY - (rect.bottom - edgeSize)) / edgeSize;
-      container.scrollTop += Math.ceil(maxStep * intensity);
-    }
-  };
-
-  const startEditorControlsResize = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = editorControlsWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const nextWidth = Math.min(520, Math.max(320, startWidth + moveEvent.clientX - startX));
-      setEditorControlsWidth(nextWidth);
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
   const processFormatterSource = (useAi: boolean) => {
     if (isFormatterProcessing) {
       return;
@@ -1308,8 +898,6 @@ export default function ServiceBuilderClient({
       return;
     }
 
-    queryClient.removeQueries({ queryKey: formatterDraftQueryKey, exact: true });
-    setExtractorDraftText("");
     setExtractorStatus(useAi ? "Preparing AI-assisted processing..." : "Processing locally...");
     showToast(useAi ? "Processing selected file with AI assist." : "Processing selected file locally.");
     uploadExtractorMutation.mutate({
@@ -2335,13 +1923,47 @@ export default function ServiceBuilderClient({
             <>
                 {activeSongStep === "upload" ? (
                   <section className="space-y-6 py-1 lg:px-2">
-                    <div className="max-w-3xl">
-                      <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
-                        Song Formatter
-                      </h1>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-base">
-                        Upload a PDF or DOCX, review the structure, then export a church-ready song file.
-                      </p>
+                    <div className="ui-page-header flex items-start justify-between gap-4">
+                      <div className="max-w-3xl">
+                        <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
+                          Song Formatter
+                        </h1>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+                          Upload a PDF or DOCX, review the structure, then export a church-ready song file.
+                        </p>
+                      </div>
+                      <Popover.Root>
+                        <Popover.Trigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Supported output formats"
+                            title="Supported output formats"
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-[var(--text-accent)] shadow-none hover:text-[var(--action-primary-bg-hover)]"
+                          >
+                            <Info className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                        </Popover.Trigger>
+                        <Popover.Portal>
+                          <Popover.Content
+                            aria-label="Supported output"
+                            align="end"
+                            sideOffset={8}
+                            className="workspace-content-light z-50 w-72 rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-4 shadow-[var(--elevation-raised)]"
+                          >
+                            <h2 className="font-[var(--font-mono)] text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">
+                              Supported output
+                            </h2>
+                            <ul className="mt-3 space-y-2 text-sm font-semibold text-[var(--text-secondary)]">
+                              {["Planning Center XML", "ProPresenter 7 Slides", "Standard PDF Chords", "Markdown Text"].map((output) => (
+                                <li key={output} className="flex items-center gap-3">
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--text-accent)]" aria-hidden="true" />
+                                  {output}
+                                </li>
+                              ))}
+                            </ul>
+                          </Popover.Content>
+                        </Popover.Portal>
+                      </Popover.Root>
                     </div>
 
                     <div className="mx-auto max-w-6xl">
@@ -2398,8 +2020,6 @@ export default function ServiceBuilderClient({
                             setExtractorSelectedFile(file);
                             setExtractorFileLabel(`${file.name} - ${Math.ceil(file.size / 1024)} KB`);
                             setExtractorSongTitle(getFileNameWithoutExtension(file.name));
-                            queryClient.removeQueries({ queryKey: formatterDraftQueryKey, exact: true });
-                            setExtractorDraftText("");
                             setExtractorStatus("File selected. Choose a processing mode.");
                             showToast(`${file.name} selected.`);
                             event.currentTarget.value = "";
@@ -2445,25 +2065,8 @@ export default function ServiceBuilderClient({
                       ) : null}
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-3">
+                    <div className="mx-auto max-w-6xl">
                       <section className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-6 shadow-[var(--elevation-subtle)]">
-                        <div className="flex items-center gap-3">
-                          <ShieldCheck className="h-5 w-5 text-[var(--text-accent)]" />
-                          <h3 className="font-[var(--font-mono)] text-xs font-bold uppercase tracking-widest text-[var(--text-accent)]">
-                            Supported Output
-                          </h3>
-                        </div>
-                        <ul className="mt-5 space-y-3 text-sm font-semibold text-[var(--text-secondary)]">
-                          {["Planning Center XML", "ProPresenter 7 Slides", "Standard PDF Chords", "Markdown Text"].map((output) => (
-                            <li key={output} className="flex items-center gap-3">
-                              <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-accent)]" />
-                              {output}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-
-                      <section className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-6 shadow-[var(--elevation-subtle)] md:col-span-2">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
                             <History className="h-5 w-5 text-[var(--text-accent)]" />
@@ -2473,11 +2076,31 @@ export default function ServiceBuilderClient({
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
-                          {recentSongConversions.length > 0 ? (
-                            recentSongConversions.map((job) => {
-                              const parser = getExtractorParser(job.outputJson);
-                              const summary = getExtractorSummary(job.outputJson);
-                              const source = getExtractorSourceLabel(job.inputJson) ?? getExtractorSource(job.inputJson);
+                          {recovery.error ? <p role="alert" className="text-sm text-[var(--state-danger)]">{recovery.error} <button className="underline" onClick={() => void recovery.refresh()}>Retry</button></p> : null}
+                          {recovery.checking && recovery.history.length === 0 ? (
+                            <div role="status" aria-live="polite" aria-busy="true" className="space-y-2">
+                              <span className="sr-only">Loading recent conversions</span>
+                              {[0, 1, 2].map((row) => (
+                                <div key={row} className="flex items-center justify-between rounded-lg p-3">
+                                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                                    <span className="h-10 w-10 shrink-0 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+                                    <span className="min-w-0 flex-1 space-y-2">
+                                      <span className="block h-4 w-40 max-w-full animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+                                      <span className="block h-3 w-56 max-w-full animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+                                    </span>
+                                  </div>
+                                  <span className="ml-4 h-4 w-16 shrink-0 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+                                </div>
+                              ))}
+                            </div>
+                          ) : recovery.history.length > 0 ? (
+                            recovery.history.map((job) => {
+                              const remaining = job.expiresAt ? Math.max(0, Math.ceil((Date.parse(job.expiresAt) - recovery.now) / 60000)) : null;
+                              const resumable = job.status === "Draft" && (remaining === null || remaining > 0);
+                              const displayStatus = job.status === "Draft" && !resumable ? "Done" : job.status;
+                              const songName = job.songTitle || job.sourceName;
+                              const editorName = job.lastTouchedBy?.displayName ?? "Unknown user";
+                              const lastTouchedAge = formatLastTouchedAge(job.lastTouchedAt, recovery.now);
 
                               return (
                                 <div key={job.id} className="group flex items-center justify-between rounded-lg p-3 transition hover:bg-[var(--surface-panel-strong)]">
@@ -2487,22 +2110,40 @@ export default function ServiceBuilderClient({
                                     </span>
                                     <div>
                                       <p className="text-sm font-bold text-[var(--text-primary)]">
-                                        {source}{parser ? ` - ${parser}` : ""}
+                                        {songName}
                                       </p>
                                       <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
-                                        {formatRecentConversionTime(job.createdAt, recentConversionNow)} - {summary ?? job.status}
+                                        Last touched by {editorName} · {lastTouchedAge}
                                       </p>
                                     </div>
                                   </div>
-                                  <span className="rounded-md border border-[var(--border-default)] px-2 py-1 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">
-                                    {job.status}
-                                  </span>
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <span className="text-xs font-semibold text-[var(--text-secondary)]">{displayStatus}</span>
+                                    {resumable ? (
+                                      <Link
+                                        href={workspaceFormatterPath("format")}
+                                        aria-label={`Resume ${songName}`}
+                                        title="Resume editing"
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--text-accent)] hover:text-[var(--action-primary-bg-hover)]"
+                                      >
+                                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                                      </Link>
+                                    ) : displayStatus === "Done" ? (
+                                      <span aria-label={`${songName} is done`} title="Done" className="inline-flex h-10 w-10 items-center justify-center text-[var(--text-accent)]">
+                                        <Check className="h-5 w-5" aria-hidden="true" />
+                                      </span>
+                                    ) : (
+                                      <span aria-label={`${songName} failed`} title="Failed" className="inline-flex h-10 w-10 items-center justify-center text-[var(--state-danger)]">
+                                        <X className="h-5 w-5" aria-hidden="true" />
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })
                           ) : (
                             <div className="rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-4 text-sm text-[var(--text-secondary)]">
-                              No uploaded files tracked yet.
+                              {recovery.checking ? "Loading recent conversions…" : "No conversions yet."}
                             </div>
                           )}
                         </div>
@@ -2512,512 +2153,58 @@ export default function ServiceBuilderClient({
                 ) : null}
 
                 {activeSongStep === "format" ? (
-                  extractorDraftText ? (
-                    <section className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-                      <div className="flex flex-col gap-3 border-b border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-5 py-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <h2 className="text-2xl font-bold text-[var(--text-primary)]">
-                            Song Editor{extractorSongTitle ? `: ${extractorSongTitle}` : ""}
-                          </h2>
-                          <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
-                            Editing lyrics and structure blocks directly.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (extractorAiRetry) {
-                                aiExtractorRetryMutation.mutate({ serviceId: selectedService?.id, retryToken: extractorAiRetry.retryToken });
-                                return;
-                              }
-
-                              if (directAiReformatUsed) {
-                                showToast("AI reformat can only run once for this draft.");
-                                return;
-                              }
-
-                              aiLyricsReformatMutation.mutate({
-                                serviceId: selectedService?.id,
-                                text: extractorDraftText,
-                                songTitle: extractorSongTitle || undefined,
-                              });
-                            }}
-                            disabled={aiExtractorRetryMutation.isPending || aiLyricsReformatMutation.isPending || (!extractorAiRetry && directAiReformatUsed)}
-                            className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-focus)] bg-[var(--surface-panel-strong)] px-4 py-2 text-sm font-semibold text-[var(--text-accent)] disabled:opacity-60"
-                          >
-                            {aiExtractorRetryMutation.isPending || aiLyricsReformatMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-                            {directAiReformatUsed && !extractorAiRetry ? "AI Reformat Used" : "Reformat with AI"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => showToast("Library save will be connected to the song repository workflow later.")}
-                            className="ui-btn-secondary pressable inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
-                          >
-                            <Save className="h-4 w-4" />
-                            Save to Library
-                          </button>
-                        </div>
-                      </div>
-
-                      <div
-                        className="grid h-[clamp(32rem,calc(100dvh-12rem),45rem)] items-stretch overflow-hidden"
-                        style={{ gridTemplateColumns: `${editorControlsWidth}px minmax(0, 1fr)` }}
-                      >
-                        <aside className="relative overflow-y-auto border-r border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-                          <button
-                            type="button"
-                            onMouseDown={startEditorControlsResize}
-                            className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize border-x border-transparent hover:border-[var(--border-focus)]"
-                            aria-label="Resize section controls"
-                          />
-                          <section>
-                            <p className="technical-label flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              File Name
-                            </p>
-                            <input
-                              value={extractorSongTitle}
-                              onChange={(event) => setExtractorSongTitle(event.target.value)}
-                              placeholder="reviewed-song-lyrics"
-                              className="mt-4 h-11 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm font-semibold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
-                            />
-                            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
-                              Used for DOCX export and defaults to the uploaded file name.
-                            </p>
-                          </section>
-
-                          <section>
-                            <p className="technical-label mt-8 flex items-center gap-2">
-                              <ListMusic className="h-4 w-4" />
-                              Section Segmentation
-                            </p>
-                            <div className="mt-4 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3">
-                              <p className="text-xs font-semibold text-[var(--text-primary)]">Automatically divide blocks into slides:</p>
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-                                {[2, 3].map((size) => (
-                                  <button
-                                    key={size}
-                                    type="button"
-                                    onClick={() => setSectionLineGroupSize(size as 2 | 3)}
-                                    className={`pressable rounded-md border px-3 py-2 text-xs font-bold ${
-                                      sectionLineGroupSize === size
-                                      ? "border-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
-                                      : "border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-primary)]"
-                                    }`}
-                                  >
-                                    {size} Lines/Slide
-                                  </button>
-                                ))}
-                              </div>
-                              <ProductionSelect
-                                label="Apply to tag"
-                                value={sectionFormatTag}
-                                onValueChange={setSectionFormatTag}
-                                options={[
-                                  ...songTags.map((tag) => ({ value: tag.token, label: tag.label })),
-                                  ...(songTags.some((tag) => tag.token === sectionFormatTag)
-                                    ? []
-                                    : [{ value: sectionFormatTag, label: sectionFormatTag }]),
-                                ]}
-                                className="mt-3"
-                                triggerClassName="bg-[var(--surface-panel)] font-semibold"
-                              />
-                              <div className="mt-3 flex items-center justify-between border-t border-[var(--border-default)] pt-3">
-                                <span className="text-xs font-semibold text-[var(--text-primary)]">Smart Splitting</span>
-                                <span className="flex h-5 w-10 items-center justify-end rounded-full bg-[var(--action-primary-bg)] p-1">
-                                  <span className="h-3 w-3 rounded-full bg-[var(--action-primary-ink)]" />
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const tagToken = sectionFormatTag || songTags[0]?.token || "Verse";
-                                  const nextDraft = regroupDraftTagSections(extractorDraftText, tagToken, sectionLineGroupSize);
-                                  commitExtractorDraftText(nextDraft);
-                                  setExtractorStatus(`${tagToken} sections regrouped into ${sectionLineGroupSize}-line blocks.`);
-                                  showToast(`Applied ${sectionLineGroupSize}-line grouping.`, "success");
-                                }}
-                                className="ui-btn-primary pressable mt-3 h-10 w-full px-4 text-sm font-semibold"
-                              >
-                                Apply splitting
-                              </button>
-                            </div>
-                          </section>
-
-                          <section className="mt-8">
-                            <p className="technical-label">Quick Tagging</p>
-                            <p className="mt-3 text-xs font-semibold text-[var(--text-secondary)]">Apply tag to selected block:</p>
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                              {songTags.slice(0, 6).map((tag) => (
-                                <button
-                                  key={tag.id}
-                                  type="button"
-                                  onClick={() => applySongTagToDraft(tag)}
-                                  className="pressable flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]"
-                                >
-                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
-                                  {tag.label}
-                                </button>
-                              ))}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setTagSettingsOpen((current) => !current)}
-                              className="ui-btn-secondary pressable mt-3 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-semibold"
-                            >
-                              <Settings2 className="h-4 w-4" />
-                              Tag Settings
-                            </button>
-                            {tagSettingsOpen ? (
-                              <div className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3">
-                                <form
-                                  className="grid gap-2"
-                                  onSubmit={(event) => {
-                                    event.preventDefault();
-                                    const label = tagForm.label.trim();
-                                    const token = (tagForm.token || tagForm.label).trim();
-                                    if (!label || !token) {
-                                      showToast("Add a tag label first.");
-                                      return;
-                                    }
-
-                                    createSongTagMutation.mutate({
-                                      ...tagForm,
-                                      label,
-                                      token,
-                                    });
-                                  }}
-                                >
-                                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                                    <input
-                                      value={tagForm.label}
-                                      onChange={(event) => {
-                                        const label = event.target.value;
-                                        setTagForm((current) => ({
-                                          ...current,
-                                          label,
-                                          token: current.token || label.replace(/\s+/g, "-"),
-                                        }));
-                                      }}
-                                      placeholder="Tag label"
-                                        className="h-9 min-w-0 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-                                    />
-                                    <input
-                                      type="color"
-                                      value={tagForm.color}
-                                      onChange={(event) => setTagForm((current) => ({ ...current, color: event.target.value }))}
-                                        className="h-9 w-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] p-1"
-                                      aria-label="Tag color"
-                                    />
-                                  </div>
-                                  <input
-                                    value={tagForm.token}
-                                    onChange={(event) => setTagForm((current) => ({ ...current, token: event.target.value }))}
-                                    placeholder="Token"
-                                        className="h-9 min-w-0 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-                                  />
-                                  <button
-                                    type="submit"
-                                    disabled={createSongTagMutation.isPending}
-                                        className="ui-btn-primary pressable h-9 px-3 text-xs font-bold disabled:opacity-60"
-                                  >
-                                    {createSongTagMutation.isPending ? "Adding..." : "Add Tag"}
-                                  </button>
-                                </form>
-
-                                <div className="mt-4 space-y-2">
-                                  {songTags.map((tag) => (
-                                      <div key={tag.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md bg-[var(--surface-panel)] p-2">
-                                      <input
-                                        type="color"
-                                        value={tag.color}
-                                        onChange={(event) =>
-                                          updateSongTagMutation.mutate({
-                                            id: tag.id,
-                                            payload: { color: event.target.value },
-                                          })
-                                        }
-                                            className="h-8 w-8 rounded border border-[var(--border-default)] bg-transparent p-1"
-                                        aria-label={`${tag.label} color`}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => setSectionFormatTag(tag.token)}
-                                          className="min-w-0 text-left text-xs font-semibold text-[var(--text-primary)]"
-                                      >
-                                        <span className="block truncate">{tag.label}</span>
-                                          <span className="block truncate text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
-                                          {tag.token}
-                                        </span>
-                                      </button>
-                                      <div className="flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const nextLabel = window.prompt("Rename tag", tag.label)?.trim();
-                                            if (!nextLabel) return;
-                                            updateSongTagMutation.mutate({
-                                              id: tag.id,
-                                              payload: { label: nextLabel, token: nextLabel.replace(/\s+/g, "-") },
-                                            });
-                                          }}
-                                          className="rounded p-1 text-[var(--text-secondary)] hover:text-[var(--text-accent)]"
-                                          aria-label={`Rename ${tag.label}`}
-                                        >
-                                          <Settings2 className="h-3.5 w-3.5" />
-                                        </button>
-                                        {!tag.isDefault ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => deleteSongTagMutation.mutate(tag.id)}
-                                          className="rounded p-1 text-[var(--text-secondary)] hover:text-[var(--text-danger)]"
-                                            aria-label={`Delete ${tag.label}`}
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </button>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null}
-                          </section>
-
-                        </aside>
-
-                        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-panel-alt)]">
-                          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-default)] bg-[var(--surface-panel)] px-6 py-3">
-                            <div className="flex items-center gap-4">
-                              <span className="technical-label">Interactive Block Editor</span>
-                              <span className="h-4 w-px bg-[var(--border-default)]" />
-                              <button
-                                type="button"
-                                onClick={undoExtractorDraft}
-                                disabled={extractorUndoStack.length === 0}
-                                className="rounded p-1 text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label="Undo"
-                                title="Undo"
-                              >
-                                <Undo2 className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={redoExtractorDraft}
-                                disabled={extractorRedoStack.length === 0}
-                                className="rounded p-1 text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label="Redo"
-                                title="Redo"
-                              >
-                                <Redo2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
-                              <span className="h-2 w-2 rounded-full bg-[var(--state-ready)]" />
-                              {formatSavedStatus(extractorLastSavedAt, editorClock)}
-                            </div>
-                          </div>
-
-                          <div
-                            ref={editorScrollRef}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                              autoScrollEditorDuringDrag(event.clientY);
-                            }}
-                            className="min-h-0 flex-1 overflow-y-auto p-6"
-                          >
-                            <div className="min-h-full space-y-4">
-                            {!extractorWarningsDismissed && normalizedExtractorWarnings.length > 0 ? (
-                              <section
-                                aria-label="Formatter warnings"
-                                className="flex items-start gap-3 rounded-lg border border-[var(--state-warning)] bg-[var(--state-warning-soft)] p-4 text-[var(--text-primary)] shadow-[var(--elevation-subtle)]"
-                              >
-                                <AlertTriangle
-                                  className="mt-0.5 h-5 w-5 shrink-0 text-[var(--text-warning)]"
-                                  aria-hidden="true"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <h3 className="text-sm font-bold">Review the formatted lyrics</h3>
-                                  <ul className="mt-2 space-y-2">
-                                    {normalizedExtractorWarnings.map((warning) => (
-                                      <li key={warning.code} className="text-xs leading-5 text-[var(--text-secondary)]">
-                                        <span className="font-bold text-[var(--text-primary)]">{warning.title}:</span>{" "}
-                                        {warning.message}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setExtractorWarningsDismissed(true)}
-                                  className="ui-modal-close shrink-0"
-                                  aria-label="Dismiss formatter warnings"
-                                  title="Dismiss warnings"
-                                >
-                                  <X className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                              </section>
-                            ) : null}
-                            {editorSections.map((section, index) => {
-                              const tag = section.tag ?? "Section";
-                              const matchingTag = songTags.find((item) => item.token.toLowerCase() === tag.toLowerCase());
-                              const borderColor = matchingTag?.color ?? "var(--border-focus)";
-
-                              return (
-                                <article
-                                  key={`${tag}-${index}`}
-                                  onDragOver={(event) => {
-                                    event.preventDefault();
-                                    event.dataTransfer.dropEffect = "move";
-                                    autoScrollEditorDuringDrag(event.clientY);
-                                  }}
-                                  onDrop={(event) => {
-                                    event.preventDefault();
-                                    const sourceIndex = draggedEditorSectionIndex ?? Number(event.dataTransfer.getData("text/plain"));
-                                    if (Number.isFinite(sourceIndex)) {
-                                      reorderEditorSection(sourceIndex, index);
-                                    }
-                                  }}
-                                  onDragEnd={() => setDraggedEditorSectionIndex(null)}
-                                  className={`rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 shadow-[var(--elevation-subtle)] transition ${
-                                    draggedEditorSectionIndex === index ? "opacity-50" : ""
-                                  }`}
-                                  style={{ borderLeft: `4px solid ${borderColor}` }}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        draggable
-                                        onDragStart={(event) => {
-                                          setDraggedEditorSectionIndex(index);
-                                          event.dataTransfer.effectAllowed = "move";
-                                          event.dataTransfer.setData("text/plain", String(index));
-                                        }}
-                                        className="cursor-grab select-none rounded p-1 text-lg leading-none text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] active:cursor-grabbing"
-                                        aria-label="Drag section"
-                                        title="Drag section"
-                                      >
-                                        ::
-                                      </button>
-                                      <ProductionSelect
-                                        ariaLabel={`Section ${index + 1} tag`}
-                                        value={tag}
-                                        onValueChange={(value) => updateEditorSection(index, { ...section, tag: value })}
-                                        options={[
-                                          ...songTags.map((item) => ({ value: item.token, label: item.label })),
-                                          ...(!matchingTag ? [{ value: tag, label: tag }] : []),
-                                        ]}
-                                        triggerClassName="h-8 w-auto min-w-28 bg-[var(--surface-panel-strong)] px-2 text-xs font-bold"
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                                        {section.lines.filter((line) => line.trim()).length} lines
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const nextSections = [
-                                            ...editorSections.slice(0, index + 1),
-                                            { ...section, lines: [...section.lines] },
-                                            ...editorSections.slice(index + 1),
-                                          ];
-                                          commitEditorSections(nextSections);
-                                          showToast("Section duplicated.", "success");
-                                        }}
-                                          className="rounded-md p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-accent)]"
-                                        aria-label="Duplicate section"
-                                        title="Duplicate section"
-                                      >
-                                        <Copy className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const nextSections = editorSections.filter((_, itemIndex) => itemIndex !== index);
-                                          commitEditorSections(nextSections);
-                                          showToast("Section deleted.");
-                                        }}
-                                          className="rounded-md p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-danger)]"
-                                        aria-label="Delete section"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <textarea
-                                    value={section.lines.join("\n")}
-                                    onChange={(event) => updateEditorSection(index, { ...section, lines: event.target.value.split("\n") })}
-                                    rows={Math.max(3, Math.min(8, section.lines.length + 1))}
-                                    spellCheck={false}
-                                    className="mt-4 w-full resize-y rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm leading-6 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
-                                    aria-label={`${tag} lyrics`}
-                                  />
-                                </article>
-                              );
-                            })}
-
-                            <button
-                              type="button"
-                              onClick={() => commitEditorSections([...editorSections, { tag: "Verse", lines: [""] }])}
-                              className="pressable flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border-default)] bg-[var(--surface-panel)] py-8 text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--border-focus)] hover:text-[var(--text-accent)]"
-                            >
-                              <Plus className="h-7 w-7" />
-                              Click to add a new song section
-                            </button>
-                            </div>
-
-                          </div>
-                          <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--border-default)] bg-[var(--surface-panel)] px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                queryClient.removeQueries({ queryKey: formatterDraftQueryKey, exact: true });
-                                commitExtractorDraftText("");
-                                setExtractorAiRetry(null);
-                                setExtractorWarningCodes([]);
-                                setExtractorWarningsDismissed(false);
-                                setExtractorStatus("Draft cleared.");
-                                showToast("Draft cleared.");
-                                router.push(workspaceFormatterPath("upload"));
-                              }}
-                                className="ui-btn-secondary pressable inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold"
-                            >
-                              <X className="h-4 w-4" />
-                              Clear draft
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!extractorDraftText.trim()) {
-                                  setFeedback("Extract or enter lyrics before generating DOCX.");
-                                  showToast("Extract or enter lyrics before generating DOCX.");
-                                  return;
-                                }
-
-                                setExtractorStatus("Generating DOCX...");
-                                showToast("Generating DOCX...");
-                                generateLyricsDocxMutation.mutate({
-                                  serviceId: selectedService?.id,
-                                  text: extractorDraftText,
-                                  songTitle: extractorSongTitle || undefined,
-                                });
-                              }}
-                              disabled={generateLyricsDocxMutation.isPending}
-                              className="ui-btn-primary pressable inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold disabled:opacity-60"
-                            >
-                              {generateLyricsDocxMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                              {generateLyricsDocxMutation.isPending ? "Generating DOCX..." : "Generate DOCX"}
-                            </button>
-                          </div>
-                        </section>
-                      </div>
-                    </section>
+                  extractorDraftText || formatterDraftOpened || recovery.conversionId ? (
+                    <>
+                    {recovery.canTakeOver ? <div role="status" className="mb-3 flex items-center justify-between gap-3 text-sm"><span>{recovery.status}</span><button className="ui-btn-secondary px-3" onClick={() => void recovery.takeover()}>Take over editing</button></div> : null}
+                    <SongDocumentEditor
+                      key={recovery.conversionId ?? "local-formatter-draft"}
+                      text={extractorDraftText}
+                      songTitle={extractorSongTitle}
+                      tags={songTags}
+                      recoveryStatus={recovery.status}
+                      readOnly={recovery.readOnly}
+                      warnings={normalizedExtractorWarnings}
+                      warningsDismissed={extractorWarningsDismissed}
+                      onChange={text => { setFormatterDraftOpened(true); setExtractorDraftText(text); }}
+                      onTitleChange={setExtractorSongTitle}
+                      onDismissWarnings={() => setExtractorWarningsDismissed(true)}
+                      settingsHref={`${workspaceRoutePrefix}/settings?tab=tags`}
+                      exportPending={generateLyricsDocxMutation.isPending}
+                      aiPending={aiExtractorRetryMutation.isPending || aiLyricsReformatMutation.isPending || recovery.busy}
+                      aiUsed={!extractorAiRetry && directAiReformatUsed}
+                      onExport={() => generateLyricsDocxMutation.mutate({
+                        serviceId: selectedService?.id,
+                        text: extractorDraftText,
+                        songTitle: extractorSongTitle || undefined,
+                      })}
+                      onReformat={() => {
+                        if (extractorAiRetry) {
+                          aiExtractorRetryMutation.mutate({ serviceId: selectedService?.id, retryToken: extractorAiRetry.retryToken, conversionId: recovery.conversionId });
+                        } else if (!directAiReformatUsed) {
+                          aiLyricsReformatMutation.mutate({
+                            serviceId: selectedService?.id,
+                            text: extractorDraftText,
+                            songTitle: extractorSongTitle || undefined,
+                            conversionId: recovery.conversionId,
+                          });
+                        }
+                      }}
+                      onClear={async () => {
+                        if (!await recovery.clear()) return;
+                        setFormatterDraftOpened(false);
+                        setExtractorDraftText("");
+                        setExtractorSongTitle("");
+                        setExtractorAiRetry(null);
+                        setExtractorWarningCodes([]);
+                        setExtractorWarningsDismissed(false);
+                        setDirectAiReformatUsed(false);
+                        router.push(workspaceFormatterPath("upload"));
+                      }}
+                    />
+                    </>
                   ) : (
                     <section className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-panel)] p-8 text-center shadow-[var(--elevation-subtle)]">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">No extracted draft yet</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{recovery.checking ? "Recovering your draft…" : recovery.error ?? "No extracted draft yet"}</p>
                       <p className="mt-2 text-xs text-[var(--text-secondary)]">
                         Start on Upload or paste lyrics, then the processed draft will open here.
                       </p>

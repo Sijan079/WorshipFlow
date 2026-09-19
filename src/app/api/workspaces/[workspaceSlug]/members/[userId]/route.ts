@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { reportRouteFailure } from "@/lib/observability";
 import { requireExplicitWorkspaceRole, WorkspaceAuthorizationError } from "@/lib/security-context";
 import { canManageMember } from "@/lib/workspace-auth";
 
@@ -44,12 +45,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json(updated);
   } catch (error: unknown) {
     const status = error instanceof WorkspaceAuthorizationError ? error.status : 500;
-    const message = error instanceof Error ? error.message : "Failed to update workspace member.";
+    reportRouteFailure(error, { route: "/api/workspaces/[workspaceSlug]/members/[userId]", method: "PATCH", status, request });
+    const message = status === 500 ? "Failed to update workspace member." : error instanceof Error ? error.message : "Access denied.";
     return NextResponse.json({ error: message }, { status });
   }
 }
 
-export async function DELETE(_request: Request, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { userId } = await params;
     const { context, membership } = await loadMembership(userId);
@@ -67,7 +69,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const status = error instanceof WorkspaceAuthorizationError ? error.status : 500;
-    const message = error instanceof Error ? error.message : "Failed to remove workspace member.";
+    reportRouteFailure(error, { route: "/api/workspaces/[workspaceSlug]/members/[userId]", method: "DELETE", status, request });
+    const message = status === 500 ? "Failed to remove workspace member." : error instanceof Error ? error.message : "Access denied.";
     return NextResponse.json({ error: message }, { status });
   }
 }

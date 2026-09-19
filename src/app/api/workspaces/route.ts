@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { reportRouteFailure } from "@/lib/observability";
 import { requireAuthenticatedUser } from "@/lib/security-context";
 import { seedChecklistPresets, seedMinistryPresets, seedServiceTemplatePresets, seedServantGroupPresets } from "@/lib/settings-server";
 import { createWorkspaceSlug, WORKSPACE_NAME_MAX_LENGTH, WORKSPACE_NAME_MIN_LENGTH } from "@/lib/workspace-slug";
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     const status = error instanceof Error && error.name === "WorkspaceAuthorizationError" ? 401 : 500;
+    reportRouteFailure(error, { route: "/api/workspaces", method: "POST", status, request });
     return NextResponse.json({ error: status === 401 ? "Authentication required." : "Unable to create church organization." }, { status });
   }
 }

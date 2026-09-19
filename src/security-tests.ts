@@ -48,6 +48,8 @@ import { runDeploymentBuildTests } from "./lib/deployment-build.test.ts";
 import { runToastUiTests } from "./lib/toast-ui.test.ts";
 import { runDashboardTests } from "./lib/dashboard.test.ts";
 import { runCalendarDateTests } from "./lib/calendar-date.test.ts";
+import { runOperationalDesignTokenTests } from "./lib/operational-design-tokens.test.ts";
+import { runDesignSystemGalleryTests } from "./lib/design-system-gallery.test.ts";
 import packageJson from "../package.json" with { type: "json" };
 
 runSecurityContextTests();
@@ -101,6 +103,8 @@ runDeploymentBuildTests();
 runToastUiTests();
 runDashboardTests();
 runCalendarDateTests();
+runOperationalDesignTokenTests();
+runDesignSystemGalleryTests();
 
 if (packageJson.scripts["vercel-build"] !== "node scripts/vercel-build.mjs") {
   throw new Error("vercel-build must run the deployment build script");

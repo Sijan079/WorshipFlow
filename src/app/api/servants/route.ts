@@ -34,9 +34,7 @@ export async function GET(request: Request) {
     `);
 
     return NextResponse.json(servants);
-  } catch (error: unknown) {
-    console.error("GET /api/servants error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to load servants") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to load servants") }, { status: 500 });
   }
 }
 
@@ -73,8 +71,6 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json(Array.isArray(parsed.data) ? servants : servants[0], { status: 201 });
-  } catch (error: unknown) {
-    console.error("POST /api/servants error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to create servant") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to create servant") }, { status: 500 });
   }
 }

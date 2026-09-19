@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireWorkspaceContext } from "@/lib/security-context";
+import { reportRouteFailure } from "@/lib/observability";
+import { requireWorkspaceContext, WorkspaceAuthorizationError } from "@/lib/security-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,15 @@ export async function GET(request: NextRequest) {
   if (data.user && workspaceSlug) {
     try {
       role = (await requireWorkspaceContext(workspaceSlug)).role;
-    } catch {
+    } catch (error) {
+      if (!(error instanceof WorkspaceAuthorizationError)) {
+        reportRouteFailure(error, {
+          route: "/api/auth/session",
+          method: "GET",
+          status: 500,
+          request,
+        });
+      }
       role = null;
     }
   }

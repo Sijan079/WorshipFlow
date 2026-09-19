@@ -71,7 +71,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(detail, { status: existingDetail ? 200 : 201 });
   } catch (error: unknown) {
-    console.error("POST /api/services/[id]/details error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to set detail") }, { status: 500 });
   }
 }

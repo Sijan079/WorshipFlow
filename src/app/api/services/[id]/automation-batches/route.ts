@@ -72,9 +72,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const batch = await createTemporaryAutomationBatch(serviceId, files);
     return NextResponse.json(batch, { status: 201 });
-  } catch (error: unknown) {
-    console.error("POST /api/services/[id]/automation-batches error:", error);
-    return NextResponse.json(
+  } catch (error: unknown) {    return NextResponse.json(
       { error: getErrorMessage(error, "Failed to stage automation files") },
       { status: 500 }
     );

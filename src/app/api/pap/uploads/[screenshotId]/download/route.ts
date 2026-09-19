@@ -1,6 +1,7 @@
 import { cleanupExpiredPAPInboxUploads } from "@/features/pap/server/pap-inbox";
 import { readPrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
+import { reportRouteFailure } from "@/lib/observability";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ type RouteContext = {
   params: Promise<{ screenshotId: string }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     const workspaceId = await getActiveWorkspaceId(prisma);
     await cleanupExpiredPAPInboxUploads(prisma, new Date(), workspaceId);
@@ -38,7 +39,7 @@ export async function GET(_request: Request, context: RouteContext) {
       },
     });
   } catch (error: unknown) {
-    console.error("GET /api/pap/uploads/[screenshotId]/download error:", error);
+    reportRouteFailure(error, { route: "/api/pap/uploads/[screenshotId]/download", method: "GET", status: 500, request });
     return Response.json({ error: "Failed to download PAP upload." }, { status: 500 });
   }
 }

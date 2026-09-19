@@ -22,7 +22,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (!type) return NextResponse.json({ error: "Program block type not found" }, { status: 404 });
     return NextResponse.json(type);
   } catch (error: unknown) {
-    console.error("GET /api/settings/program-block-types/[id] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to load program block type") }, { status: 500 });
   }
 }
@@ -59,7 +58,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
     });
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    console.error("PUT /api/settings/program-block-types/[id] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to update program block type") }, { status: 500 });
   }
 }
@@ -79,7 +77,6 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     await prisma.programBlockType.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/settings/program-block-types/[id] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to delete program block type") }, { status: 500 });
   }
 }
@@ -103,7 +100,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
     return NextResponse.json(version, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/settings/program-block-types/[id] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to create program block type version") }, { status: 500 });
   }
 }

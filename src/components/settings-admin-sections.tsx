@@ -242,7 +242,7 @@ export function MembershipSection() {
             </label>
             {invite.isError ? <p role="alert" className="text-sm text-[var(--text-danger)]">Could not send invitation.</p> : null}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setInviteDialogOpen(false)} disabled={invite.isPending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button type="button" onClick={() => setInviteDialogOpen(false)} disabled={invite.isPending} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold">Cancel</button>
               <button type="submit" disabled={invite.isPending || !email.trim()} className="ui-btn-primary h-10 px-3 text-sm font-semibold disabled:opacity-40">{invite.isPending ? "Sending…" : "Send invitation"}</button>
             </div>
           </form>
@@ -267,7 +267,7 @@ export function MembershipSection() {
               </Select>
             </label>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setRoleDialogMember(null)} disabled={updateMember.isPending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button type="button" onClick={() => setRoleDialogMember(null)} disabled={updateMember.isPending} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold">Cancel</button>
               <button type="submit" disabled={updateMember.isPending || !roleDialogMember} className="ui-btn-primary h-10 px-3 text-sm font-semibold disabled:opacity-40">{updateMember.isPending ? "Saving…" : "Save role"}</button>
             </div>
           </form>
@@ -283,7 +283,7 @@ export function MembershipSection() {
               : <>This will remove <span className="font-medium text-[var(--text-primary)]">{confirmationTarget?.email}</span> from this workspace. They will need a new invitation to return.</>}
           </DialogDescription>
           <div className="mt-5 flex justify-end gap-2">
-            <button type="button" onClick={() => setConfirmationTarget(null)} disabled={confirmationPending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+            <button type="button" onClick={() => setConfirmationTarget(null)} disabled={confirmationPending} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold">Cancel</button>
             <button type="button" onClick={confirmDestructiveAction} disabled={confirmationPending || !confirmationTarget} className="pressable h-10 rounded-md border border-[var(--state-danger)] bg-[var(--state-danger-soft)] px-3 text-sm font-semibold text-[var(--text-danger)] hover:opacity-90 disabled:opacity-40" aria-label="Confirm action">{confirmationPending ? "Saving…" : confirmationTarget?.kind === "invitation" ? "Revoke invitation" : "Remove member"}</button>
           </div>
         </DialogContent>

@@ -13,7 +13,10 @@ export function runServicesSecurityTests() {
     console.error = originalConsoleError;
   }
   assert.equal(logged.length, 2);
-  assert.equal(logged[0]?.[0], "Route handler failed.");
+  const firstRecord = JSON.parse(String(logged[0]?.[0]));
+  assert.equal(firstRecord.event, "route.handler.failure");
+  assert.equal(firstRecord.route, "/api/unknown");
+  assert.equal(firstRecord.metric.name, "worship_flow_failures_total");
 
   assert.equal("blocks" in serviceListRelations.include, true);
   assert.equal("jobs" in serviceListRelations.include, false);

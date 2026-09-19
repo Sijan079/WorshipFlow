@@ -68,7 +68,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(serviceSong, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/services/[id]/songs error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to add song to service") }, { status: 500 });
   }
 }

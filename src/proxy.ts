@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAuthCallbackRecoveryUrl } from "@/lib/auth-redirect";
-import { isPublicPathForProxy } from "@/lib/proxy-paths";
+import { isGlobalApiPathForProxy, isPublicPathForProxy } from "@/lib/proxy-paths";
 import { updateSession } from "@/lib/supabase/proxy";
 
 const LEGACY_WORKSPACE_PATHS = [
@@ -38,6 +38,7 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/")
     && !workspaceApiMatch
     && !request.nextUrl.pathname.startsWith("/api/auth/")
+    && !isGlobalApiPathForProxy(request.nextUrl.pathname)
   ) {
     return NextResponse.json({ error: "Workspace-scoped API route required." }, { status: 404 });
   }

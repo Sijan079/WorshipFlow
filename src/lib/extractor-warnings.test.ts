@@ -18,14 +18,15 @@ export function runExtractorWarningTests() {
   }
 
   const editorSource = readFileSync(
-    join(process.cwd(), "src", "components", "service-builder-client.tsx"),
+    join(process.cwd(), "src", "features", "song-formatter", "song-document-editor.tsx"),
     "utf8",
   );
   const warningPanelIndex = editorSource.indexOf('aria-label="Formatter warnings"');
-  const formattedSectionsIndex = editorSource.indexOf("editorSections.map", warningPanelIndex);
+  const formattedSectionsIndex = editorSource.indexOf("className={styles.body}", warningPanelIndex);
   assert.ok(warningPanelIndex >= 0, "the formatter renders a visible warning section");
   assert.ok(formattedSectionsIndex > warningPanelIndex, "warnings appear above the formatted song sections");
   assert.match(editorSource, /aria-label="Dismiss formatter warnings"/);
-  assert.match(editorSource, /normalizeExtractorWarnings\(extractorWarningCodes\)/);
+  const integrationSource = readFileSync(join(process.cwd(), "src", "components", "service-builder-client.tsx"), "utf8");
+  assert.match(integrationSource, /normalizeExtractorWarnings\(extractorWarningCodes\)/);
   assert.doesNotMatch(editorSource, /extractorAiRetry\.warningCodes\.join/);
 }

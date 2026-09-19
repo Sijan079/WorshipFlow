@@ -23,9 +23,7 @@ export async function GET() {
       ...record,
       isActive: record.id === workspace.activeChecklistId,
     })));
-  } catch (error: unknown) {
-    console.error("GET /api/settings/checklists error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to load checklists") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to load checklists") }, { status: 500 });
   }
 }
 
@@ -40,9 +38,7 @@ export async function POST(request: Request) {
       include: { items: true },
     });
     return NextResponse.json({ ...record, isActive: false }, { status: 201 });
-  } catch (error: unknown) {
-    console.error("POST /api/settings/checklists error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to create checklist") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to create checklist") }, { status: 500 });
   }
 }
 
@@ -60,8 +56,6 @@ export async function PATCH(request: Request) {
 
     await prisma.workspace.update({ where: { id: workspaceId }, data: { activeChecklistId: preset.id } });
     return NextResponse.json({ checklistId: preset.id });
-  } catch (error: unknown) {
-    console.error("PATCH /api/settings/checklists error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to activate checklist") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to activate checklist") }, { status: 500 });
   }
 }

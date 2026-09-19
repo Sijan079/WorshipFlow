@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { reportRouteFailure } from "@/lib/observability";
 import { getEnvironmentReport } from "@/lib/server-env";
 
-export async function GET() {
+export async function GET(request: Request) {
   const startedAt = Date.now();
 
   try {
@@ -25,12 +26,19 @@ export async function GET() {
       }
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Health check failed";
+    reportRouteFailure(error, {
+      route: "/api/health",
+      method: "GET",
+      status: 503,
+      request,
+      durationMs: Date.now() - startedAt,
+      event: "health.check.failure",
+    });
 
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: "Health check failed.",
         latencyMs: Date.now() - startedAt,
       },
       {

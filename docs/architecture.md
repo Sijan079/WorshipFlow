@@ -95,6 +95,18 @@ rename, add, or remove blocks from an individual service. Arbitrary custom field
 builders, nested blocks, and canvas layouts are intentionally deferred until
 real service workflows demonstrate the need.
 
+## Song document editing
+
+The formatter lazy-loads a ProseMirror editor from `src/features/song-formatter`.
+Ordered tagged sections remain the source of truth; page gaps are non-content
+decorations. Extraction responses now include a conversion ID. Metadata-only
+`FormatterConversion` records are separate from disposable `FormatterDraft`
+content, with one current draft per user/workspace. Session leases and revisions
+protect cross-device saves; exit starts a one-hour TTL and scheduled cleanup
+removes expired payloads. Browser storage is a bounded unsynced fallback, not
+an archive. See [ADR 0003](adr/0003-song-document-editor.md) and
+[ADR 0004](adr/0004-temporary-formatter-drafts.md).
+
 ## Provisioning
 
 ```powershell

@@ -218,7 +218,7 @@ function DeleteConfirmDialog({
         <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</DialogDescription>
         {error ? <p role="alert" className="mt-3 text-sm text-[var(--text-danger)]">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={pending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)] disabled:opacity-50">Cancel</button>
+          <button type="button" onClick={onCancel} disabled={pending} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold disabled:opacity-50">Cancel</button>
           <button type="button" onClick={onConfirm} disabled={pending} className="ui-btn-danger pressable h-10 px-3 text-sm font-semibold disabled:opacity-50">{pending ? "Deleting..." : "Delete"}</button>
         </div>
       </DialogContent>
@@ -366,7 +366,7 @@ function EditablePresetSection({
             const draft = drafts[record.id] ?? record;
             return (
               <div key={record.id} className="group grid min-h-16 w-full grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-3 px-4 py-2 transition-colors hover:bg-[var(--surface-panel-alt)] focus-within:bg-[var(--surface-panel-alt)] sm:px-6">
-                {editingId === record.id ? <div className="flex min-w-0 items-center gap-2"><input autoFocus value={draft.label} onChange={(event) => setDrafts({ ...drafts, [record.id]: { ...draft, label: event.target.value } })} className="min-w-0 flex-1 border-0 border-b border-[var(--border-focus)] bg-transparent px-0 py-1 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none" aria-label={`${record.label} label`} /><button type="button" onClick={() => updateMutation.mutate([[record.id, draft]])} disabled={updateMutation.isPending || !draft.label.trim()} className="ui-btn-primary inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Save ${record.label}`}><Save className="h-3.5 w-3.5" />Save</button><button type="button" onClick={() => { setDrafts((current) => { const next = { ...current }; delete next[record.id]; return next; }); setEditingId(null); }} disabled={updateMutation.isPending} className="pressable inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]" aria-label={`Cancel editing ${record.label}`}><X className="h-3.5 w-3.5" />Cancel</button></div> : <div className="flex min-w-0 items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-muted)]"><UsersRound className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{draft.label}</span></div>}
+                {editingId === record.id ? <div className="flex min-w-0 items-center gap-2"><input autoFocus value={draft.label} onChange={(event) => setDrafts({ ...drafts, [record.id]: { ...draft, label: event.target.value } })} className="min-w-0 flex-1 border-0 border-b border-[var(--border-focus)] bg-transparent px-0 py-1 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none" aria-label={`${record.label} label`} /><button type="button" onClick={() => updateMutation.mutate([[record.id, draft]])} disabled={updateMutation.isPending || !draft.label.trim()} className="ui-btn-primary inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Save ${record.label}`}><Save className="h-3.5 w-3.5" />Save</button><button type="button" onClick={() => { setDrafts((current) => { const next = { ...current }; delete next[record.id]; return next; }); setEditingId(null); }} disabled={updateMutation.isPending} className="ui-btn-cancel pressable inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Cancel editing ${record.label}`}><X className="h-3.5 w-3.5" />Cancel</button></div> : <div className="flex min-w-0 items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-muted)]"><UsersRound className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{draft.label}</span></div>}
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <button type="button" className="pressable inline-flex min-h-11 w-11 items-center justify-center rounded-md bg-transparent text-[var(--text-muted)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]" aria-label={`Actions for ${record.label}`} title={`Actions for ${record.label}`}>
@@ -494,7 +494,7 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
             <div id="new-checklist-form" className="grid gap-3 bg-[var(--surface-panel-alt)] px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Checklist name" autoFocus className="rounded-md border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" />
               <div className="flex gap-2">
-                <button type="button" onClick={() => { setNewChecklistOpen(false); setNewName(""); }} className="ui-btn-secondary pressable px-3 py-2 text-xs font-semibold">Cancel</button>
+                <button type="button" onClick={() => { setNewChecklistOpen(false); setNewName(""); }} className="ui-btn-cancel pressable px-3 py-2 text-xs font-semibold">Cancel</button>
                 <button type="button" onClick={() => createMutation.mutate({ name: newName })} disabled={!newName.trim() || createMutation.isPending} className="ui-btn-primary pressable px-3 py-2 text-xs font-semibold disabled:opacity-50">
                   {createMutation.isPending ? "Creating..." : "Create Checklist"}
                 </button>
@@ -847,7 +847,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                 setDeleteConfirmOpen(true);
               }}
               disabled={deleteMutation.isPending}
-              className="ui-btn-danger pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 px-3 hover:bg-[var(--state-danger-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="ui-btn-danger pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 px-3 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Delete selected templates"
               title="Delete selected templates"
             >
@@ -1275,10 +1275,10 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
             {selectedRecords.map((record) => <li key={record.id}>{record.label}</li>)}
           </ul>
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteMutation.isPending} className="pressable h-11 rounded-md px-4 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)] disabled:opacity-50">
+            <button type="button" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteMutation.isPending} className="ui-btn-cancel pressable h-11 px-4 text-sm font-semibold disabled:opacity-50">
               Cancel
             </button>
-            <button type="button" onClick={() => deleteMutation.mutate(selectedIds)} disabled={deleteMutation.isPending} className="ui-btn-danger pressable inline-flex h-11 items-center gap-2 px-4 text-sm font-semibold hover:bg-[var(--state-danger-soft)] disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={() => deleteMutation.mutate(selectedIds)} disabled={deleteMutation.isPending} className="ui-btn-danger pressable inline-flex h-11 items-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               <span>Delete selected</span>
             </button>

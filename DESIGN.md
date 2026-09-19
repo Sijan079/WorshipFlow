@@ -53,7 +53,7 @@ service preparation, not assembled from a generic SaaS dashboard recipe.
 
 ## Brand Direction
 
-- Dark, focused production-OS feel for live worship preparation
+- Light, paper-clear operational workspaces anchored by a dark production rail
 - Calm, readable, authoritative surfaces under pressure
 - Cinematic only where it improves clarity, never at the cost of speed
 - Prioritize service order accuracy, operator speed, and fast recognition
@@ -84,6 +84,11 @@ Motion is a communication layer, not decoration.
 `tokens.css` is the canonical editable token source.
 
 - Base palette variables use `--palette-*`
+- Services and Teams define the reference operational workspace palette through
+  `--palette-workspace-*` primitives and `--workspace-*` semantic contracts.
+- The dark navigation rail uses `--palette-rail-*` primitives and `--rail-*`
+  semantic contracts. Do not place raw rail or workspace colors in
+  `globals.css`.
 - Semantic UI intent uses `--surface-*`, `--text-*`, `--border-*`,
   `--action-*`, `--state-*`, `--radius-*`, and `--elevation-*`
 - `src/app/globals.css` is the semantic application layer
@@ -91,6 +96,19 @@ Motion is a communication layer, not decoration.
 - New UI work should prefer semantic tokens directly
 
 ## Palette
+
+The operational workspace established by Services and Teams uses:
+
+- Canvas and primary panels: `#ffffff`
+- Subtle fields and row support: `#f8fafc`
+- Inactive controls and secondary actions: `#f1f5f9`
+- Primary, secondary, and muted text: `#111827`, `#475569`, `#64748b`
+- Default and strong rules: `#e2e8f0`, `#cbd5e1`
+- Primary action and focus: `#7c3aed`; primary hover: `#8754ee`
+- Danger: `#b91c1c`; success: `#047857`; warning: `#b45309`
+
+The following dark Stitch palette remains the foundation for the production
+rail, live-production surfaces, and compatibility styles:
 
 Use this Stitch palette:
 
@@ -160,13 +178,22 @@ Components should consume tokens by intent, not raw color family.
 - Inspector panels: 320px when present
 - Base spacing unit: 8px
 - Large high-pressure work areas should keep at least 32px safe areas
+- Compact controls and touch zones: 40px
+- Standard action controls: 44px
+- Teams-style ledger action zone: 72px row height by 60px width
 
 ## Surfaces and Shape
 
+- Operational workspace canvas and registers are white; inactive fields and
+  dropdown triggers use the cool gray `workspace-control-inactive` primitive.
+- Operational registers use fine slate rules and restrained cool-gray shadows;
+  selected rows use a low-opacity purple wash without adding a new border.
 - Level 0 canvas: `#0b1326`
 - Level 1 containers: `#171f33` with a subtle outline
 - Level 2 active or floating surfaces: `#222a3d` or `#2d3449`
 - Shadows should stay tight and low-opacity
+- Detached formatter controls use `--workspace-elevation-floating` for neutral,
+  all-sided separation; keep overflow visible so its shadow is not clipped.
 - Purple ambient shadow is allowed only when active separation needs to read
 - Chips and badges: 4px radius
 - Standard buttons, inputs, and cards: 8px radius
@@ -175,8 +202,14 @@ Components should consume tokens by intent, not raw color family.
 ## Component Direction
 
 - Primary buttons: electric purple or `primary-container` fill with high
-  contrast text
+  contrast white text; hover uses the slightly lighter purple action token
+- Save actions use the same primary treatment as Create Service.
+- Destructive buttons are transparent with primary text and a default border;
+  hover fills with danger red, removes the visible border, and uses white text.
 - Secondary buttons: transparent or dark ghost surface with a 1px slate border
+- Cancel buttons: use the shared `ui-btn-cancel` treatment—transparent, 1px
+  default border, secondary text, and danger-colored border and text on hover.
+  Do not use a filled secondary button for Cancel.
 - Inputs: darker than surrounding surfaces, etched appearance, purple focus
 - Technical buttons: compact Geist labels
 - Service cards: drag handle where ordering exists; active item may use a 4px
@@ -200,6 +233,37 @@ Components should consume tokens by intent, not raw color family.
   separate task or context.
 - Expanded rows should remain visually connected to their source row through
   indentation or one purposeful accent rule.
+
+### Operational Page Contract
+
+The Services page establishes the shared visual grammar for other operational
+directories such as Teams. Reuse these contracts instead of rebuilding their
+chrome per page:
+
+- Page headers use `ui-page-header`, `ui-page-title`, and
+  `ui-page-description`; the primary Add action sits opposite the title group.
+- Registers use `ui-surface-elevated ui-operational-register`, with filters and
+  record counts in one `ui-register-toolbar` row.
+- Dense lists use `ui-ledger-header` and `ui-ledger-row`. Selection changes the
+  row background subtly; it does not add a second card or heavy border.
+- On touch-heavy ledgers, a one-second press-and-hold may supplement the visible
+  checkbox for row selection. Cancel the gesture when the pointer moves for
+  scrolling, and never trigger it from buttons, links, or form controls.
+- Row-level actions use one `ui-row-menu-trigger` and a shared
+  `ui-action-menu-content`. Edit-like actions use `ui-action-menu-item`; delete
+  actions add `ui-action-menu-item-danger`.
+- Contextual multi-row actions may use compact icon-only controls when their
+  selection context is already visible. Keep an accessible label and tooltip;
+  assignment actions may use a restrained lift with a purple hover state, and
+  destructive actions use the shared animated trash treatment.
+- Text inputs and textareas use `ui-field`: an engraved, darker surface with a
+  default outline and the semantic focus border. Selects use
+  `ProductionSelect` so their trigger and dropdown states stay consistent.
+- Modal headers use one title and `ui-modal-close`. Keep helpful copy only when
+  it prevents a likely mistake. Modal actions remain unframed and right-aligned;
+  Cancel uses `ui-btn-cancel` and the primary action uses `ui-btn-primary`.
+- Empty and loading states occupy the register body without adding another
+  nested surface.
 
 ### Modals
 

@@ -23,7 +23,6 @@ export async function GET() {
 
     return NextResponse.json(outputs);
   } catch (error: unknown) {
-    console.error("GET /api/media/backgrounds error:", error);
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to fetch generated backgrounds") },
       { status: 500 }

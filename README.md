@@ -1,5 +1,10 @@
 # WorshipFlow
 
+Server failures use structured logs and OpenTelemetry trace annotations.
+Run `npm run test:observability` to verify failure metrics and trace correlation.
+See [error observability setup](docs/deployment/vercel.md#error-observability)
+for production log/trace retention and the optional OTLP metrics destination.
+
 WorshipFlow is a production workspace for preparing one real worship service
 at a time. It helps church worship and technical teams preserve the intended
 service order, assign people and songs, prepare booth media, and persist the
@@ -23,7 +28,10 @@ platform.
 
 - Upload or paste lyrics
 - Extract and normalize lyrics locally or with optional AI assistance
-- Edit verse, chorus, bridge, and repeat blocks
+- Edit lyrics directly on Word-style pages with section tagging, grouping,
+  an optional outline, and undo/redo
+- Export FreeShow-compatible DOCX and resume the latest temporary draft across
+  your devices; phones use continuous editing with a separate page preview
 - Maintain a song repository with musical and language metadata
 
 ### Production Media
@@ -123,7 +131,8 @@ against the local Docker Supabase stack.
    ```
 
 `npm run dev` starts Docker Desktop automatically on Windows when needed, waits
-for its daemon, starts the local Supabase Docker stack, then loads
+for its daemon, starts the local Supabase Docker stack (excluding the optional
+Vector log collector), then loads
 `.env.local.docker`, and applies the checked-in Prisma migrations before Next.js
 starts. On a fresh local database, it safely bootstraps the Prisma baseline before
 applying future migrations. Those process variables override hosted values in `.env.local`, keeping the OAuth callback on
@@ -236,7 +245,37 @@ npm run build     # Prisma generation and production build
 npm run lint      # ESLint
 npm test          # Security and domain checks
 npm run test:formatter-file -- "C:\\path\\song.docx" # Print formatter output for a DOCX or PDF
+npm run test:song-editor # Document editing, pagination, and draft recovery tests
+npm run test:formatter-drafts # Local PostgreSQL lifecycle/concurrency tests
+npm run cleanup:formatter # Delete expired formatter payloads once; -- --watch repeats every five minutes
+npm run verify:song-editor # Isolated browser fixture at http://127.0.0.1:4318
 ```
+
+The song editor fixture uses test identity responses and the real editor/DOCX
+code. It does not access workspace data. For the full authenticated workflow,
+use `npm run dev`. See the [formatter spec](docs/specs/song-formatter/spec.md)
+for editing and temporary cross-device recovery behavior. The normal development
+command starts the five-minute draft cleanup runner. Production requires the
+[authenticated cleanup schedule](docs/deployment/vercel.md#formatter-draft-cleanup)
+before enabling this workflow; no cloud scheduler is provisioned by local development.
+
+For the real server-backed recovery hook in disposable local database fixtures:
+`node --env-file=.env.local.docker --experimental-strip-types scripts/verify-formatter-drafts.mjs`.
+This serves port 4319, creates isolated test identities, and removes them on
+Ctrl+C. It never bypasses application authentication. Browser assertions live in
+`scripts/fixtures/assert-server-draft.js` and `assert-song-actions.js`.
+
+The formatter keeps zoom and save status in its separate top controls card.
+At 50% or 75%, the editable viewer shows two pages when both fit; narrow
+windows and phones remain single-column. DOCX downloads preserve the editor
+filename and spaces (for example, `Way Maker.docx`) without adding `-lyrics`.
+The browser regression scripts include `scripts/fixtures/assert-song-two-pages.js`
+for desktop layout, selection, editing, undo and responsive fallback checks.
+`scripts/fixtures/assert-song-editor-focus.js` covers later-page Enter/caret
+scrolling, available-height layout, section highlighting and pinned outline
+move controls.
+`scripts/fixtures/assert-song-ribbon.js` verifies inline title editing, save
+indicators, direct section actions, menu highlights and clear confirmation.
 
 ## Design Rules
 

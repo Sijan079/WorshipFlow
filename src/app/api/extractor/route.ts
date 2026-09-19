@@ -8,9 +8,12 @@ import {
   validateUploadFile,
 } from "@/lib/upload-security";
 import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
+import { requireExplicitWorkspaceRole, WorkspaceAuthorizationError } from "@/lib/security-context";
+import { createFormatterDraft, recordFormatterFailure } from "@/features/song-formatter/draft-store";
 
 export async function POST(request: Request) {
   try {
+    const scope = await requireExplicitWorkspaceRole("ADMIN");
     const rateLimit = checkRateLimit({
       key: getRateLimitKey(request, "standalone-extractor"),
       limit: 30,
@@ -47,16 +50,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: signatureError }, { status: 400 });
       }
 
-      const result = await processStandaloneUploadExtractor(file, songTitle);
-      return NextResponse.json(result);
+      try {
+        const result = await processStandaloneUploadExtractor(file, songTitle);
+        const saved = await createFormatterDraft(scope, { sourceName: file.name, parser: result.outputJson.parser,
+          content: { text: result.text, songTitle: songTitle ?? file.name.replace(/\.[^.]+$/, ""), warningCodes: result.outputJson.warningCodes, warningsDismissed: false, directAiReformatUsed: false } });
+        return NextResponse.json({ ...result, conversionId: saved.draft!.conversionId });
+      } catch (error) {
+        await recordFormatterFailure(scope, file.name).catch(() => undefined);
+        throw error;
+      }
     }
 
     return NextResponse.json({ error: "Upload one DOCX or PDF file." }, { status: 415 });
-  } catch (error: unknown) {
-    console.error("POST /api/extractor error:", error);
-    return NextResponse.json(
+  } catch (error: unknown) {    return NextResponse.json(
       { error: getErrorMessage(error, "Failed to run lyrics extractor") },
-      { status: 500 }
+      { status: error instanceof WorkspaceAuthorizationError ? error.status : 500 }
     );
   }
 }

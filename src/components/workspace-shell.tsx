@@ -31,9 +31,11 @@ import {
   MessageSquare,
   Settings2,
   MonitorPlay,
+  Palette,
   Users,
   X,
 } from "lucide-react";
+import { canViewDesignSystem } from "@/lib/design-system-access";
 
 const SERVICE_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
@@ -118,7 +120,21 @@ function toErrorDetails(error: unknown, message: string) {
   ].filter(Boolean).join("\n\n");
 }
 
-function AccountMenu({ name, email, role, avatarUrl, onSignOut }: { name: string; email: string; role: string; avatarUrl?: string | null; onSignOut: () => void }) {
+function AccountMenu({
+  name,
+  email,
+  role,
+  avatarUrl,
+  designSystemHref,
+  onSignOut,
+}: {
+  name: string;
+  email: string;
+  role: string;
+  avatarUrl?: string | null;
+  designSystemHref?: string;
+  onSignOut: () => void;
+}) {
   const [avatarFailed, setAvatarFailed] = useState(false);
 
   return (
@@ -142,6 +158,14 @@ function AccountMenu({ name, email, role, avatarUrl, onSignOut }: { name: string
           <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">{role}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {designSystemHref ? (
+          <DropdownMenuItem asChild className="min-h-10 px-2 text-[var(--text-secondary)] focus:text-[var(--text-primary)]">
+            <Link href={designSystemHref}>
+              <Palette className="h-4 w-4" />
+              Design system
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onSelect={onSignOut} className="min-h-10 px-2 text-[var(--text-secondary)] focus:text-[var(--text-primary)]">
           <LogOut className="h-4 w-4" />
           Sign out
@@ -169,6 +193,9 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const errorNotificationsQuery = useQuery({ queryKey: ["error-notifications"], queryFn: fetchErrorNotifications });
   const accountName = sessionQuery.data?.user?.displayName || sessionQuery.data?.user?.email || "Workspace user";
   const accountEmail = sessionQuery.data?.user?.email || "";
+  const designSystemHref = workspaceSlug && canViewDesignSystem(accountEmail)
+    ? toWorkspacePath("/design-system")
+    : undefined;
   const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
   const accountAvatarUrl = sessionQuery.data?.user?.avatarUrl;
   const [dismissedWarningKey, setDismissedWarningKey] = useState<InProgressWarningKey | null>(null);
@@ -278,7 +305,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
         </div>
         <div className="workspace-nav-account mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-default)] px-2 pb-4" aria-label="Account">
           <div className="flex min-w-0 items-center gap-2">
-            <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} onSignOut={() => setSignOutConfirmOpen(true)} />
+            <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => setSignOutConfirmOpen(true)} />
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-white">{accountName}</p>
               <p className="mt-0.5 text-[10px] text-white/70">{accountRole}</p>
@@ -425,7 +452,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                   <Bell className="h-5 w-5" />
                   {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
                 </Link>
-                <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} onSignOut={() => setSignOutConfirmOpen(true)} />
+                <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => setSignOutConfirmOpen(true)} />
               </div>
             </div>
           </div>
@@ -498,7 +525,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               type="button"
               onClick={() => setSignOutConfirmOpen(false)}
               disabled={signingOut}
-              className="pressable min-h-11 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
+              className="ui-btn-cancel pressable min-h-11 px-4 text-sm font-semibold disabled:opacity-50"
             >
               Cancel
             </button>
@@ -539,7 +566,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
             </label>
             {feedbackMutation.error instanceof Error ? <p className="text-sm text-[var(--text-danger)]">{feedbackMutation.error.message}</p> : null}
             <div className="flex justify-end gap-3 pt-1">
-              <button type="button" onClick={() => setFeedbackOpen(false)} disabled={feedbackMutation.isPending} className="pressable h-10 rounded-md px-3 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button type="button" onClick={() => setFeedbackOpen(false)} disabled={feedbackMutation.isPending} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold">Cancel</button>
               <button type="submit" disabled={feedbackMutation.isPending || !feedbackMessage.trim()} className="ui-btn-primary h-10 px-3 text-sm font-semibold disabled:opacity-40">{feedbackMutation.isPending ? "Sending…" : "Send"}</button>
             </div>
           </form>

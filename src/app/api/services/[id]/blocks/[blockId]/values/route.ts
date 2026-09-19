@@ -10,10 +10,8 @@ import { validateTemplateBlockValues } from "@/lib/template-block-kinds";
 type RouteParams = { params: Promise<{ id: string; blockId: string }> };
 
 export async function PUT(request: Request, { params }: RouteParams) {
-  let serviceId = "";
   try {
     const { id, blockId } = await params;
-    serviceId = id;
     const workspaceId = await getActiveWorkspaceId(prisma);
     const parsed = z.object({ values: z.record(z.string(), z.unknown()) }).safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
@@ -36,7 +34,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const updated = await prisma.worshipServiceBlock.update({ where: { id: blockId }, data: { fieldValues: validation.values as Prisma.InputJsonObject } });
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    console.error(`PUT /api/services/${serviceId || "[id]"}/blocks/[blockId]/values error:`, error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to save service block values") }, { status: 500 });
   }
 }

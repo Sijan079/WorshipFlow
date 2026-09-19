@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
+import { reportRouteFailure } from "@/lib/observability";
 import { rateLimitResponse } from "@/lib/rate-limit";
 import { requireAuthenticatedUser } from "@/lib/security-context";
 import { FeedbackSubmissionSchema } from "@/lib/validation";
@@ -51,7 +52,13 @@ export async function POST(request: Request) {
 
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
-      console.error("Feedback report is not configured.", { kind: parsed.data.kind });
+      reportRouteFailure(new Error("Feedback reporting is not configured."), {
+        route: "/api/feedback",
+        method: "POST",
+        status: 503,
+        request,
+        event: "feedback.configuration.failure",
+      });
       return NextResponse.json({ error: "Reporting is not configured yet." }, { status: 503 });
     }
 
@@ -69,7 +76,13 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       if (error instanceof FeedbackRateLimitError) {
-        console.warn("Feedback report rate limited.", { kind: parsed.data.kind });
+        reportRouteFailure(error, {
+          route: "/api/feedback",
+          method: "POST",
+          status: 429,
+          request,
+          event: "feedback.rate_limit",
+        });
         return rateLimitResponse(error.resetAt.getTime());
       }
       throw error;
@@ -91,19 +104,18 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      console.error("GitHub feedback report failed.", {
-        kind: parsed.data.kind,
-        status: response.status,
-        githubRequestId: response.headers.get("x-github-request-id"),
+      reportRouteFailure(new Error(`GitHub feedback request failed with status ${response.status}.`), {
+        route: "/api/feedback",
+        method: "POST",
+        status: 502,
+        request,
+        event: "feedback.upstream.failure",
       });
       return NextResponse.json({ error: "Could not send report." }, { status: 502 });
     }
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
-    console.error("Feedback report failed unexpectedly.", {
-      error: getErrorMessage(error, "Unknown error."),
-    });
     return NextResponse.json({ error: getErrorMessage(error, "Failed to send feedback") }, { status: 500 });
   }
 }

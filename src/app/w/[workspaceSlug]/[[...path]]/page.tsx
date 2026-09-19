@@ -8,6 +8,9 @@ import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import ErrorNotificationsPage from "@/components/error-notifications-page";
 import { MEDIA_TOOLS_MODULE } from "@/lib/workspace-modules";
 import { getEnvironmentReport } from "@/lib/server-env";
+import { requireAuthenticatedUser } from "@/lib/security-context";
+import DesignSystemGalleryClient from "@/components/design-system-gallery-client";
+import { canViewDesignSystem } from "@/lib/design-system-access";
 
 type PageProps = {
   params: Promise<{ workspaceSlug: string; path?: string[] }>;
@@ -38,6 +41,11 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       redirect(`/w/${encodeURIComponent(workspaceSlug)}/song-formatter/upload`);
     case "settings":
       return <SettingsPageClient environment={getEnvironmentReport()} />;
+    case "design-system": {
+      const user = await requireAuthenticatedUser();
+      if (!canViewDesignSystem(user.email)) notFound();
+      return <DesignSystemGalleryClient />;
+    }
     case "notifications":
       return <ErrorNotificationsPage />;
     case "automation":

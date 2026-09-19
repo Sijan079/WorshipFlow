@@ -45,7 +45,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         });
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("POST /api/services/[id]/extractor/ai error:", error);
     const message = getErrorMessage(error, "Failed to run AI lyrics cleanup");
     const status = message.includes("expired") ? 410 : 500;
     return NextResponse.json({ error: message }, { status });

@@ -7,6 +7,7 @@ import { BACKGROUND_REMOVAL_UPLOAD_TYPES, isUploadedFile, UPLOAD_LIMITS, validat
 import { decryptIntegrationSecret } from "@/lib/workspace-integrations";
 import { checkMediaGenerationRateLimits } from "@/features/media-generation/server/rate-limits";
 import { removeBackgroundWithOpenAI } from "@/features/media-generation/server/openai-background-removal";
+import { reportRouteFailure } from "@/lib/observability";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     const output = await removeBackgroundWithOpenAI({ apiKey, file: value, model: "gpt-image-2" });
     return new NextResponse(output, { headers: { "Content-Type": "image/png", "Content-Disposition": "inline; filename=transparent.png", "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("POST /api/media/background-removal error:", error instanceof Error ? error.message : "Unknown error");
+    reportRouteFailure(error, { route: "/api/media/background-removal", method: "POST", status: 500, request });
     return NextResponse.json({ error: "AI background removal failed. Try again." }, { status: 500 });
   }
 }

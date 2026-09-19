@@ -17,7 +17,7 @@ import {
   type ServantRecord,
   type UpdateServicePayload,
 } from "@/lib/api-client";
-import { parseTemplateServiceText, type TemplateTextParseResult } from "@/lib/template-service-text-parser";
+import { parseTemplateServiceText } from "@/lib/template-service-text-parser";
 import {
   ASSIGNED_MINISTRY_OPTIONS,
   buildBibleGatewayUrl,
@@ -907,10 +907,15 @@ function TemplateDefinedServiceFields({
       [blockId]: { ...(form.templateBlockValues[blockId] ?? {}), [key]: value },
     },
   });
+  const autoSizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="ui-surface-panel grid gap-3 p-4 md:grid-cols-3">
+    <div className="space-y-5">
+      <div className="grid gap-3 border-b border-[var(--rule-default)] pb-5 md:grid-cols-3">
         <ProductionSelect label="Assigned Ministry" value={form.assignedMinistry} onValueChange={(assignedMinistry) => onChange({ ...form, assignedMinistry })} options={ministryOptions} />
         <div>
           <ProductionDatePicker label="Date" value={form.serviceDate} onValueChange={(serviceDate) => onChange({ ...form, serviceDate })} />
@@ -919,12 +924,25 @@ function TemplateDefinedServiceFields({
         <ProductionSelect label="Template" value={form.templateType} onValueChange={updateTemplate} options={templateOptions.map((option) => ({ value: option.value, label: option.label }))} disabled={templateOptions.length === 0} />
       </div>
       {!template ? <p className="text-sm text-[var(--state-warning)]">Select a saved template to load its service fields.</p> : null}
-      {template?.blocks.map((block) => (
-        <section key={block.id} className="grid gap-3 border-t border-[var(--rule-default)] py-4 md:grid-cols-[12rem_minmax(0,1fr)]">
-          <div><h3 className="text-sm font-semibold text-[var(--text-primary)]">{block.label}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">Template block</p></div>
-          <div className="min-w-0">
-          {block.kind === "TEXT" ? <label className="block text-sm text-[var(--text-secondary)]">Notes<textarea value={String(form.templateBlockValues[block.id]?.text ?? "")} onChange={(event) => updateValue(block.id, "text", event.target.value)} rows={2} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-[var(--text-primary)]" /></label> : <TeamMemberPicker members={servants} personIds={Array.isArray(form.templateBlockValues[block.id]?.personIds) ? form.templateBlockValues[block.id]?.personIds as string[] : []} onChange={(personIds) => updateValue(block.id, "personIds", personIds)} />}
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+      {template?.blocks.length ? <div className="grid gap-3 md:grid-cols-2">
+        {template.blocks.map((block) => (
+          <section key={block.id} className="min-w-0 space-y-2">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{block.label}</h3>
+            {block.kind === "TEXT" ? (
+              <textarea
+                ref={autoSizeTextarea}
+                aria-label={block.label ?? undefined}
+                value={String(form.templateBlockValues[block.id]?.text ?? "")}
+                onChange={(event) => updateValue(block.id, "text", event.target.value)}
+                onInput={(event) => autoSizeTextarea(event.currentTarget)}
+                rows={2}
+                className="service-block-textarea min-h-14 w-full resize-none overflow-hidden rounded-md border border-[var(--border-default)] bg-transparent px-3 py-2 text-[var(--text-primary)] shadow-none"
+                style={{ backgroundColor: "transparent", boxShadow: "none" }}
+              />
+            ) : (
+              <TeamMemberPicker members={servants} personIds={Array.isArray(form.templateBlockValues[block.id]?.personIds) ? form.templateBlockValues[block.id]?.personIds as string[] : []} onChange={(personIds) => updateValue(block.id, "personIds", personIds)} />
+            )}
+            {block.fieldDefinition.fields.length ? <div className="grid gap-3 pt-1 md:grid-cols-2">
             {block.fieldDefinition.fields.map((field) => {
               const value = form.templateBlockValues[block.id]?.[field.key] ?? block.fieldDefaults?.[field.key] ?? (field.type === "checkbox" ? false : "");
               const label = <span>{field.label}{field.required ? <span className="text-[var(--state-danger)]"> *</span> : null}</span>;
@@ -935,10 +953,10 @@ function TemplateDefinedServiceFields({
               if (field.type === "song") return <div key={field.key} className="text-sm text-[var(--text-secondary)]"><span>{label}</span><ProductionSelect className="mt-1" ariaLabel={field.label} value={String(value)} onValueChange={(nextValue) => updateValue(block.id, field.key, nextValue)} options={[{ value: "", label: "Select song…" }, ...songs.map((song) => ({ value: song.id, label: song.title }))]} /></div>;
               return <label key={field.key} className="block text-sm text-[var(--text-secondary)]">{label}<input type={field.type === "duration" ? "number" : "text"} value={String(value)} onChange={(event) => updateValue(block.id, field.key, field.type === "duration" && event.target.value ? Number(event.target.value) : event.target.value)} placeholder={field.helpText} className="mt-1 h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-[var(--text-primary)]" /></label>;
             })}
-          </div>
-          </div>
-        </section>
-      ))}
+            </div> : null}
+          </section>
+        ))}
+      </div> : null}
     </div>
   );
 }
@@ -1055,7 +1073,6 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [pendingDeleteServiceIds, setPendingDeleteServiceIds] = useState<string[] | null>(null);
   const [createForm, setCreateForm] = useState<ServiceFormState>(() => createBlankServiceForm());
   const [createParserText, setCreateParserText] = useState("");
-  const [createParserResult, setCreateParserResult] = useState<TemplateTextParseResult | null>(null);
   const [createErrors, setCreateErrors] = useState<ServiceFormErrors>({});
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
@@ -1294,7 +1311,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     prepareServiceSave("create", createForm);
   }
 
-  function previewCreateParser() {
+  function applyCreateParser() {
     const input = createParserText.trim();
     if (!input) return;
 
@@ -1303,27 +1320,31 @@ export default function ServicesPageClient({ initialServices }: { initialService
       showToast("Select a service template before parsing text.");
       return;
     }
-    setCreateParserResult(parseTemplateServiceText(input, {
+    const parsed = parseTemplateServiceText(input, {
       blocks: template.blocks,
       servants: servantsQuery.data ?? [],
       songs: songsQuery.data ?? [],
+    });
+    if (parsed.matches.length === 0) {
+      showToast("No template fields matched. Update the text and try again.", "error");
+      return;
+    }
+
+    setCreateForm((current) => ({
+      ...current,
+      templateBlockValues: Object.fromEntries(Object.entries(current.templateBlockValues).map(([blockId, values]) => [blockId, { ...values, ...(parsed.values[blockId] ?? {}) }])),
     }));
+    setCreateErrors({});
+    setCreateParserOpen(false);
+    setCreateParserText("");
+    if (parsed.warnings.length > 0) {
+      showToast(`${parsed.matches.length} field${parsed.matches.length === 1 ? "" : "s"} applied. ${parsed.warnings.length} line${parsed.warnings.length === 1 ? "" : "s"} need review.`);
+    }
   }
 
   function closeDeleteConfirm() {
     setPendingDeleteServiceIds(null);
     setDeleteConfirmOpen(false);
-  }
-
-  function applyCreateParser() {
-    if (!createParserResult) return;
-    setCreateForm((current) => ({
-      ...current,
-      templateBlockValues: Object.fromEntries(Object.entries(current.templateBlockValues).map(([blockId, values]) => [blockId, { ...values, ...(createParserResult.values[blockId] ?? {}) }])),
-    }));
-    setCreateErrors({});
-    setCreateParserOpen(false);
-    setCreateParserResult(null);
   }
 
   function submitEditForm() {
@@ -1429,12 +1450,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
   return (
     <div className="services-page min-h-full space-y-6 py-1 lg:px-2">
-      <section className="services-header flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <section className="services-header ui-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
+          <h1 className="ui-page-title text-3xl font-semibold leading-10 text-[var(--text-primary)]">
             Worship Services
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+          <p className="ui-page-description mt-2 text-sm leading-6 text-[var(--text-secondary)] md:text-base">
             Prepare each service record, its people, and its source material before building the service order.
           </p>
         </div>
@@ -1448,8 +1469,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
         </button>
       </section>
 
-      <section className="services-register ui-surface-elevated w-full overflow-hidden">
-        <div className="services-register-tools border-b border-[var(--rule-default)] px-4 py-4 sm:py-5">
+      <section className="services-register ui-surface-elevated ui-operational-register">
+        <div className="services-register-tools ui-register-toolbar">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <ProductionDatePicker
@@ -1527,7 +1548,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
           </div>
         ) : (
           <div>
-            <div className="hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] lg:grid">
+            <div className="ui-ledger-header hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 px-4 py-2.5 lg:grid">
               <label className="flex items-center pr-4">
                 <input
                   ref={selectionCheckboxRef}
@@ -1600,17 +1621,17 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-transparent text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:text-[var(--text-primary)]"
+                              className="ui-row-menu-trigger opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                               aria-label={`Actions for ${service.dateLabel}`}
                               title="Service actions"
                             >
                               <Menu className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" side="left" sideOffset={8} className="workspace-content-light w-40 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1 text-[var(--text-primary)] shadow-[var(--elevation-raised)]">
+                          <DropdownMenuContent align="end" side="left" sideOffset={8} className="workspace-content-light w-40 ui-action-menu-content">
                             <DropdownMenuItem
                               onSelect={() => startEditingService(service)}
-                              className="service-row-menu-action-edit min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
+                              className="service-row-menu-action-edit ui-action-menu-item min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
                             >
                               <Edit3 className="h-3.5 w-3.5" /> Edit
                             </DropdownMenuItem>
@@ -1618,7 +1639,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                               <DropdownMenuItem
                                 onSelect={() => markReadyMutation.mutate(service.id)}
                                 disabled={markReadyMutation.isPending}
-                                className="service-row-menu-action-edit min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
+                                className="service-row-menu-action-edit ui-action-menu-item min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-accent)] focus:[&_svg]:!text-[var(--text-accent)] data-[highlighted]:!text-[var(--text-accent)] data-[highlighted]:[&_svg]:!text-[var(--text-accent)]"
                               >
                                 {markReadyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Mark ready
                               </DropdownMenuItem>
@@ -1628,7 +1649,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                 setPendingDeleteServiceIds([service.id]);
                                 setDeleteConfirmOpen(true);
                               }}
-                              className="service-row-menu-action-delete min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-danger)] focus:[&_svg]:!text-[var(--text-danger)] data-[highlighted]:!text-[var(--text-danger)] data-[highlighted]:[&_svg]:!text-[var(--text-danger)]"
+                              className="service-row-menu-action-delete ui-action-menu-item ui-action-menu-item-danger min-h-9 gap-2 px-2 !text-[var(--text-primary)] [&_svg]:!text-current focus:!text-[var(--text-danger)] focus:[&_svg]:!text-[var(--text-danger)] data-[highlighted]:!text-[var(--text-danger)] data-[highlighted]:[&_svg]:!text-[var(--text-danger)]"
                             >
                               <Trash2 className="h-3.5 w-3.5" /> Delete
                             </DropdownMenuItem>
@@ -1692,7 +1713,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                                     onClick={() => {
                                       setEditingServiceId(null);
                                     }}
-                                    className="pressable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--state-danger)] hover:text-[var(--state-danger)]"
+                                    className="ui-btn-cancel pressable inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
                                   >
                                     <X className="h-4 w-4" />
                                     Cancel
@@ -1728,26 +1749,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
           <DialogContent className="max-w-6xl overflow-hidden p-0">
             <div className="flex items-center justify-between gap-4 border-b border-[var(--rule-default)] px-5 py-4">
               <div>
-                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Create worship service</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
-                  Defaults to next Sunday.
-                </DialogDescription>
+                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Create Worship Service</DialogTitle>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setCreateParserResult(null); setCreateParserOpen(true); }}
-                  className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
-                >
-                  <WandSparkles className="h-4 w-4" />
-                  Parse text
-                </button>
+              <div>
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
                   aria-label="Close create service modal"
                   title="Close"
-                  className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-secondary)]"
+                  className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border-0 bg-transparent text-[var(--text-primary)] hover:border-0 hover:bg-transparent hover:text-[var(--text-primary)] active:border-0 active:bg-transparent active:text-[var(--text-primary)]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1767,7 +1777,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
               />
             </div>
 
-            <div className="flex justify-end border-t border-[var(--rule-default)] bg-[var(--surface-panel-strong)] px-5 py-4">
+            <div className="flex flex-wrap justify-end gap-3 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setCreateParserOpen(true)}
+                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg)] hover:bg-transparent hover:text-[var(--action-primary-bg)] active:border-[var(--action-primary-bg)] active:bg-transparent active:text-[var(--action-primary-bg)]"
+              >
+                <WandSparkles className="h-4 w-4" />
+                Parse text
+              </button>
               <button
                 type="button"
                 onClick={submitCreateForm}
@@ -1790,18 +1808,13 @@ export default function ServicesPageClient({ initialServices }: { initialService
         {createModalOpen && createParserOpen ? (
           <DialogContent className="max-w-2xl">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Parse template fields</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
-                  Use template block and field labels, for example: <span className="font-mono">Message &gt; Speaker: Jane Doe</span>.
-                </DialogDescription>
-              </div>
+              <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Parse Text Fields</DialogTitle>
               <button
                 type="button"
                 onClick={() => setCreateParserOpen(false)}
                 aria-label="Close text parser"
                 title="Close"
-                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-secondary)]"
+                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-lg border-0 bg-transparent text-[var(--text-primary)] hover:border-0 hover:bg-transparent hover:text-[var(--text-primary)] active:border-0 active:bg-transparent active:text-[var(--text-primary)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1811,34 +1824,26 @@ export default function ServicesPageClient({ initialServices }: { initialService
               value={createParserText}
               onChange={(event) => setCreateParserText(event.target.value)}
               rows={14}
-              placeholder="Welcome: Jane Doe&#10;Message > Speaker: John Doe&#10;Message > Duration: 35"
-              className="mt-4 w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+              className="parse-text-fields-input mt-4 w-full resize-none overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-3 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
             />
-
-            {createParserResult ? (
-              <div className="mt-4 max-h-52 space-y-3 overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3 text-sm">
-                <p className="font-semibold text-[var(--text-primary)]">{createParserResult.matches.length} field{createParserResult.matches.length === 1 ? "" : "s"} ready to apply</p>
-                {createParserResult.matches.map((match) => <p key={`${match.label}-${match.value}`} className="text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{match.label}:</span> {match.value}</p>)}
-                {createParserResult.warnings.map((warning) => <p key={warning} className="text-[var(--state-warning)]">{warning}</p>)}
-              </div>
-            ) : null}
 
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setCreateParserOpen(false)}
-                className="pressable rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                className="ui-btn-cancel pressable inline-flex h-10 items-center gap-2 px-4 text-sm font-semibold"
               >
+                <X className="h-4 w-4" />
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={createParserResult ? applyCreateParser : previewCreateParser}
+                onClick={applyCreateParser}
                 disabled={!createParserText.trim()}
                 className="pressable inline-flex items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
               >
                 <WandSparkles className="h-4 w-4" />
-                {createParserResult ? "Apply to form" : "Preview matches"}
+                Apply to form
               </button>
             </div>
           </DialogContent>

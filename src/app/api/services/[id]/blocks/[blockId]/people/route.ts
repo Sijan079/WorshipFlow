@@ -41,7 +41,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(newPerson, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/services/[id]/blocks/[blockId]/people error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to add participant") }, { status: 500 });
   }
 }

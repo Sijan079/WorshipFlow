@@ -17,6 +17,7 @@ import {
 import { isPAPDatabaseUnavailableError, papDatabaseUnavailableResponse } from "@/features/pap/server/pap-api-errors";
 import { savePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
+import { reportRouteFailure } from "@/lib/observability";
 import { validateUploadFile, validateUploadTotal } from "@/lib/upload-security";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 
@@ -51,7 +52,7 @@ function toScreenshotRecord(screenshot: PapInboxScreenshotRow) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const workspaceId = await getActiveWorkspaceId(prisma);
     await cleanupExpiredPAPInboxUploads(prisma, new Date(), workspaceId);
@@ -72,7 +73,7 @@ export async function GET() {
       }
     );
   } catch (error: unknown) {
-    console.error("GET /api/pap/uploads error:", error);
+    reportRouteFailure(error, { route: "/api/pap/uploads", method: "GET", status: 500, request });
     if (isPAPDatabaseUnavailableError(error)) {
       return papDatabaseUnavailableResponse();
     }
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
       }
     );
   } catch (error: unknown) {
-    console.error("POST /api/pap/uploads error:", error);
+    reportRouteFailure(error, { route: "/api/pap/uploads", method: "POST", status: 500, request });
     if (isPAPDatabaseUnavailableError(error)) {
       return papDatabaseUnavailableResponse();
     }

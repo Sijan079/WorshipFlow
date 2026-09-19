@@ -1,8 +1,9 @@
-/* Hallmark · macrostructure: Production OS Rail · tone: lights-down worship production · anchor hue: electric purple
- * Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4
+/* Worship Flow OS design tokens
+ * Reference surfaces: Services and Teams operational registers
+ * Visual model: light production workspace + dark production rail + electric purple actions
  */
 :root {
-  /* Base palette */
+  /* Legacy dark palette (default and compatibility layer) */
   --palette-bg-canvas: #0a0f1a;
   --palette-bg-app: #0f1624;
   --palette-bg-subtle: #141d2d;
@@ -37,6 +38,103 @@
   --palette-pastel-lavender: #eaddff;
   --palette-pastel-sky: #89ceff;
   --palette-pastel-yellow: #31394d;
+
+  /* Operational workspace palette: Services and Teams */
+  --palette-workspace-canvas: #ffffff;
+  --palette-workspace-panel: #ffffff;
+  --palette-workspace-panel-subtle: #f8fafc;
+  --palette-workspace-control-inactive: #f1f5f9;
+  --palette-workspace-text-primary: #111827;
+  --palette-workspace-text-secondary: #475569;
+  --palette-workspace-text-muted: #64748b;
+  --palette-workspace-border: #e2e8f0;
+  --palette-workspace-border-strong: #cbd5e1;
+  --palette-workspace-accent: #7c3aed;
+  --palette-workspace-accent-hover: #8754ee;
+  --palette-workspace-action-ink: #ffffff;
+  --palette-workspace-success: #047857;
+  --palette-workspace-success-soft: #d1fae5;
+  --palette-workspace-warning: #b45309;
+  --palette-workspace-warning-soft: #fef3c7;
+  --palette-workspace-danger: #b91c1c;
+  --palette-workspace-danger-soft: #fee2e2;
+  --palette-workspace-live: #be123c;
+  --palette-workspace-ready: #0284c7;
+  --palette-workspace-idle: #64748b;
+
+  /* Production rail palette */
+  --palette-rail-canvas: #090512;
+  --palette-rail-panel: #12091f;
+  --palette-rail-panel-alt: #100817;
+  --palette-rail-panel-strong: #1a0d2a;
+  --palette-rail-panel-elevated: #24113b;
+  --palette-rail-text-primary: #f7f1ff;
+  --palette-rail-text-secondary: #d0c1e5;
+  --palette-rail-text-muted: #9f84c7;
+  --palette-rail-accent: #a875ff;
+  --palette-rail-border: rgb(168 117 255 / 22%);
+  --palette-rail-border-strong: rgb(168 117 255 / 42%);
+  --palette-rail-action: #8f4dff;
+  --palette-rail-action-ink: #ffffff;
+  --palette-rail-ghost-hover: rgb(168 117 255 / 14%);
+
+  /* Operational workspace semantic contract */
+  --workspace-surface-app: var(--palette-workspace-canvas);
+  --workspace-surface-canvas: var(--palette-workspace-canvas);
+  --workspace-surface-panel: var(--palette-workspace-panel);
+  --workspace-surface-panel-alt: var(--palette-workspace-panel-subtle);
+  --workspace-surface-panel-strong: var(--palette-workspace-control-inactive);
+  --workspace-surface-panel-elevated: var(--palette-workspace-panel);
+  --workspace-text-primary: var(--palette-workspace-text-primary);
+  --workspace-text-secondary: var(--palette-workspace-text-secondary);
+  --workspace-text-muted: var(--palette-workspace-text-muted);
+  --workspace-text-accent: var(--palette-workspace-accent-hover);
+  --workspace-border-default: var(--palette-workspace-border);
+  --workspace-border-strong: var(--palette-workspace-border-strong);
+  --workspace-border-focus: var(--palette-workspace-accent);
+  --workspace-action-primary-bg: var(--palette-workspace-accent);
+  --workspace-action-primary-bg-hover: var(--palette-workspace-accent-hover);
+  --workspace-action-primary-ink: var(--palette-workspace-action-ink);
+  --workspace-action-secondary-bg: var(--palette-workspace-control-inactive);
+  --workspace-action-secondary-bg-hover: var(--palette-workspace-border);
+  --workspace-action-secondary-ink: var(--palette-workspace-text-primary);
+  --workspace-action-ghost-hover: var(--palette-workspace-control-inactive);
+  --workspace-state-success: var(--palette-workspace-success);
+  --workspace-state-success-soft: var(--palette-workspace-success-soft);
+  --workspace-state-warning: var(--palette-workspace-warning);
+  --workspace-state-warning-soft: var(--palette-workspace-warning-soft);
+  --workspace-state-danger: var(--palette-workspace-danger);
+  --workspace-state-danger-soft: var(--palette-workspace-danger-soft);
+  --workspace-state-live: var(--palette-workspace-live);
+  --workspace-state-ready: var(--palette-workspace-ready);
+  --workspace-state-idle: var(--palette-workspace-idle);
+  --workspace-elevation-subtle: 0 1px 3px rgb(15 23 42 / 8%);
+  --workspace-elevation-raised: 0 8px 24px rgb(15 23 42 / 10%);
+  --workspace-elevation-floating: 0 0 16px rgb(15 23 42 / 12%), 0 4px 12px rgb(15 23 42 / 6%);
+  --workspace-elevation-modal:
+    inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+    0 24px 60px color-mix(in oklab, black 38%, transparent);
+
+  /* Production rail semantic contract */
+  --rail-surface-canvas: var(--palette-rail-canvas);
+  --rail-surface-panel: var(--palette-rail-panel);
+  --rail-surface-panel-alt: var(--palette-rail-panel-alt);
+  --rail-surface-panel-strong: var(--palette-rail-panel-strong);
+  --rail-surface-panel-elevated: var(--palette-rail-panel-elevated);
+  --rail-text-primary: var(--palette-rail-text-primary);
+  --rail-text-secondary: var(--palette-rail-text-secondary);
+  --rail-text-muted: var(--palette-rail-text-muted);
+  --rail-text-accent: var(--palette-rail-accent);
+  --rail-border-default: var(--palette-rail-border);
+  --rail-border-strong: var(--palette-rail-border-strong);
+  --rail-border-focus: var(--palette-rail-accent);
+  --rail-action-primary-bg: var(--palette-rail-action);
+  --rail-action-primary-bg-hover: var(--palette-rail-accent);
+  --rail-action-primary-ink: var(--palette-rail-action-ink);
+  --rail-action-secondary-bg: var(--palette-rail-panel-strong);
+  --rail-action-secondary-bg-hover: var(--palette-rail-panel-elevated);
+  --rail-action-secondary-ink: var(--palette-rail-text-primary);
+  --rail-action-ghost-hover: var(--palette-rail-ghost-hover);
 
   /* Semantic surfaces */
   --surface-app: var(--palette-bg-app);
@@ -105,6 +203,15 @@
   --space-lg: 2rem;
   --space-xl: 3rem;
   --space-2xl: 4rem;
+
+  /* Shared operational density */
+  --control-height-compact: 2.5rem;
+  --control-height-standard: 2.75rem;
+  --touch-target-min: 2.5rem;
+  --ledger-row-min-height: 4.5rem;
+  --row-menu-touch-width: 3.75rem;
+  --field-inset-shadow: inset 0 1px 0 color-mix(in oklab, black 24%, transparent);
+  --ledger-selection-fill: color-mix(in srgb, var(--action-primary-bg) 8%, transparent);
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

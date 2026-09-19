@@ -10,12 +10,9 @@ import { UpdateServiceBlocksSchema } from "@/lib/validation";
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: RouteParams) {
-  let serviceId = "";
-
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    serviceId = id;
     const parsed = UpdateServiceBlocksSchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -89,7 +86,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(updatedService);
   } catch (error: unknown) {
-    console.error(`PUT /api/services/${serviceId || "[id]"}/blocks error:`, error);
     const message = getErrorMessage(error, "Failed to update service blocks");
     return NextResponse.json({ error: message }, { status: /does not belong|cannot be changed|must use/.test(message) ? 400 : 500 });
   }

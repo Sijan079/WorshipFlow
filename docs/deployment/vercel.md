@@ -84,6 +84,15 @@ Optional AI extractor variables:
 - `OPENAI_API_KEY`
 - `OPENAI_EXTRACTOR_MODEL`
 
+Optional observability variables:
+
+- `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`
+
+Set the metrics endpoint to an OTLP/HTTP `v1/metrics` endpoint when custom
+failure counters and histograms should be retained outside Vercel runtime logs.
+Standard `OTEL_EXPORTER_OTLP_HEADERS` configuration is supported by the
+OpenTelemetry exporter when the destination requires authentication.
+
 PAP production variables:
 
 - `SUPABASE_URL`
@@ -117,11 +126,74 @@ service because serverless instances do not share in-memory counters.
 Content Security Policy is enabled in `next.config.ts`. It currently allows
 inline scripts/styles for compatibility with Next.js.
 
-## Health Check
+## Formatter Draft Cleanup
 
-Use `/api/health` after deployment. It checks environment configuration and a
-database round trip. The route returns `503` when configuration or database
-connectivity is broken.
+Deploy migrations `20260918000000_temporary_formatter_drafts` and
+`20260918001000_secure_formatter_drafts` before the new
+formatter API. Provision a scheduler that supports a five-minute cadence before
+rolling out cross-device drafts. Configure `FORMATTER_CLEANUP_SECRET` to a random
+secret of at least 32 characters in the app and scheduler; never expose it to
+the browser or put it in a URL.
+
+The scheduler must POST to `/api/internal/formatter-cleanup` every five minutes
+with `Authorization: Bearer <secret>`. This exact endpoint bypasses the login
+redirect but verifies its secret in the handler. It returns `{ removed: number }`,
+401 for bad credentials, and 503 for missing configuration or database failure.
+Alert on failed/missed runs and verify a disposable expired draft is removed
+without opening the formatter. No production scheduler is created by this repo.
+
+Alternatively, a Node host with the same database can schedule
+`node --experimental-strip-types scripts/cleanup-formatter-drafts.ts` using its
+process scheduler. `npm run dev` starts the local runner automatically.
+The operation is idempotent and removes up to 500 expired drafts per invocation;
+run again if the result is 500 to drain a backlog. Editing stops at expiry even
+if cleanup is delayed. Database backups follow the database provider's existing
+retention policy; deleting live rows is not a promise to erase historical backups.
+
+Verify production membership/ownership rejection, two-device takeover, expiry,
+and cleanup before release. Do not treat an unconfigured scheduler as ready.
+
+## Health Check Endpoint
+
+Use `/api/health` with an authenticated application session after deployment.
+It checks environment configuration and a database round trip. The route returns
+`401` without a session and `503` when configuration or database connectivity
+is broken.
+
+## Error Observability
+
+The September 19 health check upgraded Next.js and its ESLint configuration to
+16.3.5 and applied compatible dependency security patches. Four high audit
+findings remain in the Prisma 6.19 CLI dependency chain (`@prisma/config`,
+`deepmerge-ts`, and `effect`). Reassess these during a dedicated Prisma upgrade;
+the suggested automated downgrade to 6.12 is incompatible with the current pin.
+These dependencies are used by build/migration tooling, but npm also includes
+them in its production audit through the Prisma Client optional peer.
+
+The app registers OpenTelemetry from `src/instrumentation.ts`. Unhandled Next.js
+server errors and caught route-handler failures emit:
+
+- structured runtime logs with an event name, route, HTTP status, request ID,
+  and the active trace/span IDs;
+- the `worship_flow_failures_total` counter, grouped only by low-cardinality
+  event, route, and status attributes;
+- the `worship_flow_failure_duration_ms` histogram when an operation supplies
+  elapsed time;
+- exceptions and failure attributes on the active request trace.
+
+Error messages are capped at 500 characters, with email addresses, bearer
+tokens, and URL credentials redacted before logging or adding them to spans.
+The reporter does not attach request bodies, lyrics, authentication headers,
+or user profiles. Error messages still need care at their source: pattern-based
+redaction cannot guarantee removal of arbitrary private text or secret formats.
+
+Before production launch, configure a Vercel Observability Drain for retained
+logs and traces. Configure `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` when custom
+metrics must be exported to an OTLP-compatible destination; without it, the
+same failure counter event remains present in structured runtime logs. Alert on
+sustained server failures, health check failures, and formatter draft failures.
+Keep the route and event attributes bounded; never add workspace IDs, song
+titles, emails, or request IDs as metric labels.
 
 ## Persistent Upload Storage
 

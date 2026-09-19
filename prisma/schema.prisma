@@ -194,6 +194,7 @@ model Workspace {
   generatedOutputs GeneratedOutput[]
   servants  Servant[]
   errorNotifications ErrorNotification[]
+  formatterConversions FormatterConversion[]
 }
 
 model User {
@@ -210,6 +211,40 @@ model User {
   requestedJobs   AutomationJob[]
   feedbackRateLimits FeedbackRateLimit[]
   errorNotifications ErrorNotification[]
+  formatterConversions FormatterConversion[]
+}
+
+// Conversion history is metadata only. Lyrics live exclusively in the disposable draft.
+model FormatterConversion {
+  id String @id @default(uuid())
+  workspaceId String
+  userId String
+  songTitle String
+  sourceName String
+  parser String
+  jobId String?
+  status String @default("Draft")
+  createdAt DateTime @default(now())
+  finishedAt DateTime?
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draft FormatterDraft?
+  @@index([workspaceId, userId, createdAt])
+}
+
+model FormatterDraft {
+  conversionId String @id
+  workspaceId String
+  userId String
+  content Json
+  revision Int @default(0)
+  sessionId String?
+  lastSeenAt DateTime @default(now())
+  expiresAt DateTime?
+  conversion FormatterConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, userId])
+  @@index([expiresAt])
+  @@index([lastSeenAt])
 }
 
 model FeedbackRateLimit {

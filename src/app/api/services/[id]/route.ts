@@ -44,12 +44,9 @@ type UpdateWorshipServicePayload = {
 };
 
 export async function GET(request: Request, { params }: RouteParams) {
-  let serviceId = "";
-
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    serviceId = id;
     const service = await prisma.worshipService.findUnique({
       where: serviceWorkspaceWhere(id, workspaceId),
       include: serviceDetailInclude,
@@ -60,19 +57,14 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json(service);
-  } catch (error: unknown) {
-    console.error(`GET /api/services/${serviceId || "[id]"} error:`, error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch service") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch service") }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request, { params }: RouteParams) {
-  let serviceId = "";
-
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    serviceId = id;
     const body = await request.json();
     const result = UpdateWorshipServiceSchema.safeParse(body);
 
@@ -189,19 +181,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
     });
 
     return NextResponse.json(updatedService);
-  } catch (error: unknown) {
-    console.error(`PUT /api/services/${serviceId || "[id]"} error:`, error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to update service") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to update service") }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request, { params }: RouteParams) {
-  let serviceId = "";
-
   try {
     const { id } = await params;
     const workspaceId = await getActiveWorkspaceId(prisma);
-    serviceId = id;
 
     const service = await prisma.worshipService.findUnique({
       where: serviceWorkspaceWhere(id, workspaceId),
@@ -216,8 +203,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     });
 
     return NextResponse.json({ message: "Worship service deleted successfully" });
-  } catch (error: unknown) {
-    console.error(`DELETE /api/services/${serviceId || "[id]"} error:`, error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete service") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete service") }, { status: 500 });
   }
 }

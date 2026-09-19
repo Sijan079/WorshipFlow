@@ -99,7 +99,9 @@ try {
 }
 
 console.log("Starting local Supabase services through Docker...");
-runOrExit("npx", ["supabase", "start"]);
+// Vector only collects local container logs and can fail to attach to Docker
+// Desktop's socket without affecting the database, Auth, REST, or Studio.
+runOrExit("npx", ["supabase", "start", "--exclude", "vector"]);
 
 if (await needsPrismaBaselineBootstrap()) {
   console.log("Synchronizing the current Prisma schema for the fresh local database...");
@@ -120,11 +122,20 @@ const next = spawn(process.execPath, [nextCli, "dev", ...process.argv.slice(2)],
   stdio: "inherit",
 });
 
+const formatterCleanup = spawn(process.execPath, ["--experimental-strip-types", "scripts/cleanup-formatter-drafts.ts", "--watch"], {
+  env: process.env,
+  stdio: "inherit",
+});
+formatterCleanup.on("error", () => console.error("Formatter cleanup runner could not start."));
+process.on("SIGINT", () => formatterCleanup.kill());
+process.on("SIGTERM", () => formatterCleanup.kill());
+
 next.on("error", (error) => {
   console.error("Failed to start the local Next.js server:", error);
   process.exitCode = 1;
 });
 
 next.on("exit", (code) => {
+  formatterCleanup.kill();
   process.exitCode = code ?? 1;
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cleanupExpiredPAPInboxUploads } from "@/features/pap/server/pap-inbox";
 import { deletePrivateOutputFile } from "@/lib/private-output-storage";
 import prisma from "@/lib/prisma";
+import { reportRouteFailure } from "@/lib/observability";
 import { getActiveWorkspaceId } from "@/lib/security-context";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ type RouteContext = {
   params: Promise<{ screenshotId: string }>;
 };
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { screenshotId } = await context.params;
     const workspaceId = await getActiveWorkspaceId(prisma);
@@ -38,7 +39,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
       }
     );
   } catch (error: unknown) {
-    console.error("DELETE /api/pap/uploads/[screenshotId] error:", error);
+    reportRouteFailure(error, { route: "/api/pap/uploads/[screenshotId]", method: "DELETE", status: 500, request });
     return NextResponse.json({ error: "Failed to delete PAP upload." }, { status: 500 });
   }
 }

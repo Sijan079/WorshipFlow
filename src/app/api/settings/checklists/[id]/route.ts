@@ -45,9 +45,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     });
     const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { activeChecklistId: true } });
     return NextResponse.json({ ...record, isActive: record.id === workspace.activeChecklistId });
-  } catch (error: unknown) {
-    console.error("PUT /api/settings/checklists/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to update checklist") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to update checklist") }, { status: 500 });
   }
 }
 
@@ -66,8 +64,6 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     }
     await prisma.checklistPreset.delete({ where: { id, workspaceId } });
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("DELETE /api/settings/checklists/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete checklist") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete checklist") }, { status: 500 });
   }
 }

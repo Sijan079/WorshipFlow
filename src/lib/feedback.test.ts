@@ -35,9 +35,10 @@ export function runFeedbackTests() {
   assert.match(route, /https:\/\/api\.github\.com\/repos\/Sijan079\/WorshipFlow\/issues/);
   assert.match(route, /labels: \[parsed\.data\.kind\.toLowerCase\(\)\]/);
   assert.match(route, /user\.displayName \|\| user\.email/);
-  assert.match(route, /console\.error\("Feedback report is not configured\."/);
-  assert.match(route, /console\.error\("GitHub feedback report failed\."/);
-  assert.match(route, /githubRequestId: response\.headers\.get\("x-github-request-id"\)/);
+  assert.match(route, /event: "feedback\.configuration\.failure"/);
+  assert.match(route, /event: "feedback\.upstream\.failure"/);
+  assert.match(route, /reportRouteFailure/);
+  assert.doesNotMatch(route, /console\.(?:error|warn)/);
   assert.match(route, /prisma\.\$transaction/);
   assert.match(route, /FeedbackRateLimit/);
   assert.match(route, /rateLimitResponse/);

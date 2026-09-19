@@ -19,7 +19,6 @@ export async function GET() {
     });
     return NextResponse.json(records);
   } catch (error: unknown) {
-    console.error("GET /api/settings/program-block-types error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to load program block types") }, { status: 500 });
   }
 }
@@ -52,7 +51,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(type, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/settings/program-block-types error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to create program block type") }, { status: 500 });
   }
 }

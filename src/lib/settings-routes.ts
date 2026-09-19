@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
+import { reportRouteFailure } from "@/lib/observability";
 import { requireExplicitWorkspaceRole } from "@/lib/security-context";
 
 type RouteParams = {
@@ -56,9 +57,7 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
         ? await config.findMany(workspaceId)
         : await config.delegate.findMany({ where: { workspaceId }, orderBy: config.orderBy });
       return NextResponse.json(records);
-    } catch (error: unknown) {
-      console.error(`GET ${config.path} error:`, error);
-      return NextResponse.json({ error: getErrorMessage(error, config.messages.load) }, { status: 500 });
+    } catch (error: unknown) {      return NextResponse.json({ error: getErrorMessage(error, config.messages.load) }, { status: 500 });
     }
   }
 
@@ -68,7 +67,12 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
       const parsed = config.createSchema.safeParse(await request.json());
 
       if (!parsed.success) {
-        console.error(`POST ${config.path} validation error: ${JSON.stringify(parsed.error.issues ?? parsed.error.format())}`);
+        reportRouteFailure(new Error("Settings validation failed."), {
+          route: config.path,
+          method: "POST",
+          status: 400,
+          request,
+        });
         return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
       }
 
@@ -79,9 +83,7 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
           });
       if (!config.create) await config.afterWrite?.(record, workspaceId, parsed.data);
       return NextResponse.json(record, { status: 201 });
-    } catch (error: unknown) {
-      console.error(`POST ${config.path} error:`, error);
-      return NextResponse.json({ error: getErrorMessage(error, config.messages.create) }, { status: 500 });
+    } catch (error: unknown) {      return NextResponse.json({ error: getErrorMessage(error, config.messages.create) }, { status: 500 });
     }
   }
 
@@ -92,7 +94,12 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
       const parsed = config.updateSchema.safeParse(await request.json());
 
       if (!parsed.success) {
-        console.error(`PUT ${config.path}/[id] validation error: ${JSON.stringify(parsed.error.issues ?? parsed.error.format())}`);
+        reportRouteFailure(new Error("Settings validation failed."), {
+          route: `${config.path}/[id]`,
+          method: "PUT",
+          status: 400,
+          request,
+        });
         return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
       }
 
@@ -102,9 +109,7 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
       });
       await config.afterWrite?.(record, workspaceId, parsed.data);
       return NextResponse.json(record);
-    } catch (error: unknown) {
-      console.error(`PUT ${config.path}/[id] error:`, error);
-      return NextResponse.json({ error: getErrorMessage(error, config.messages.update) }, { status: 500 });
+    } catch (error: unknown) {      return NextResponse.json({ error: getErrorMessage(error, config.messages.update) }, { status: 500 });
     }
   }
 
@@ -124,9 +129,7 @@ export function createSettingsCollectionHandlers<TCreate extends Record<string, 
 
       await config.delegate.delete({ where: { id, workspaceId } });
       return NextResponse.json({ success: true });
-    } catch (error: unknown) {
-      console.error(`DELETE ${config.path}/[id] error:`, error);
-      return NextResponse.json({ error: getErrorMessage(error, config.messages.delete) }, { status: 500 });
+    } catch (error: unknown) {      return NextResponse.json({ error: getErrorMessage(error, config.messages.delete) }, { status: 500 });
     }
   }
 

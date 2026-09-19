@@ -36,9 +36,7 @@ export async function GET() {
     });
 
     return NextResponse.json(tags);
-  } catch (error: unknown) {
-    console.error("GET /api/song-tags error:", error);
-    return NextResponse.json(
+  } catch (error: unknown) {    return NextResponse.json(
       { error: getErrorMessage(error, "Failed to load song tags") },
       { status: 500 }
     );
@@ -64,9 +62,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(tag, { status: 201 });
-  } catch (error: unknown) {
-    console.error("POST /api/song-tags error:", error);
-    return NextResponse.json(
+  } catch (error: unknown) {    return NextResponse.json(
       { error: getErrorMessage(error, "Failed to create song tag") },
       { status: 500 }
     );

@@ -21,10 +21,11 @@ test("formatter extraction survives the upload-to-format route remount", () => {
     "utf8",
   );
 
-  assert.match(source, /queryClient\.getQueryData<FormatterDraftSession>\(formatterDraftQueryKey\)/);
-  assert.match(source, /queryClient\.setQueryData\(formatterDraftQueryKey/);
-  assert.match(source, /text: result\.text/);
-  assert.match(source, /songTitle: extractorSongTitle/);
+  assert.match(source, /useServerDraft\(/);
+  const route = readFileSync(join(process.cwd(), "src/app/api/extractor/route.ts"), "utf8");
+  assert.match(route, /await createFormatterDraft/);
+  assert.match(route, /conversionId: saved\.draft/);
+  assert.doesNotMatch(source, /queryClient\.setQueryData\(formatterDraftQueryKey/);
 });
 
 test("formatter empty state uses the current light workspace theme", () => {
@@ -43,43 +44,73 @@ test("formatter empty state uses the current light workspace theme", () => {
   assert.doesNotMatch(emptyState, /var\(--color-brand-/);
 });
 
-test("formatter editor uses current semantic workspace theme tokens", () => {
+test("upload page keeps supported outputs in a header information popover", () => {
   const source = readFileSync(
     join(process.cwd(), "src", "components", "service-builder-client.tsx"),
     "utf8",
   );
-  const editorMarker = source.indexOf("Song Editor");
-  const editorStart = source.lastIndexOf("<section", editorMarker);
-  const editorEnd = source.indexOf("No extracted draft yet", editorMarker);
-  const editor = source.slice(editorStart, editorEnd);
+  const uploadStart = source.indexOf('activeSongStep === "upload"');
+  const uploadEnd = source.indexOf('activeSongStep === "format"', uploadStart);
+  const upload = source.slice(uploadStart, uploadEnd);
 
-  assert.match(editor, /bg-\[var\(--surface-panel\)\]/);
-  assert.match(editor, /text-\[var\(--text-primary\)\]/);
-  assert.match(editor, /border-\[var\(--border-default\)\]/);
-  assert.doesNotMatch(editor, /var\(--color-(?:accent-ink|brand-|card-yellow|danger|focus|secondary|text-)/);
+  assert.match(upload, /<Popover\.Root>/);
+  assert.match(upload, /aria-label="Supported output formats"/);
+  assert.match(upload, /border-0 bg-transparent/);
+  assert.match(upload, /text-\[var\(--text-accent\)\]/);
+  assert.doesNotMatch(upload, /aria-label="Supported output formats"[\s\S]{0,300}ui-btn-secondary/);
+  assert.match(upload, /<Popover\.Content[\s\S]*align="end"/);
+  assert.match(upload, /Planning Center XML/);
+  assert.match(upload, /ProPresenter 7 Slides/);
+  assert.doesNotMatch(upload, /md:grid-cols-3/);
 });
 
-test("formatter block editor uses a viewport-aware scrollable workspace", () => {
+test("recent conversions use icon actions and editor identity without expiry copy", () => {
   const source = readFileSync(
     join(process.cwd(), "src", "components", "service-builder-client.tsx"),
     "utf8",
   );
-  const editorMarker = source.indexOf("Song Editor");
-  const editorStart = source.lastIndexOf("<section", editorMarker);
-  const editorEnd = source.indexOf("No extracted draft yet", editorMarker);
-  const editor = source.slice(editorStart, editorEnd);
+  const recentStart = source.indexOf("Recent Conversions");
+  const recentEnd = source.indexOf('activeSongStep === "format"', recentStart);
+  const recent = source.slice(recentStart, recentEnd);
 
-  assert.match(
-    editor,
-    /className="grid h-\[clamp\(32rem,calc\(100dvh-12rem\),45rem\)\] items-stretch overflow-hidden"/,
-  );
-  assert.match(editor, /className="relative overflow-y-auto border-r/);
-  assert.match(editor, /className="flex min-h-0 min-w-0 flex-col overflow-hidden/);
-  assert.match(editor, /className="flex shrink-0 items-center justify-between border-b/);
-  assert.match(editor, /className="min-h-0 flex-1 overflow-y-auto p-6"/);
-  assert.match(editor, /className="flex shrink-0 flex-col gap-3 border-t/);
-  assert.ok(editor.indexOf("Interactive Block Editor") < editor.indexOf('className="min-h-0 flex-1 overflow-y-auto p-6"'));
-  assert.ok(editor.indexOf('className="min-h-0 flex-1 overflow-y-auto p-6"') < editor.indexOf("Clear draft"));
-  assert.doesNotMatch(editor, /overscroll-contain/);
-  assert.doesNotMatch(editor, /max-h-\[calc\(100vh-14rem\)\]/);
+  assert.match(recent, /Last touched by/);
+  assert.match(recent, /lastTouchedBy\?\.displayName/);
+  assert.match(recent, /formatLastTouchedAge\(job\.lastTouchedAt/);
+  assert.doesNotMatch(recent, /lastTouchedBy\?\.email|lastTouchedBy\.email/);
+  assert.match(recent, /aria-label=\{`Resume /);
+  assert.match(recent, /<Pencil/);
+  assert.match(recent, /<Check/);
+  assert.match(recent, /aria-busy="true"/);
+  assert.match(recent, /animate-pulse/);
+  assert.match(recent, /title="Done"[\s\S]{0,300}text-\[var\(--text-accent\)\]/);
+  assert.doesNotMatch(recent, /min to resume|older draft|Recover draft|Open in editor/);
+});
+
+test("formatter uses the dedicated document editor and existing export workflow", () => {
+  const source = readFileSync(join(process.cwd(), "src", "components", "service-builder-client.tsx"), "utf8");
+  assert.match(source, /<SongDocumentEditor/);
+  assert.match(source, /dynamic\(\(\) => import\("@\/features\/song-formatter\/song-document-editor"\)/);
+  assert.match(source, /onExport=\{\(\) => generateLyricsDocxMutation\.mutate/);
+  assert.match(source, /recovery\.clear\(\)/);
+  assert.match(source, /extractorDraftText \|\| formatterDraftOpened/);
+  assert.doesNotMatch(source, /Interactive Block Editor/);
+});
+
+test("document viewport uses semantic surfaces and continuous mobile editing", () => {
+  const css = readFileSync(join(process.cwd(), "src", "features", "song-formatter", "song-document-editor.module.css"), "utf8");
+  assert.match(css, /var\(--surface-panel\)/);
+  assert.match(css, /var\(--text-primary\)/);
+  assert.match(css, /var\(--border-default\)/);
+  assert.match(css, /overflow: auto/);
+  assert.match(css, /100dvh/);
+  assert.match(css, /data-continuous='true'/);
+});
+
+test("clearing the formatter removes recovery and returns to song selection", () => {
+  const source = readFileSync(join(process.cwd(), "src", "components", "service-builder-client.tsx"), "utf8");
+  const clear = source.slice(source.indexOf("onClear={async () =>"), source.indexOf("onClear={async () =>") + 1000);
+  assert.match(clear, /recovery\.clear\(\)/);
+  assert.match(clear, /if \(!await recovery\.clear\(\)\) return/);
+  assert.match(clear, /setExtractorDraftText\(""\)/);
+  assert.match(clear, /router\.push\(workspaceFormatterPath\("upload"\)\)/);
 });

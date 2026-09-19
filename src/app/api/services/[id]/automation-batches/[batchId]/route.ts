@@ -28,7 +28,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ message: "Temporary automation batch deleted" });
   } catch (error: unknown) {
-    console.error("DELETE /api/services/[id]/automation-batches/[batchId] error:", error);
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to delete temporary automation batch") },
       { status: 500 }

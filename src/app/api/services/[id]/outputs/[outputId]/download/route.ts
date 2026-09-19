@@ -35,7 +35,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
       },
     });
   } catch (error: unknown) {
-    console.error("GET /api/services/[id]/outputs/[outputId]/download error:", error);
     return Response.json(
       { error: getErrorMessage(error, "Failed to download generated output") },
       { status: 500 }

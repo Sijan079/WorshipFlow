@@ -26,7 +26,7 @@ export function runLocalAuthConfigTests() {
   const dockerDevScript = read("scripts/dev-docker.mjs");
   assert.match(
     dockerDevScript,
-    /runOrExit\("npx", \["supabase", "start"\]\)/,
+    /runOrExit\("npx", \["supabase", "start"(?:, [^\]]+)?\]\)/,
     "The Docker dev entry point must start local Supabase services.",
   );
   assert.match(

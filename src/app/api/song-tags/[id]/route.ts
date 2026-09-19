@@ -26,7 +26,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(tag);
   } catch (error: unknown) {
-    console.error("PUT /api/song-tags/[id] error:", error);
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to update song tag") },
       { status: 500 }
@@ -56,7 +55,6 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/song-tags/[id] error:", error);
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to delete song tag") },
       { status: 500 }

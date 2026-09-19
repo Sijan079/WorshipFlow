@@ -54,9 +54,7 @@ export async function GET() {
     });
 
     return NextResponse.json(services);
-  } catch (error: unknown) {
-    console.error("GET /api/services error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
   }
 }
 
@@ -203,8 +201,6 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(completeService, { status: 201 });
-  } catch (error: unknown) {
-    console.error("POST /api/services error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to create service") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to create service") }, { status: 500 });
   }
 }

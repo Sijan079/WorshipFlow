@@ -37,9 +37,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json(servant);
-  } catch (error: unknown) {
-    console.error("GET /api/servants/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to load servant") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to load servant") }, { status: 500 });
   }
 }
 
@@ -103,9 +101,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const updatedServant = rows[0];
 
     return NextResponse.json(updatedServant);
-  } catch (error: unknown) {
-    console.error("PUT /api/servants/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to update servant") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to update servant") }, { status: 500 });
   }
 }
 
@@ -135,8 +131,6 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("DELETE /api/servants/[id] error:", error);
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete servant") }, { status: 500 });
+  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete servant") }, { status: 500 });
   }
 }

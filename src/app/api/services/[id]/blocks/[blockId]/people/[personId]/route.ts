@@ -41,7 +41,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(updatedPerson);
   } catch (error: unknown) {
-    console.error("PUT /api/services/[id]/blocks/[blockId]/people/[personId] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to update participant") }, { status: 500 });
   }
 }
@@ -72,7 +71,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ message: "Participant removed successfully" });
   } catch (error: unknown) {
-    console.error("DELETE /api/services/[id]/blocks/[blockId]/people/[personId] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to delete participant") }, { status: 500 });
   }
 }

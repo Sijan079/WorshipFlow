@@ -28,7 +28,6 @@ export async function GET(request: Request, { params }: RouteParams) {
     });
     return NextResponse.json(jobs);
   } catch (error: unknown) {
-    console.error("GET /api/services/[id]/jobs error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch jobs") }, { status: 500 });
   }
 }
@@ -173,7 +172,6 @@ export async function POST(request: Request, { params }: RouteParams) {
           });
         });
       } catch (err: unknown) {
-        console.error(`Error in automation job ${job.id}:`, err);
         await prisma.automationJob.update({
           where: { id: job.id },
           data: {
@@ -187,7 +185,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json(job, { status: 201 });
   } catch (error: unknown) {
-    console.error("POST /api/services/[id]/jobs error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to trigger automation job") }, { status: 500 });
   }
 }

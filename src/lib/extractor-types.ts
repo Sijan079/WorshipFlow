@@ -77,6 +77,7 @@ export const LyricsExtractorAiRetryDescriptorSchema = z.object({
 
 export const LyricsExtractorEditableResponseSchema = z.object({
   kind: z.literal("editable"),
+  conversionId: z.string().uuid().optional(),
   text: z.string(),
   retry: LyricsExtractorAiRetryDescriptorSchema.optional(),
   outputJson: LyricsExtractorSafeOutputSchema,

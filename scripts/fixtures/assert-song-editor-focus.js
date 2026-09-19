@@ -1,0 +1,46 @@
+// Regression: Enter on a later page must not scroll back to the document top.
+(async () => {
+  const wait = () => new Promise(resolve => setTimeout(resolve, 180));
+  const button = label => [...document.querySelectorAll("button")].find(node => node.getAttribute("aria-label") === label || node.textContent.trim() === label);
+  const results = [];
+  const assert = (condition, label) => { if (!condition) throw new Error(label); results.push(label); };
+  button("Load sample song").click(); await wait(); await wait();
+  const editor = document.querySelector(".ProseMirror");
+  const viewport = editor.parentElement.parentElement.parentElement;
+  const line = [...editor.querySelectorAll('[data-song-page="3"]')].find(node => node.textContent.length > 4);
+  editor.focus();
+  const range = document.createRange(); range.setStart(line.firstChild, 4); range.collapse(true);
+  getSelection().removeAllRanges(); getSelection().addRange(range);
+  document.dispatchEvent(new Event("selectionchange")); await wait();
+  line.scrollIntoView({ block: "center" }); await wait();
+  const before = viewport.scrollTop;
+  assert(before > 1000, "Test starts on a later document page");
+  editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true }));
+  await wait(); await wait();
+  assert(viewport.scrollTop > before - 150, "Enter keeps the viewport near the cursor, not document top");
+  const caret = getSelection().anchorNode.parentElement.getBoundingClientRect();
+  const bounds = viewport.getBoundingClientRect();
+  assert(caret.top >= bounds.top && caret.bottom <= bounds.bottom, "New line cursor remains visible after pagination");
+  assert(getComputedStyle(editor).outlineStyle === "none", "Document has no full-surface purple focus outline");
+  const region = document.querySelector('[aria-label="Song Editor"]');
+  assert(Math.abs(region.getBoundingClientRect().bottom - (innerHeight - 24)) < 4, "Editor fills available window height");
+  button("Toggle section outline").click(); await wait();
+  const nav = document.querySelector('nav[aria-label="Song sections"]');
+  const sectionButtons = [...nav.querySelectorAll('button[aria-current]')];
+  sectionButtons.at(-1).click(); await wait();
+  const selected = editor.querySelector('[data-active-song-section="true"]');
+  assert(selected && selected.querySelector(".song-lyric-line").textContent.includes("18"), "Outline selection highlights matching document section");
+  assert(getComputedStyle(selected.querySelector(".song-lyric-line")).boxShadow !== "none", "Selected document section has the purple side marker");
+  const currentRow = nav.querySelector('[aria-current="true"]');
+  const listBounds = currentRow.parentElement.getBoundingClientRect();
+  const currentBounds = currentRow.getBoundingClientRect();
+  assert(currentBounds.top >= listBounds.top - 1 && currentBounds.bottom <= listBounds.bottom + 1, "Active outline row stays visible");
+  const move = button("Move selected section up");
+  const moveBounds = move.getBoundingClientRect();
+  const navBounds = nav.getBoundingClientRect();
+  assert(moveBounds.bottom <= navBounds.bottom && moveBounds.top >= navBounds.top, "Outline move arrows remain visible at bottom");
+  move.click(); await wait();
+  assert(editor.querySelector('[data-active-song-section="true"] .song-lyric-line').textContent.includes("18"), "Highlight follows the moved section");
+  assert(editor.querySelectorAll('[data-song-page]').length === editor.querySelectorAll('.song-lyric-line').length, "Reordering same-sized sections retains every line's page position");
+  return results;
+})()

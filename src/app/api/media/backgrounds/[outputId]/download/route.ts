@@ -47,7 +47,6 @@ export async function GET(request: Request, { params }: RouteParams) {
       },
     });
   } catch (error: unknown) {
-    console.error("GET /api/media/backgrounds/[outputId]/download error:", error);
     return Response.json(
       { error: getErrorMessage(error, "Failed to download generated background") },
       { status: 500 }

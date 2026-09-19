@@ -26,7 +26,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ message: "Song association removed successfully" });
   } catch (error: unknown) {
-    console.error("DELETE /api/services/[id]/songs/[serviceSongId] error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to remove song from service") }, { status: 500 });
   }
 }

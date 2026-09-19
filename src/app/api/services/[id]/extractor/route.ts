@@ -9,7 +9,8 @@ import {
   validateUploadFile,
 } from "@/lib/upload-security";
 import { checkRateLimit, getRateLimitKey, rateLimitResponse } from "@/lib/rate-limit";
-import { getActiveWorkspaceId, serviceWorkspaceWhere } from "@/lib/security-context";
+import { requireExplicitWorkspaceRole, serviceWorkspaceWhere, WorkspaceAuthorizationError } from "@/lib/security-context";
+import { createFormatterDraft, recordFormatterFailure } from "@/features/song-formatter/draft-store";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -28,7 +29,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const { id: serviceId } = await params;
-    const workspaceId = await getActiveWorkspaceId(prisma);
+    const scope = await requireExplicitWorkspaceRole("ADMIN");
+    const workspaceId = scope.workspaceId;
 
     const service = await prisma.worshipService.findUnique({
       where: serviceWorkspaceWhere(serviceId, workspaceId),
@@ -64,9 +66,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
 
       try {
-        const { result } = await processImmediateUploadExtractor(serviceId, file, songTitle);
-        return NextResponse.json(result);
+        const { result, job } = await processImmediateUploadExtractor(serviceId, file, songTitle);
+        const saved = await createFormatterDraft(scope, { sourceName: file.name, parser: result.outputJson.parser, jobId: job.id,
+          content: { text: result.text, songTitle: songTitle ?? file.name.replace(/\.[^.]+$/, ""), warningCodes: result.outputJson.warningCodes, warningsDismissed: false, directAiReformatUsed: false } });
+        return NextResponse.json({ ...result, conversionId: saved.draft!.conversionId });
       } catch (error: unknown) {
+        await recordFormatterFailure(scope, file.name).catch(() => undefined);
         const message = getErrorMessage(error, "Lyrics extraction failed");
         const status = message === "Temporary automation upload is unavailable or expired." ? 410 : 500;
         return NextResponse.json({ error: message }, { status });
@@ -74,11 +79,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json({ error: "Upload one DOCX or PDF file." }, { status: 415 });
-  } catch (error: unknown) {
-    console.error("POST /api/services/[id]/extractor error:", error);
-    return NextResponse.json(
+  } catch (error: unknown) {    return NextResponse.json(
       { error: getErrorMessage(error, "Failed to run lyrics extractor") },
-      { status: 500 }
+      { status: error instanceof WorkspaceAuthorizationError ? error.status : 500 }
     );
   }
 }

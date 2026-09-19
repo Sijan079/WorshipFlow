@@ -67,5 +67,5 @@ export function runWorkspaceRouteTests() {
   assert.match(servicesPage, /parseTemplateServiceText/);
   assert.doesNotMatch(servicesPage, /analyzeServiceText/);
   assert.doesNotMatch(servicesPage, /<select /);
-  assert.match(servicesPage, /ui-surface-panel.*md:grid-cols-3/);
+  assert.match(servicesPage, /grid gap-3 border-b border-\[var\(--rule-default\)\] pb-5 md:grid-cols-3/);
 }

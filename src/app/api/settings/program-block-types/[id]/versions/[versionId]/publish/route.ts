@@ -19,7 +19,6 @@ export async function POST(_request: Request, { params }: RouteParams) {
     });
     return NextResponse.json(published);
   } catch (error: unknown) {
-    console.error("POST /api/settings/program-block-types/[id]/versions/[versionId]/publish error:", error);
     return NextResponse.json({ error: getErrorMessage(error, "Failed to publish program block type version") }, { status: 500 });
   }
 }

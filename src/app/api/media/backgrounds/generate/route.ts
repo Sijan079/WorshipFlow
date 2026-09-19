@@ -126,8 +126,6 @@ export async function POST(request: Request) {
         },
       });
     }
-
-    console.error("POST /api/media/backgrounds/generate error:", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
