@@ -62,6 +62,7 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /label: "Templates"/);
   assert.match(shell, /DEV_NAV_PATHS = new Set\(\["\/automation"/);
   assert.match(shell, /"\/media-tools\/background-generator", "\/media-tools\/background-removal"/);
+  assert.match(shell, /DEV_NAV_PATHS = new Set\(\[[^\]]*"\/media-tools\/resize-image"/);
   assert.match(shell, /function NavDevPill/);
   assert.match(shell, /\{isDev \? <NavDevPill \/> : null\}/);
   assert.match(shell, /function SettingsSubnav[\s\S]*?useSearchParams\(\)/);

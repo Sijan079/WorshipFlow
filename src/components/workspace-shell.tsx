@@ -71,7 +71,7 @@ const MEDIA_TOOL_NAV = [
   { href: "/media-tools/background-removal", label: "Remove Background" },
 ] as const;
 
-const DEV_NAV_PATHS = new Set(["/automation", "/media-tools/background-generator", "/media-tools/background-removal"]);
+const DEV_NAV_PATHS = new Set(["/automation", "/media-tools/background-generator", "/media-tools/background-removal", "/media-tools/resize-image"]);
 
 function NavDevPill() {
   return <span className="ml-auto shrink-0 rounded-full border border-[var(--rail-border-strong)] bg-[var(--rail-ghost-hover)] px-1.5 py-0.5 font-[var(--font-mono)] text-[10px] font-bold leading-none tracking-[0.08em] text-[var(--rail-text-secondary)]" title="In development" aria-label="In development">DEV</span>;
