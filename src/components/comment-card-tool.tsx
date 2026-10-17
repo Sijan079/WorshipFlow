@@ -47,6 +47,7 @@ type CommentCardToolProps = { showToast: (message: string, tone?: ToastTone) => 
 type Session = { authenticated: boolean; user: { id: string; role: string | null } | null };
 const FIT_ICONS = { contain: Minimize2, fill: Scan, stretch: Expand } as const;
 const FIT_LABELS = { contain: "Contain", fill: "Fill", stretch: "Stretch" } as const;
+const CARD_EDITOR_SURFACE = { appearance: "none", backgroundColor: "transparent", border: 0, borderRadius: 0, outline: "none" } as const;
 
 function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
   const lines: string[] = [];
@@ -192,6 +193,7 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
   const [lineSpacing, setLineSpacing] = useState(COMMENT_CARD_EMPTY_DRAFT.lineSpacing);
   const [lineSpacingInput, setLineSpacingInput] = useState(String(COMMENT_CARD_EMPTY_DRAFT.lineSpacing));
   const [showSender, setShowSender] = useState(COMMENT_CARD_EMPTY_DRAFT.showSender);
+  const [focusedField, setFocusedField] = useState<"sender" | "comment" | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [pastePending, setPastePending] = useState(false);
   const session = useQuery({
@@ -526,20 +528,24 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
                       aria-label="Sender name on card"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
+                      onFocus={() => setFocusedField("sender")}
+                      onBlur={() => setFocusedField(null)}
                       maxLength={120}
                       placeholder="Commenter name"
-                      className="w-full shrink-0 appearance-none border-0 rounded-none bg-transparent p-0 font-extrabold leading-tight tracking-[-0.01em] text-[#101828] caret-[var(--action-primary-bg)] shadow-none outline-none placeholder:text-[#98a2b3] focus:bg-transparent focus:outline-none focus-visible:outline-none focus:shadow-[inset_0_-2px_0_var(--action-primary-bg)]"
-                      style={{ fontSize: commentCardPreviewFontSize(calculateSenderFontSize(fontSize)) }}
+                      className="w-full shrink-0 p-0 font-extrabold leading-tight tracking-[-0.01em] text-[#101828] caret-[var(--action-primary-bg)] placeholder:text-[#98a2b3]"
+                      style={{ ...CARD_EDITOR_SURFACE, boxShadow: focusedField === "sender" ? "inset 0 -2px 0 var(--action-primary-bg)" : "none", fontSize: commentCardPreviewFontSize(calculateSenderFontSize(fontSize)) }}
                     />
                   ) : null}
                   <textarea
                     aria-label="Comment text on card"
                     value={comment}
                     onChange={(event) => setComment(event.target.value)}
+                    onFocus={() => setFocusedField("comment")}
+                    onBlur={() => setFocusedField(null)}
                     maxLength={10000}
                     placeholder="Type or paste the comment here"
-                    className={`${showSender ? "mt-[2%]" : ""} min-h-0 w-full flex-1 resize-none overflow-auto appearance-none border-0 rounded-none bg-transparent p-0 text-[#1d2939] caret-[var(--action-primary-bg)] shadow-none outline-none placeholder:text-[#98a2b3] focus:bg-transparent focus:outline-none focus-visible:outline-none focus:shadow-[inset_0_-2px_0_var(--action-primary-bg)]`}
-                    style={{ fontSize: commentCardPreviewFontSize(fontSize), lineHeight: commentCardPreviewFontSize(calculateCommentLineHeight(fontSize, lineSpacing)) }}
+                    className={`${showSender ? "mt-[2%]" : ""} min-h-0 w-full flex-1 resize-none overflow-auto p-0 text-[#1d2939] caret-[var(--action-primary-bg)] placeholder:text-[#98a2b3]`}
+                    style={{ ...CARD_EDITOR_SURFACE, boxShadow: focusedField === "comment" ? "inset 0 -2px 0 var(--action-primary-bg)" : "none", fontSize: commentCardPreviewFontSize(fontSize), lineHeight: commentCardPreviewFontSize(calculateCommentLineHeight(fontSize, lineSpacing)) }}
                   />
                 </div>
               </div>

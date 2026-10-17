@@ -146,7 +146,10 @@ export function runCommentCardTests() {
   assert.doesNotMatch(siteTool, /<fieldset/);
   assert.match(siteTool, /id="comment-card-options"[^>]*className="flex flex-wrap items-end gap-3/);
   assert.match(siteTool, /max-\[599px\]:data-\[open=false\]:hidden/);
-  assert.match(siteTool, /appearance-none border-0 rounded-none bg-transparent/);
+  assert.match(siteTool, /CARD_EDITOR_SURFACE = \{[^}]*backgroundColor: "transparent"[^}]*border: 0/);
+  assert.equal((siteTool.match(/\.\.\.CARD_EDITOR_SURFACE/g) ?? []).length, 2);
+  assert.match(siteTool, /focusedField === "sender" \? "inset 0 -2px 0 var\(--action-primary-bg\)" : "none"/);
+  assert.match(siteTool, /focusedField === "comment" \? "inset 0 -2px 0 var\(--action-primary-bg\)" : "none"/);
   assert.doesNotMatch(globalStyles, /\.comment-card-(?:toolbar|editor-field|filename-input)/);
   assert.match(siteTool, /min-\[1200px\]:min-h-\[520px\]/);
   assert.match(siteTool, /aria-controls="comment-card-options" aria-expanded=\{optionsOpen\}/);
