@@ -2,6 +2,9 @@
 
 Version-controlled feature specs live here.
 
+- [Mobile usability and reliable interaction states](./mobile-usability/spec.md)
+  records the September 20, 2026 all-pages source audit and phased acceptance criteria.
+
 Each feature should have a dedicated folder with at least:
 
 - `spec.md` - current product and implementation contract.

@@ -2,6 +2,10 @@
 
 WorshipFlow is scoped to worship service preparation and production workflows.
 
+See the [feature roadmap](./roadmap.md) for preserved long-term proposals.
+It is a planning record, not proof of current implementation; current architecture
+and approved feature specs take precedence.
+
 Phase 1 feature areas:
 
 - Service Flow

@@ -18,6 +18,7 @@ import {
   Info,
   Loader2,
   Maximize2,
+  MessageCircle,
   Eraser,
   Plus,
   Pencil,
@@ -76,6 +77,7 @@ import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-to
 import QRGeneratorTool from "@/components/qr-generator-tool";
 import BackgroundGeneratorTool from "@/components/background-generator-tool";
 import ResizeImageTool from "@/components/resize-image-tool";
+import CommentCardTool from "@/components/comment-card-tool";
 import BackgroundRemovalTool from "@/components/background-removal-tool";
 import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-modules";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -105,7 +107,7 @@ type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
 type UpdateServiceFormValues = z.infer<typeof updateServiceFormSchema>;
 type SongWorkflowStep = "upload" | "extraction" | "format";
 type ServiceWorkflowStep = "setup" | "flow" | "review";
-export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "resize-image" | "background-removal";
+export type MediaTool = "phone-transfer" | "qr-generator" | "background-generator" | "comment-card" | "resize-image" | "background-removal";
 
 const SERVICE_WORKFLOW_STEPS: Array<{ id: ServiceWorkflowStep; label: string; description: string }> = [
   { id: "setup", label: "Service Setup", description: "Edit service info and import production notes." },
@@ -132,6 +134,12 @@ const MEDIA_TOOLS: Array<{ id: MediaTool; label: string; description: string; ic
     label: "Background Generator",
     description: "Generate projection-ready workspace image backgrounds with cost validation.",
     icon: WandSparkles,
+  },
+  {
+    id: "comment-card",
+    label: "Comment Card",
+    description: "Turn supplied comment text and a sender name into a sharp, projection-ready social-style graphic.",
+    icon: MessageCircle,
   },
   {
     id: "resize-image",
@@ -258,7 +266,7 @@ function ProgrammableBlockFields({
       <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
         <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link></div>
         <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} ×</button>)}</div>
-        <select value="" onChange={(event) => { const id = event.target.value; if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} disabled={servantsQuery.isLoading || saving} className="mt-3 min-h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm text-[var(--text-primary)]"><option value="">Add a Team member…</option>{people.filter((person) => !personIds.includes(person.id)).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select>
+        <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team member…" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
       </div>
     );
   }
@@ -276,7 +284,7 @@ function ProgrammableBlockFields({
           const update = (next: unknown) => setValues((current) => ({ ...current, [field.key]: next }));
           if (field.type === "checkbox") return <label key={field.key} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]"><input type="checkbox" checked={Boolean(value)} onChange={(event) => update(event.target.checked)} />{field.label}{field.required ? " *" : ""}</label>;
           if (field.type === "long_text") return <label key={field.key} className="block text-xs font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? " *" : ""}<textarea value={String(value ?? "")} onChange={(event) => update(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 py-2 text-sm font-normal text-[var(--color-brand-ink)]" placeholder={field.helpText} /></label>;
-          if (field.type === "single_select") return <label key={field.key} className="block text-xs font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? " *" : ""}<select value={String(value ?? "")} onChange={(event) => update(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 text-sm font-normal text-[var(--color-brand-ink)]"><option value="">Select...</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+          if (field.type === "single_select") return <ProductionSelect key={field.key} label={`${field.label}${field.required ? " *" : ""}`} value={String(value ?? "")} onValueChange={update} options={[{ value: "", label: "Select..." }, ...(field.options ?? []).map((option) => ({ value: option, label: option }))]} labelClassName="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]" triggerClassName="h-10 border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 text-sm font-normal text-[var(--color-brand-ink)]" />;
           return <label key={field.key} className="block text-xs font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? " *" : ""}<input value={String(value ?? "")} onChange={(event) => update(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel-alt)] px-3 text-sm font-normal text-[var(--color-brand-ink)]" placeholder={field.helpText} /></label>;
         })}
       </div>
@@ -992,9 +1000,6 @@ export default function ServiceBuilderClient({
   const mediaHeaderCopy = activeMediaToolCopy
     ? { title: activeMediaToolCopy.label, description: activeMediaToolCopy.description }
     : MEDIA_TOOLS_HOME_COPY;
-  const mediaToolNav = mediaTool
-    ? [...MEDIA_TOOLS.filter((tool) => tool.id === mediaTool), ...MEDIA_TOOLS.filter((tool) => tool.id !== mediaTool)]
-    : MEDIA_TOOLS;
 
   return (
     <div className="min-h-full space-y-5">
@@ -2224,38 +2229,16 @@ export default function ServiceBuilderClient({
 
         {module === MEDIA_TOOLS_MODULE ? (
           <div className="space-y-5">
-            <div className="space-y-4 py-1">
-              <div className="max-w-3xl">
-              <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
-                {mediaHeaderCopy.title}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-base">
-                {mediaHeaderCopy.description}
-              </p>
-              </div>
-              {mediaTool ? (
-                <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:hidden" aria-label="Media tools">
-                  <Link
-                    href={workspaceMediaToolsPath()}
-                    className="pressable inline-flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm font-semibold text-[var(--text-secondary)]"
-                  >
-                    All tools
-                  </Link>
-                  {mediaToolNav.map((tool) => (
-                    <Link
-                      key={tool.id}
-                      href={workspaceMediaToolsPath(tool.id)}
-                      aria-current={mediaTool === tool.id ? "page" : undefined}
-                      className={`pressable inline-flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] border px-3 text-sm font-semibold ${
-                        mediaTool === tool.id
-                          ? "border-[var(--border-focus)] bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"
-                          : "border-[var(--border-default)] bg-[var(--surface-panel-alt)] text-[var(--text-secondary)]"
-                      }`}
-                    >
-                      {tool.label}
-                    </Link>
-                  ))}
-                </nav>
+            <div className={mediaTool === "comment-card" ? "lg:hidden" : "space-y-4 py-1"}>
+              {mediaTool !== "comment-card" ? (
+                <div className="max-w-3xl">
+                  <h1 className="text-3xl font-semibold leading-10 text-[var(--text-primary)]">
+                    {mediaHeaderCopy.title}
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-base">
+                    {mediaHeaderCopy.description}
+                  </p>
+                </div>
               ) : null}
             </div>
 
@@ -2287,6 +2270,10 @@ export default function ServiceBuilderClient({
 
             {mediaTool === "background-generator" ? (
               <BackgroundGeneratorTool showToast={showToast} />
+            ) : null}
+
+            {mediaTool === "comment-card" ? (
+              <CommentCardTool showToast={showToast} workspaceSlug={workspaceRoutePrefix.split("/")[2] ?? ""} />
             ) : null}
 
             {mediaTool === "resize-image" ? (

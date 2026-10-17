@@ -13,6 +13,7 @@ export function runWorkspaceModulesTests() {
     "phone-transfer/page.tsx",
     "qr-generator/page.tsx",
     "background-generator/page.tsx",
+    "comment-card/page.tsx",
     "resize-image/page.tsx",
     "background-removal/page.tsx",
   ];
@@ -24,6 +25,15 @@ export function runWorkspaceModulesTests() {
     );
     assert.doesNotMatch(source, /module="assets"/);
   }
+
+  const serviceBuilder = readFileSync(
+    join(process.cwd(), "src", "components", "service-builder-client.tsx"),
+    "utf8",
+  );
+  assert.match(serviceBuilder, /import ResizeImageTool from "@\/components\/resize-image-tool"/);
+  assert.match(serviceBuilder, /import CommentCardTool from "@\/components\/comment-card-tool"/);
+  assert.match(serviceBuilder, /mediaTool === "resize-image"[\s\S]*?<ResizeImageTool showToast=\{showToast\}/);
+  assert.match(serviceBuilder, /mediaTool === "comment-card"[\s\S]*?<CommentCardTool showToast=\{showToast\}/);
 
   const assetsCompatibilityPages = [
     ["page.tsx", 'redirect("/media-tools")'],

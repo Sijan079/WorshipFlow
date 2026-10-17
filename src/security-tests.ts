@@ -8,6 +8,7 @@ import { runOpenAIBackgroundRemovalTests } from "./features/media-generation/ser
 import { runPAPApiErrorTests } from "./features/pap/server/pap-api-errors.test.ts";
 import { runPAPDeviceNameTests } from "./features/pap/pap-device-name.test.ts";
 import { runResizeImageTests } from "./lib/resize-image.test.ts";
+import { runCommentCardTests } from "./lib/comment-card.test.ts";
 import { runServiceRecordTests } from "./lib/service-records.test.ts";
 import { runServantDirectoryTests } from "./lib/servant-directory.test.ts";
 import { runServicesSecurityTests } from "./lib/services-security.test.ts";
@@ -62,6 +63,7 @@ await runOpenAIBackgroundRemovalTests();
 runPAPApiErrorTests();
 runPAPDeviceNameTests();
 runResizeImageTests();
+runCommentCardTests();
 runServiceRecordTests();
 runServantDirectoryTests();
 runServicesSecurityTests();

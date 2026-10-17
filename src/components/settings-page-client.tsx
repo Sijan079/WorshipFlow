@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { KeyboardEvent, ReactNode } from "react";
 import { Camera, ChevronDown, Cloud, Eye, EyeOff, Globe2, GripVertical, LayoutTemplate, Link2, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, UsersRound, Video, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ProductionSelect } from "@/components/ui/production-select";
 import {
   apiFetch,
   type ActivateChecklistPresetPayload,
   type ChecklistPresetRecord,
+  type CommentCardNameTemplateRecord,
   type CreateChecklistPresetPayload,
   type CreateEditableSettingsPresetPayload,
   type CreateServiceTemplatePresetPayload,
@@ -401,6 +404,110 @@ function EditablePresetSection({
   );
 }
 
+function CommentCardNameTemplateSection({ records }: { records: CommentCardNameTemplateRecord[] }) {
+  const queryClient = useQueryClient();
+  const queryKey = ["settings", "comment-card-name-templates"];
+  const [newName, setNewName] = useState("");
+  const [newTemplateOpen, setNewTemplateOpen] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [deleteCandidate, setDeleteCandidate] = useState<CommentCardNameTemplateRecord | null>(null);
+  const createMutation = useMutation({
+    mutationFn: (name: string) => apiFetch<CommentCardNameTemplateRecord>("/api/settings/comment-card-name-templates", { method: "POST", body: JSON.stringify({ name }) }),
+    onSuccess: async () => { setNewName(""); setNewTemplateOpen(false); await queryClient.invalidateQueries({ queryKey }); },
+  });
+  const renameMutation = useMutation({
+    mutationFn: (entries: Array<{ id: string; name: string }>) => Promise.all(entries.map(({ id, name }) =>
+      apiFetch<{ id: string; name: string }>(`/api/settings/comment-card-name-templates/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ name }) })
+    )),
+    onSuccess: async (_, entries) => {
+      setDrafts((current) => {
+        const next = { ...current };
+        entries.forEach(({ id }) => delete next[id]);
+        return next;
+      });
+      await queryClient.invalidateQueries({ queryKey });
+    },
+  });
+  const activateMutation = useMutation({
+    mutationFn: (id: string) => apiFetch<{ id: string }>("/api/settings/comment-card-name-templates", { method: "PATCH", body: JSON.stringify({ id }) }),
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey }); },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiFetch<{ success: true }>(`/api/settings/comment-card-name-templates/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    onSuccess: async () => { setDeleteCandidate(null); await queryClient.invalidateQueries({ queryKey }); },
+  });
+  const pending = createMutation.isPending || renameMutation.isPending || activateMutation.isPending || deleteMutation.isPending;
+  const error = createMutation.error || renameMutation.error || activateMutation.error || deleteMutation.error;
+  const changedEntries = records.flatMap((record) => {
+    const value = drafts[record.id];
+    return value !== undefined && value !== record.name ? [{ id: record.id, name: value.trim() }] : [];
+  });
+
+  return (
+    <>
+      <SectionShell
+        title="Comment Card Name Template"
+        description="The active name loads whenever Comment Card opens. Saved comment text and layout settings remain available."
+        flat
+        pending={pending}
+        action={<div className="flex flex-wrap items-center justify-end gap-2">
+          {changedEntries.length > 0 ? <SectionSaveButton disabled={pending || changedEntries.some(({ name }) => !name)} pending={renameMutation.isPending} onClick={() => renameMutation.mutate(changedEntries)} /> : null}
+          <SettingsAddButton controls="new-comment-card-name-template" expanded={newTemplateOpen} label="New template" disabled={pending} onClick={() => {
+            if (newTemplateOpen) setNewName("");
+            setNewTemplateOpen((open) => !open);
+          }} />
+        </div>}
+      >
+        <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
+          <div className="hidden grid-cols-[minmax(12rem,1fr)_7rem_9rem_13rem] items-center gap-3 border-b border-[var(--border-default)] px-4 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] lg:grid sm:px-6">
+            <span>Name</span><span>Status</span><span>Updated</span><span aria-hidden="true" />
+          </div>
+          <div className="divide-y divide-[var(--border-default)]">
+            {records.length === 0 ? <div className="px-4 py-10 text-center"><p className="font-semibold text-[var(--text-primary)]">No comment card name templates</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Use the add action above to create the first template.</p></div> : null}
+            {records.map((record) => {
+              const value = drafts[record.id] ?? record.name;
+              const isOpen = Boolean(expanded[record.id]);
+              const dirty = value !== record.name;
+              const panelId = `comment-card-name-template-${record.id}`;
+              return <article key={record.id}>
+                <div className="group/row flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-[var(--surface-panel-strong)] lg:grid lg:grid-cols-[minmax(12rem,1fr)_7rem_9rem_13rem] sm:px-6">
+                  <button type="button" onClick={() => setExpanded((current) => ({ ...current, [record.id]: !isOpen }))} aria-expanded={isOpen} aria-controls={panelId} className="pressable min-h-11 min-w-0 flex-1 text-left lg:flex-none">
+                    <span className="block truncate font-semibold text-[var(--text-primary)]">{value || record.name}</span>
+                    <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">{dirty ? "Unsaved changes" : "PNG filename"}</span>
+                  </button>
+                  <span className="hidden lg:block"><StatusPill active={record.isActive} inactiveLabel="Available" /></span>
+                  <span className="hidden font-mono text-[10px] leading-4 text-[var(--text-secondary)] lg:block"><span className="block">{SETTINGS_DATE_FORMATTER.format(new Date(record.updatedAt))}</span><span className="block text-[var(--text-muted)]">{SETTINGS_TIME_FORMATTER.format(new Date(record.updatedAt))}</span></span>
+                  <div className="flex shrink-0 items-center justify-end gap-1">
+                    <span className="mr-1 lg:hidden"><StatusPill active={record.isActive} inactiveLabel="Available" /></span>
+                    {!record.isActive ? <button type="button" onClick={() => activateMutation.mutate(record.id)} disabled={pending} className="pressable inline-flex h-10 items-center rounded-md px-2 text-xs font-semibold text-[var(--text-accent)] hover:bg-[var(--action-ghost-hover)] disabled:opacity-50" aria-label={`Use ${record.name} by default`}>Set active</button> : null}
+                    <button type="button" onClick={() => setExpanded((current) => ({ ...current, [record.id]: !isOpen }))} aria-label={`${isOpen ? "Close" : "Edit"} ${record.name}`} title={isOpen ? "Close editor" : "Edit template"} className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)]">{isOpen ? <ChevronDown className="h-4 w-4 rotate-180" /> : <Pencil className="h-4 w-4" />}</button>
+                    <button type="button" onClick={() => setDeleteCandidate(record)} disabled={pending} aria-label={`Delete ${record.name}`} title={`Delete ${record.name}`} className="pressable inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)] disabled:opacity-50"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                  </div>
+                </div>
+                {isOpen ? <div id={panelId} className="animate-fade-in bg-[var(--surface-canvas)] px-4 py-5 sm:px-6">
+                  <div className="mx-auto w-full max-w-5xl border-y border-[var(--border-default)]">
+                    <div className="border-b border-[var(--border-default)] py-3"><p className="technical-label">TEMPLATE DETAILS</p><p className="mt-1 text-xs text-[var(--text-secondary)]">This filename loads each time Comment Card opens while the template is active.</p></div>
+                    <div className="p-4"><label className="block space-y-1.5 text-sm font-semibold text-[var(--text-secondary)]"><span>Filename</span><input value={value} onChange={(event) => setDrafts((current) => ({ ...current, [record.id]: event.target.value }))} maxLength={72} className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" /></label></div>
+                  </div>
+                </div> : null}
+              </article>;
+            })}
+            {newTemplateOpen ? <article id="new-comment-card-name-template" className="animate-fade-in bg-[var(--surface-canvas)] px-4 py-5 sm:px-6">
+              <form onSubmit={(event) => { event.preventDefault(); if (newName.trim()) createMutation.mutate(newName.trim()); }} className="mx-auto w-full max-w-5xl overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel-alt)]">
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--border-default)] px-4 py-3"><div><p className="technical-label">NEW TEMPLATE</p><p className="mt-1 text-xs text-[var(--text-secondary)]">The first saved name becomes the active default.</p></div><span className="rounded bg-[var(--surface-panel-strong)] px-2.5 py-1 font-[var(--font-mono)] text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Draft</span></div>
+                <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"><label className="block space-y-1.5 text-sm font-semibold text-[var(--text-secondary)]"><span>Filename</span><input value={newName} onChange={(event) => setNewName(event.target.value)} maxLength={72} placeholder="e.g. Sunday Comments" className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" /></label><button type="submit" disabled={pending || !newName.trim()} className="ui-btn-primary pressable inline-flex h-11 w-full items-center justify-center gap-2 px-5 text-sm font-semibold disabled:opacity-50 lg:w-auto">{createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Create template</button></div>
+              </form>
+            </article> : null}
+          </div>
+        </div>
+        {error ? <p role="alert" className="text-sm text-[var(--text-danger)]">{error instanceof Error ? error.message : "Could not save the template."}</p> : null}
+      </SectionShell>
+      {deleteCandidate ? <DeleteConfirmDialog label={deleteCandidate.name} description="This removes the saved filename. If it is active, the next saved name becomes active." error={deleteMutation.error instanceof Error ? deleteMutation.error.message : undefined} pending={deleteMutation.isPending} onCancel={() => { setDeleteCandidate(null); deleteMutation.reset(); }} onConfirm={() => deleteMutation.mutate(deleteCandidate.id)} /> : null}
+    </>
+  );
+}
+
 function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
   const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, ChecklistForm>>({});
@@ -547,24 +654,24 @@ function ChecklistSection({ records }: { records: ChecklistPresetRecord[] }) {
                         <h3 className="text-sm font-semibold text-[var(--text-primary)]">Checklist items</h3>
                         <button type="button" onClick={() => setDraft(record.id, { ...draft, items: [...draft.items, { label: "", active: true }] })} className="ui-btn-secondary pressable inline-flex h-10 items-center gap-2 px-3 text-xs font-semibold"><Plus className="h-3.5 w-3.5" /> Add item</button>
                       </div>
-                      <div className="min-w-[34rem] space-y-3">
+                      <div className="min-w-0 space-y-3">
                         {draft.items.map((item, index) => (
                           <div key={item.id ?? `new-${index}`} draggable onDragStart={() => setDraggedItem({ checklistId: record.id, index })} onDragOver={(event) => event.preventDefault()} onDrop={() => {
                             if (draggedItem?.checklistId === record.id) setDraft(record.id, { ...draft, items: moveTemplateBlock(draft.items, draggedItem.index, index) });
                             setDraggedItem(null);
-                          }} className="group grid min-h-12 grid-cols-[2rem_2.75rem_minmax(12rem,1fr)_6rem_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
-                            <span className="flex items-center justify-center border-r border-[var(--border-default)] bg-[var(--surface-panel-alt)] font-[var(--font-mono)] text-[10px] font-semibold text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>
+                          }} className="group grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_2.75rem_2.75rem] sm:grid-cols-[2rem_2.75rem_minmax(0,1fr)_6rem_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,opacity,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
+                            <span className="col-start-1 row-start-1 flex items-center justify-center border-r border-[var(--border-default)] bg-[var(--surface-panel-alt)] font-[var(--font-mono)] text-[10px] font-semibold text-[var(--text-muted)] sm:col-auto sm:row-auto">{String(index + 1).padStart(2, "0")}</span>
                             <button type="button" onKeyDown={(event) => {
                               const target = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : index;
                               if (target === index || target < 0 || target >= draft.items.length) return;
                               event.preventDefault();
                               setDraft(record.id, { ...draft, items: moveTemplateBlock(draft.items, index, target) });
-                            }} className="flex items-center justify-center border-r border-[var(--border-default)] bg-[var(--surface-panel-strong)] text-[var(--text-muted)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)]" aria-label={`Reorder item ${index + 1}`} title="Drag or use arrow keys"><GripVertical className="h-4 w-4" /></button>
-                            <input value={item.label} onChange={(event) => setDraft(record.id, { ...draft, items: draft.items.map((candidate, itemIndex) => itemIndex === index ? { ...candidate, label: event.target.value } : candidate) })} placeholder="Checklist item" className="min-w-0 border-0 bg-transparent px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none" />
-                            <label className="flex items-center justify-center border-l border-[var(--border-default)]" title={item.active ? "Enabled" : "Disabled"}>
+                            }} className="col-start-1 row-start-2 flex min-h-11 items-center justify-center border-r border-t border-[var(--border-default)] bg-[var(--surface-panel-strong)] text-[var(--text-muted)] hover:bg-[var(--surface-panel-elevated)] hover:text-[var(--text-primary)] sm:col-auto sm:row-auto sm:border-t-0" aria-label={`Reorder item ${index + 1}`} title="Drag or use arrow keys"><GripVertical className="h-4 w-4" /></button>
+                            <input value={item.label} onChange={(event) => setDraft(record.id, { ...draft, items: draft.items.map((candidate, itemIndex) => itemIndex === index ? { ...candidate, label: event.target.value } : candidate) })} placeholder="Checklist item" className="col-start-2 col-end-5 row-start-1 min-w-0 border-0 bg-transparent px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none sm:col-auto sm:row-auto" />
+                            <label className="col-start-3 row-start-2 flex min-h-11 items-center justify-center border-l border-t border-[var(--border-default)] sm:col-auto sm:row-auto sm:border-t-0" title={item.active ? "Enabled" : "Disabled"}>
                               <input type="checkbox" checked={item.active} onChange={(event) => setDraft(record.id, { ...draft, items: draft.items.map((candidate, itemIndex) => itemIndex === index ? { ...candidate, active: event.target.checked } : candidate) })} className="ui-checkbox h-4 w-4" aria-label={`${item.active ? "Disable" : "Enable"} item ${index + 1}`} />
                             </label>
-                            <button type="button" onClick={() => setDraft(record.id, { ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="pressable flex items-center justify-center border-l border-[var(--border-default)] text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label={`Delete item ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /><span className="sr-only">Delete</span></button>
+                            <button type="button" onClick={() => setDraft(record.id, { ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="pressable col-start-4 row-start-2 flex min-h-11 items-center justify-center border-l border-t border-[var(--border-default)] text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)] sm:col-auto sm:row-auto sm:border-t-0" aria-label={`Delete item ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /><span className="sr-only">Delete</span></button>
                           </div>
                         ))}
                         {draft.items.length === 0 ? <SettingsEmptyState>No checklist items yet. Use Add item above.</SettingsEmptyState> : null}
@@ -1102,14 +1209,13 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                             className="min-w-0 border-0 bg-transparent px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none focus:z-10"
                             aria-label={`Program block ${index + 1}`}
                           />
-                          <select
+                          <ProductionSelect
                             value={block.kind}
-                            onChange={(event) => setDraft(record.id, updateBlockKind(draft, index, event.target.value as "PERSON" | "TEXT"))}
-                            className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
-                            aria-label={`Category for program block ${index + 1}`}
-                          >
-                            {TEMPLATE_BLOCK_KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                          </select>
+                            onValueChange={(value) => setDraft(record.id, updateBlockKind(draft, index, value))}
+                            options={TEMPLATE_BLOCK_KINDS.map(([value, label]) => ({ value, label }))}
+                            ariaLabel={`Category for program block ${index + 1}`}
+                            triggerClassName="h-11 rounded-none border-0 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)]"
+                          />
                           <button
                             type="button"
                             onClick={() => setDraft(record.id, removeBlock(draft, index))}
@@ -1235,14 +1341,13 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                         placeholder="Program block"
                         aria-label={`New block ${index + 1}`}
                       />
-                      <select
+                      <ProductionSelect
                         value={block.kind}
-                        onChange={(event) => setNewDraft(updateBlockKind(newRecord, index, event.target.value as "PERSON" | "TEXT"))}
-                        className="min-h-11 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--border-focus)]"
-                        aria-label={`Category for new program block ${index + 1}`}
-                      >
-                        {TEMPLATE_BLOCK_KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
+                        onValueChange={(value) => setNewDraft(updateBlockKind(newRecord, index, value))}
+                        options={TEMPLATE_BLOCK_KINDS.map(([value, label]) => ({ value, label }))}
+                        ariaLabel={`Category for new program block ${index + 1}`}
+                        triggerClassName="h-11 rounded-none border-0 border-l border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-xs text-[var(--text-secondary)]"
+                      />
                       <button type="button" onClick={() => setNewDraft(removeBlock(newRecord, index))} className="pressable inline-flex min-h-11 w-11 shrink-0 items-center justify-center border-l border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--state-danger-soft)] hover:text-[var(--text-danger)]" aria-label={`Remove new block ${index + 1}`} title="Remove block">
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="sr-only">Remove</span>
@@ -1373,12 +1478,12 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
       )}
     >
       <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-      <div className="min-w-[38rem] space-y-3 p-4">
+      <div className="min-w-0 space-y-3 p-2 sm:p-4">
         {records.length === 0 && !newTagOpen ? <SettingsEmptyState>No song tags yet. Use Add tag to create one.</SettingsEmptyState> : null}
         {records.map((record, index) => {
           const draft = drafts[record.id] ?? record;
           return (
-            <div key={record.id} className="group grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_7rem_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
+            <div key={record.id} className="group grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_3rem_2.75rem] sm:grid-cols-[2rem_minmax(0,1fr)_7rem_2.75rem] overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] transition-[border-color,box-shadow] hover:border-[color:color-mix(in_oklab,var(--border-focus)_42%,var(--border-default))] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
               <span className="flex items-center justify-center border-r border-[var(--border-default)] bg-[var(--surface-panel-alt)] font-[var(--font-mono)] text-[10px] font-semibold text-[var(--text-muted)]" aria-hidden="true">
                 {String(index + 1).padStart(2, "0")}
               </span>
@@ -1416,7 +1521,7 @@ function SongTagsSection({ records }: { records: SongTagPresetRecord[] }) {
         })}
 
         {newTagOpen ? (
-          <div id="new-song-tag-row" className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_7rem_2.75rem] overflow-hidden rounded-md border border-dashed border-[var(--border-default)] bg-[var(--surface-panel-alt)] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
+          <div id="new-song-tag-row" className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_3rem_2.75rem] sm:grid-cols-[2rem_minmax(0,1fr)_7rem_2.75rem] overflow-hidden rounded-md border border-dashed border-[var(--border-default)] bg-[var(--surface-panel-alt)] focus-within:border-[var(--border-focus)] focus-within:shadow-[0_0_0_1px_var(--border-focus)]">
             <span className="flex items-center justify-center border-r border-[var(--border-default)] font-[var(--font-mono)] text-[10px] font-semibold text-[var(--text-muted)]" aria-hidden="true">
               {String(records.length + 1).padStart(2, "0")}
             </span>
@@ -1570,7 +1675,7 @@ function ProgramBlockTypesSection({ records }: { records: ProgramBlockTypeRecord
                 <div className="space-y-2">
                   {fields.map((field, index) => <div key={`${field.key}-${index}`} className="grid gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-3 md:grid-cols-[minmax(8rem,1fr)_10rem_8rem_auto]">
                     <input value={field.label} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value, key: item.key || normalizePresetCode(event.target.value).toLowerCase() } : item))} aria-label={`Field ${index + 1} label`} className="h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-sm text-[var(--text-primary)]" />
-                    <select value={field.type} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item))} aria-label={`Field ${index + 1} type`} className="h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-secondary)]">{PROGRAM_FIELD_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                    <ProductionSelect value={field.type} onValueChange={(value) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, type: value } : item))} options={PROGRAM_FIELD_OPTIONS.map(([value, label]) => ({ value, label }))} ariaLabel={`Field ${index + 1} type`} triggerClassName="h-10 bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-secondary)]" />
                     <label className="flex h-10 items-center gap-2 px-1 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, required: event.target.checked } : item))} /> Required</label>
                     <button type="button" onClick={() => setFields((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="h-10 px-2 text-xs text-[var(--text-danger)]">Remove</button>
                     {field.type === "single_select" ? <input value={field.options} onChange={(event) => setFields((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, options: event.target.value } : item))} placeholder="Options: Prayer, Response" aria-label={`Options for field ${index + 1}`} className="h-10 md:col-span-4 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-primary)]" /> : null}
@@ -1650,19 +1755,10 @@ function IntegrationsSection() {
 
 export default function SettingsPageClient({ environment }: { environment: EnvironmentReport }) {
   void environment;
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const activeTab: SettingsTab = SETTINGS_TABS.some((candidate) => candidate.id === requestedTab) ? requestedTab as SettingsTab : "general";
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  useEffect(() => {
-    const syncTabFromUrl = () => {
-      const tab = new URLSearchParams(window.location.search).get("tab");
-      setActiveTab(SETTINGS_TABS.some((candidate) => candidate.id === tab) ? tab as SettingsTab : "general");
-    };
-
-    syncTabFromUrl();
-    window.addEventListener("popstate", syncTabFromUrl);
-    return () => window.removeEventListener("popstate", syncTabFromUrl);
-  }, []);
   const ministriesQuery = useQuery({
     queryKey: ["settings", "ministries"],
     queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/ministries"),
@@ -1683,6 +1779,11 @@ export default function SettingsPageClient({ environment }: { environment: Envir
     queryFn: () => apiFetch<ServiceTemplatePresetRecord[]>("/api/settings/service-templates"),
     enabled: activeTab === "templates",
   });
+  const commentCardNameTemplatesQuery = useQuery({
+    queryKey: ["settings", "comment-card-name-templates"],
+    queryFn: () => apiFetch<CommentCardNameTemplateRecord[]>("/api/settings/comment-card-name-templates"),
+    enabled: activeTab === "templates",
+  });
   const songTagsQuery = useQuery({
     queryKey: ["song-tags"],
     queryFn: () => apiFetch<SongTagPresetRecord[]>("/api/song-tags"),
@@ -1691,7 +1792,6 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
   function selectTab(tab: SettingsTab) {
     if (tab === activeTab) return;
-    setActiveTab(tab);
     const url = new URL(window.location.href);
     if (tab === "general") url.searchParams.delete("tab");
     else url.searchParams.set("tab", tab);
@@ -1713,9 +1813,9 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-8 lg:h-[calc(100vh-3rem)] lg:grid-cols-[220px_1px_minmax(0,1fr)] lg:items-stretch">
-        <aside className="pb-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-6" aria-label="Settings section navigation">
-          <div className="grid gap-5 sm:grid-cols-3 lg:block" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+      <div className="grid gap-8 min-[1200px]:h-[calc(100vh-3rem)] min-[1200px]:grid-cols-[220px_1px_minmax(0,1fr)] min-[1200px]:items-stretch">
+        <aside className="hidden pb-4 min-[1200px]:block min-[1200px]:h-full min-[1200px]:min-h-0 min-[1200px]:overflow-y-auto min-[1200px]:pr-6" aria-label="Settings section navigation">
+          <div className="grid gap-5 min-[1200px]:block" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
             {SETTINGS_NAV_GROUPS.map((group, groupIndex) => (
               <div key={group.label} className={`min-w-0 ${groupIndex > 0 ? "mt-6" : ""}`}>
                 <p className="ui-technical-label px-3 font-semibold">{group.label}</p>
@@ -1748,9 +1848,9 @@ export default function SettingsPageClient({ environment }: { environment: Envir
           </div>
         </aside>
 
-        <div aria-hidden="true" className="hidden bg-[var(--border-default)] shadow-[4px_0_8px_-6px_color-mix(in_oklab,var(--text-primary)_8%,transparent)] lg:block" />
+        <div aria-hidden="true" className="hidden bg-[var(--border-default)] shadow-[4px_0_8px_-6px_color-mix(in_oklab,var(--text-primary)_8%,transparent)] min-[1200px]:block" />
 
-        <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+        <div className="min-w-0 min-[1200px]:min-h-0 min-[1200px]:overflow-y-auto min-[1200px]:pr-2">
 
       <div id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" tabIndex={0} hidden={activeTab !== "general"} className="space-y-5">
         <div data-settings-section-stack className="space-y-8">
@@ -1767,6 +1867,9 @@ export default function SettingsPageClient({ environment }: { environment: Envir
       <div id="settings-panel-templates" role="tabpanel" aria-labelledby="settings-tab-templates" tabIndex={0} hidden={activeTab !== "templates"} className="space-y-5">
         <CollectionState label="Service templates" isLoading={serviceTemplatesQuery.isLoading} error={serviceTemplatesQuery.error} onRetry={() => void serviceTemplatesQuery.refetch()}>
           <ServiceTemplateSection records={serviceTemplatesQuery.data ?? []} />
+        </CollectionState>
+        <CollectionState label="Comment card name templates" isLoading={commentCardNameTemplatesQuery.isLoading} error={commentCardNameTemplatesQuery.error} onRetry={() => void commentCardNameTemplatesQuery.refetch()}>
+          <CommentCardNameTemplateSection records={commentCardNameTemplatesQuery.data ?? []} />
         </CollectionState>
       </div>
 

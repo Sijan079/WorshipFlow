@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { requireExplicitWorkspaceRole } from "@/lib/security-context";
+import { WorkspaceAuthorizationError, requireExplicitWorkspaceRole } from "@/lib/security-context";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -13,6 +13,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     if (result.count === 0) return NextResponse.json({ error: "Error notification not found." }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof WorkspaceAuthorizationError) return NextResponse.json({ error: error.message }, { status: error.status });
     return NextResponse.json({ error: getErrorMessage(error, "Failed to remove error notification.") }, { status: 500 });
   }
 }

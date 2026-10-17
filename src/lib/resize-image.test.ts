@@ -6,8 +6,10 @@ import {
   calculateStretchTransform,
   canReuseSourceImage,
   detectContentBounds,
+  enhanceScreenshotPixels,
   generateOutputFilename,
   getTargetDimensions,
+  validateSourceCrop,
   validateTargetDimensions,
 } from "./resize-image.ts";
 
@@ -94,5 +96,38 @@ export function runResizeImageTests() {
   assert.equal(
     generateOutputFilename("Sunday Screen (Final).PNG", freeShow.id, "landscape", "jpeg"),
     "sunday-screen-final-freeshow-1920x1080-landscape.jpg"
+  );
+
+  const flatPixels = new Uint8ClampedArray([
+    80, 80, 80, 255,
+    80, 80, 80, 128,
+    80, 80, 80, 255,
+  ]);
+  assert.deepEqual(
+    enhanceScreenshotPixels(flatPixels, 3, 1),
+    flatPixels,
+    "flat colors should not acquire sharpening artifacts"
+  );
+
+  const textEdge = new Uint8ClampedArray([
+    20, 20, 20, 255,
+    20, 20, 20, 255,
+    150, 150, 150, 255,
+    240, 240, 240, 255,
+    240, 240, 240, 255,
+  ]);
+  const enhancedEdge = enhanceScreenshotPixels(textEdge, 5, 1);
+  assert.ok(enhancedEdge[4] < textEdge[4], "dark side of a text edge should become more distinct");
+  assert.ok(enhancedEdge[12] > textEdge[12], "light side of a text edge should become more distinct");
+  assert.equal(enhancedEdge[15], 255, "enhancement must preserve alpha");
+
+  assert.equal(validateSourceCrop({ x: 10, y: 20, width: 200, height: 100 }, 400, 300), null);
+  assert.match(
+    validateSourceCrop({ x: 300, y: 20, width: 200, height: 100 }, 400, 300)!,
+    /inside the source image/
+  );
+  assert.match(
+    validateSourceCrop({ x: -1, y: 0, width: 100, height: 100 }, 400, 300)!,
+    /non-negative/
   );
 }

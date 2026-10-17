@@ -5,7 +5,8 @@
   "scripts": {
     "cleanup:formatter": "node --env-file-if-exists=.env.local.docker --experimental-strip-types scripts/cleanup-formatter-drafts.ts",
     "test:formatter-drafts": "node --env-file=.env.local.docker --experimental-strip-types --test scripts/test-formatter-drafts.integration.ts",
-    "dev": "npm run dev:docker",
+    "dev": "node --env-file-if-exists=.env --env-file=.env.local scripts/dev-hosted.mjs",
+    "dev:hosted": "node --env-file-if-exists=.env --env-file=.env.local scripts/dev-hosted.mjs",
     "dev:docker": "node --env-file=.env.local.docker scripts/dev-docker.mjs",
     "build": "prisma generate && next build",
     "vercel-build": "node scripts/vercel-build.mjs",
@@ -14,6 +15,8 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types src/security-tests.ts",
     "test:formatter-file": "node --experimental-strip-types scripts/inspect-formatter-file.ts",
+    "test:resize-image": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/test-resize-image.ts",
+    "test:comment-card": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-comment-card.ts",
     "test:song-editor": "node --experimental-strip-types --test src/features/song-formatter/*.test.ts src/lib/workspace-formatter-navigation.test.ts",
     "test:observability": "node --experimental-strip-types --test src/lib/observability.test.ts",
     "verify:song-editor": "node --experimental-strip-types scripts/verify-song-editor.mjs",

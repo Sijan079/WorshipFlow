@@ -17,7 +17,7 @@ export function runLocalAuthConfigTests() {
 
   assert.equal(
     packageJson.scripts?.dev,
-    "npm run dev:docker",
+    "node --env-file-if-exists=.env --env-file=.env.local scripts/dev-hosted.mjs",
   );
   assert.equal(
     packageJson.scripts?.["dev:docker"],
@@ -77,7 +77,7 @@ export function runLocalAuthConfigTests() {
   assert.match(readme, /http:\/\/127\.0\.0\.1:54321\/auth\/v1\/callback/);
   assert.match(
     agentsGuide,
-    /Always start the development server with `npm run dev` so it uses the local Docker Supabase stack\./,
+    /Start the development server with `npm run dev` for the configured hosted Supabase development project\./,
   );
   assert.match(gitignore, /^\/remote-supabase-\*\.sql$/m);
   assert.match(gitignore, /^\/supabase_db_\*-backup-\*\.tar\.gz$/m);

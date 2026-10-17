@@ -6,10 +6,25 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
+const SelectOpenContext = React.createContext<{
+  open: boolean
+  setOpen: (open: boolean) => void
+} | null>(null)
+
 function Select({
+  open: controlledOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = React.useCallback((nextOpen: boolean) => {
+    if (controlledOpen === undefined) setUncontrolledOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }, [controlledOpen, onOpenChange])
+  return <SelectOpenContext.Provider value={{ open, setOpen }}>
+    <SelectPrimitive.Root data-slot="select" {...props} open={open} onOpenChange={setOpen} />
+  </SelectOpenContext.Provider>
 }
 
 function SelectGroup({
@@ -35,10 +50,15 @@ function SelectTrigger({
   className,
   size = "default",
   children,
+  onPointerDown,
+  onClick,
+  onKeyDown,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
 }) {
+  const openContext = React.useContext(SelectOpenContext)
+  const pointerType = React.useRef<string | null>(null)
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -47,6 +67,30 @@ function SelectTrigger({
         "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-11 data-[size=sm]:h-9 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
+      onPointerDown={(event) => {
+        onPointerDown?.(event)
+        pointerType.current = event.pointerType
+        if (event.defaultPrevented || !openContext?.open || event.button !== 0 || event.pointerType !== "mouse") return
+        openContext.setOpen(false)
+        event.preventDefault()
+      }}
+      onClick={(event) => {
+        onClick?.(event)
+        if (!openContext || event.defaultPrevented) return
+        const wasMouseClick = pointerType.current === "mouse"
+        pointerType.current = null
+        if (!wasMouseClick && openContext.open) {
+          openContext.setOpen(false)
+          event.preventDefault()
+        }
+      }}
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        pointerType.current = null
+        if (!openContext?.open || !["Enter", " "].includes(event.key)) return
+        openContext.setOpen(false)
+        event.preventDefault()
+      }}
       {...props}
     >
       {children}

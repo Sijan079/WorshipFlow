@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { apiFetch, createErrorNotification, fetchErrorNotifications, removeErrorNotification, type ErrorNotificationRecord } from "@/lib/api-client";
 import { AnimatePresence, motion } from "motion/react";
 import BrandLogo from "@/components/brand-logo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { notificationDeleteScope, useErrorNotificationDeleteQueue } from "@/features/error-notifications/use-delete-queue";
+import { ProductionSelect } from "@/components/ui/production-select";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import {
   DropdownMenu,
@@ -28,6 +30,7 @@ import {
   CircleUserRound,
   ListMusic,
   LogOut,
+  Menu,
   MessageSquare,
   Settings2,
   MonitorPlay,
@@ -59,14 +62,22 @@ const NAV_GROUPS = [
   { label: "Workspace", items: WORKSPACE_NAV_ITEMS },
 ] as const;
 
-const NAV_ITEMS = [...SERVICE_NAV_ITEMS, ...PRODUCTION_NAV_ITEMS, ...WORKSPACE_NAV_ITEMS];
-
 const MEDIA_TOOL_NAV = [
   { href: "/media-tools/phone-transfer", label: "Phone Transfer" },
   { href: "/media-tools/qr-generator", label: "QR Generator" },
   { href: "/media-tools/background-generator", label: "Background Generator" },
+  { href: "/media-tools/comment-card", label: "Comment Card" },
   { href: "/media-tools/resize-image", label: "Resize Image" },
   { href: "/media-tools/background-removal", label: "Remove Background" },
+] as const;
+
+const SETTINGS_NAV = [
+  { id: "general", label: "Workspace" },
+  { id: "membership", label: "Membership" },
+  { id: "templates", label: "Templates" },
+  { id: "tags", label: "Tags" },
+  { id: "checklist", label: "Checklist" },
+  { id: "integrations", label: "Integrations" },
 ] as const;
 
 const IN_PROGRESS_WARNINGS = {
@@ -74,7 +85,7 @@ const IN_PROGRESS_WARNINGS = {
 } as const;
 
 type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
-type SessionResponse = { authenticated: boolean; user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
+type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
@@ -179,17 +190,24 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const workspaceBasePath = workspaceSlug ? `/w/${encodeURIComponent(workspaceSlug)}` : "";
   const localPathname = workspaceBasePath && pathname.startsWith(workspaceBasePath)
     ? pathname.slice(workspaceBasePath.length) || "/"
     : pathname;
   const toWorkspacePath = (href: string) => `${workspaceBasePath}${href}`;
-  const shellNavItems = NAV_ITEMS;
+  const [navOpen, setNavOpen] = useState(false);
+  const navRailRef = useRef<HTMLElement>(null);
+  const navCloseRef = useRef<HTMLButtonElement>(null);
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
   const [mediaToolsOpen, setMediaToolsOpen] = useState(() => localPathname === "/media-tools" || localPathname.startsWith("/media-tools/"));
+  const [settingsOpen, setSettingsOpen] = useState(() => localPathname === "/settings");
   const [currentHash, setCurrentHash] = useState<string | null>(null);
   const warningKey = getWarningKey(localPathname, currentHash);
   const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
   const sessionQuery = useQuery({ queryKey: ["auth", "session", workspaceSlug], queryFn: () => apiFetch<SessionResponse>(`/api/auth/session${workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : ""}`) });
+  const notificationScope = notificationDeleteScope(workspaceSlug, sessionQuery.data?.user?.id);
+  const notificationDeleteQueue = useErrorNotificationDeleteQueue(notificationScope);
   const errorNotificationsQuery = useQuery({ queryKey: ["error-notifications"], queryFn: fetchErrorNotifications });
   const accountName = sessionQuery.data?.user?.displayName || sessionQuery.data?.user?.email || "Workspace user";
   const accountEmail = sessionQuery.data?.user?.email || "";
@@ -207,7 +225,8 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const [reportNotificationId, setReportNotificationId] = useState<string | null>(null);
   const reportNotificationIdRef = useRef<string | null>(null);
   const { dismissToast, showToast, toasts } = usePAPToasts();
-  const alertCount = errorNotificationsQuery.data?.length ?? 0;
+  const pendingNotificationDeletes = new Set(notificationDeleteQueue.pendingIds);
+  const alertCount = errorNotificationsQuery.data?.filter((item) => !pendingNotificationDeletes.has(item.id)).length ?? 0;
   const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
   const openReportWithError = useCallback((details: string, notificationId: string | null) => {
     setFeedbackKind("ISSUE");
@@ -235,7 +254,11 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
     mutationFn: (payload: { kind: "ISSUE" | "FEEDBACK"; message: string }) => apiFetch("/api/feedback", { method: "POST", body: JSON.stringify(payload) }),
     onMutate: () => showToast("Sending report…"),
     onSuccess: () => {
-      if (reportNotificationId) void removeErrorNotification(reportNotificationId).then(() => queryClient.invalidateQueries({ queryKey: ["error-notifications"] })).catch(() => undefined);
+      if (reportNotificationId) {
+        if (!notificationDeleteQueue.enqueue([reportNotificationId])) {
+          void removeErrorNotification(reportNotificationId).then(() => queryClient.invalidateQueries({ queryKey: ["error-notifications"] })).catch(() => undefined);
+        }
+      }
       setReportNotificationId(null);
       reportNotificationIdRef.current = null;
       setFeedbackMessage("");
@@ -252,6 +275,55 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
 
     return () => window.removeEventListener("hashchange", syncHash);
   }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setNavOpen(false));
+    return () => cancelAnimationFrame(frame);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+
+    const desktop = window.matchMedia("(min-width: 1200px)");
+    if (desktop.matches) {
+      const frame = requestAnimationFrame(() => setNavOpen(false));
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    navCloseRef.current?.focus();
+
+    const handleResize = () => setNavOpen(false);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNavOpen(false);
+        navTriggerRef.current?.focus();
+      }
+      if (event.key !== "Tab" || !navRailRef.current) return;
+      const focusable = Array.from(navRailRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    desktop.addEventListener("change", handleResize);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("resize", handleResize);
+      desktop.removeEventListener("change", handleResize);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [navOpen]);
 
   useEffect(() => {
     const showClientError = (event: Event) => {
@@ -289,7 +361,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   }
 
   return (
-    <div className="workspace-shell min-h-screen bg-white text-[var(--text-primary)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+    <div className="workspace-shell min-h-screen bg-white text-[var(--text-primary)] min-[1200px]:grid min-[1200px]:h-dvh min-[1200px]:min-h-0 min-[1200px]:grid-cols-[260px_minmax(0,1fr)] min-[1200px]:grid-rows-[minmax(0,1fr)] min-[1200px]:overflow-hidden">
       <a
         href="#workspace-content"
         className="sr-only fixed left-4 top-4 z-[100] rounded-md bg-[var(--action-primary-bg)] px-4 py-3 font-semibold text-[var(--action-primary-ink)] focus:not-sr-only"
@@ -297,21 +369,25 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
         Skip to workspace content
       </a>
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
-      <aside className="workspace-nav-surface workspace-rail hidden overflow-x-hidden border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-3 py-4 lg:row-start-1 lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0 lg:self-start">
+      {navOpen ? <button type="button" className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--rail-surface-canvas)_70%,transparent)] min-[1200px]:hidden" aria-label="Close navigation" onClick={() => { setNavOpen(false); navTriggerRef.current?.focus(); }} /> : null}
+      <aside id="workspace-navigation" ref={navRailRef} role={navOpen ? "dialog" : undefined} aria-label="Workspace navigation" aria-modal={navOpen ? true : undefined} className={`workspace-nav-surface workspace-rail fixed inset-y-0 left-0 z-50 w-[min(20rem,85vw)] overflow-x-hidden border-r border-[var(--border-default)] bg-[var(--surface-canvas)] px-3 py-4 shadow-[var(--elevation-modal)] min-[600px]:w-80 min-[1200px]:static min-[1200px]:row-start-1 min-[1200px]:flex min-[1200px]:h-full min-[1200px]:w-auto min-[1200px]:flex-col min-[1200px]:shadow-none ${navOpen ? "flex flex-col" : "hidden"}`}>
         <div className="mb-4 border-b border-[var(--border-default)] px-2 pb-4">
-          <Link href={toWorkspacePath("/dashboard")} className="inline-flex min-h-11 items-center" aria-label="WorshipFlow dashboard">
+          <div className="mb-2 flex justify-end min-[1200px]:hidden">
+            <button ref={navCloseRef} type="button" onClick={() => { setNavOpen(false); navTriggerRef.current?.focus(); }} className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-white/80 hover:bg-[var(--surface-panel)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] min-[1200px]:hidden" aria-label="Close navigation"><X className="h-5 w-5" /></button>
+          </div>
+          <Link href={toWorkspacePath("/dashboard")} onClick={() => setNavOpen(false)} className="inline-flex min-h-11 items-center" aria-label="WorshipFlow dashboard">
             <BrandLogo className="h-9 w-[190px]" />
           </Link>
         </div>
-        <div className="workspace-nav-account mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-default)] px-2 pb-4" aria-label="Account">
+        <div className="workspace-nav-account mb-4 hidden items-center justify-between gap-3 border-b border-[var(--border-default)] px-2 pb-4 min-[1200px]:flex" aria-label="Account">
           <div className="flex min-w-0 items-center gap-2">
-            <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => setSignOutConfirmOpen(true)} />
+            <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => { setNavOpen(false); setSignOutConfirmOpen(true); }} />
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-white">{accountName}</p>
               <p className="mt-0.5 text-[10px] text-white/70">{accountRole}</p>
             </div>
           </div>
-          <Link href={toWorkspacePath("/notifications")} className="pressable relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
+          <Link href={toWorkspacePath("/notifications")} onClick={() => setNavOpen(false)} className="pressable relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
             <Bell className="h-5 w-5" />
             {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
           </Link>
@@ -337,12 +413,14 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                       ? localPathname === "/services" && currentHash !== "#team"
                       : isActivePath(localPathname, href);
                   const isMediaTools = href === "/media-tools";
+                  const isSettings = href === "/settings";
                   const showMediaChildren = isMediaTools && mediaToolsOpen;
+                  const showSettingsChildren = isSettings && settingsOpen;
 
                   return (
                     <div
                       key={`${href}-${label}`}
-                      className={isMediaTools ? "workspace-media-nav-item" : undefined}
+                      className={isMediaTools || isSettings ? "workspace-media-nav-item" : undefined}
                     >
                       <div
                         className={`group flex items-center border-l-2 transition-colors ${
@@ -353,6 +431,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                       >
                         <Link
                           href={resolvedHref}
+                          onClick={() => { setNavOpen(false); if (isSettings) setSettingsOpen(true); }}
                           className="workspace-nav-link pressable-subtle flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2 py-1.5 text-sm font-semibold"
                           aria-current={active && !isMediaTools ? "page" : undefined}
                         >
@@ -367,16 +446,16 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                           </span>
                           <span className="min-w-0 truncate">{label}</span>
                         </Link>
-                        {isMediaTools ? (
+                        {isMediaTools || isSettings ? (
                           <button
                             type="button"
-                            onClick={() => setMediaToolsOpen((current) => !current)}
-                            className="workspace-media-toggle pressable-subtle mr-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel-elevated)]"
-                            aria-label={mediaToolsOpen ? "Collapse media tools" : "Expand media tools"}
-                            aria-expanded={mediaToolsOpen}
+                            onClick={() => isMediaTools ? setMediaToolsOpen((current) => !current) : setSettingsOpen((current) => !current)}
+                            className={`workspace-media-toggle pressable-subtle mr-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-current hover:bg-[var(--surface-panel-elevated)] ${isSettings ? "min-[1200px]:hidden" : ""}`}
+                            aria-label={isMediaTools ? (mediaToolsOpen ? "Collapse media tools" : "Expand media tools") : (settingsOpen ? "Collapse settings" : "Expand settings")}
+                            aria-expanded={isMediaTools ? mediaToolsOpen : settingsOpen}
                           >
                             <ChevronDown
-                              className={`h-4 w-4 transition-transform ${mediaToolsOpen ? "rotate-180" : ""}`}
+                              className={`h-4 w-4 transition-transform ${(isMediaTools ? mediaToolsOpen : settingsOpen) ? "rotate-180" : ""}`}
                             />
                           </button>
                         ) : active ? (
@@ -401,6 +480,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                                 <Link
                                   key={item.href}
                                   href={toWorkspacePath(item.href)}
+                                  onClick={() => setNavOpen(false)}
                                   className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${
                                     childActive
                                       ? "bg-[var(--surface-panel-strong)] text-white"
@@ -415,6 +495,16 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                           </motion.div>
                         ) : null}
                       </AnimatePresence>
+                      <AnimatePresence initial={false}>
+                        {showSettingsChildren ? (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="workspace-media-children ml-6 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3 min-[1200px]:hidden">
+                            {SETTINGS_NAV.map((item) => {
+                              const selected = localPathname === "/settings" && (searchParams.get("tab") || "general") === item.id;
+                              return <Link key={item.id} href={toWorkspacePath(item.id === "general" ? "/settings" : `/settings?tab=${item.id}`)} onClick={() => setNavOpen(false)} aria-current={selected ? "page" : undefined} className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${selected ? "bg-[var(--surface-panel-strong)] text-white" : "text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"}`}>{item.label}</Link>;
+                            })}
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
@@ -425,7 +515,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
         <div className="mt-4 border-t border-[var(--border-default)] pt-3">
           <button
             type="button"
-            onClick={() => { setReportNotificationId(null); setFeedbackOpen(true); }}
+            onClick={() => { setNavOpen(false); setReportNotificationId(null); setFeedbackOpen(true); }}
             className="workspace-nav-link pressable-subtle flex min-h-11 w-full items-center gap-3 border-l-2 border-transparent px-2 py-1.5 text-sm font-semibold text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] hover:text-white"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center text-white/70">
@@ -436,52 +526,18 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
         </div>
       </aside>
 
-      <div className="workspace-main min-w-0 lg:col-start-2 lg:row-start-1">
-        <header className="workspace-nav-surface workspace-mobile-header bg-[var(--surface-canvas)] lg:hidden">
-          <div className="px-4 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <Link
-                href={toWorkspacePath("/dashboard")}
-                className="inline-flex min-h-11 items-center"
-                aria-label="WorshipFlow dashboard"
-              >
-                <BrandLogo className="h-9 w-40" />
+      <div className="workspace-main min-w-0 min-[1200px]:col-start-2 min-[1200px]:row-start-1 min-[1200px]:h-dvh min-[1200px]:min-h-0 min-[1200px]:overflow-y-auto">
+        <header className="workspace-nav-surface workspace-mobile-header bg-[var(--surface-canvas)] min-[1200px]:hidden">
+          <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-2.5">
+            <button ref={navTriggerRef} type="button" onClick={() => setNavOpen(true)} className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-white/80 hover:bg-[var(--surface-panel)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={navOpen}><Menu className="h-6 w-6" /></button>
+            <div className="flex items-center gap-2">
+              <Link href={toWorkspacePath("/notifications")} className="pressable relative inline-flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
+                <Bell className="h-5 w-5" />
+                {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
               </Link>
-              <div className="flex items-center gap-2">
-                <Link href={toWorkspacePath("/notifications")} className="pressable relative inline-flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-[var(--surface-panel)] hover:text-white" aria-label={`Error notifications${alertCount > 0 ? `, ${alertCount} unresolved` : ""}`}>
-                  <Bell className="h-5 w-5" />
-                  {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
-                </Link>
-                <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => setSignOutConfirmOpen(true)} />
-              </div>
+              <AccountMenu name={accountName} email={accountEmail} role={accountRole} avatarUrl={accountAvatarUrl} designSystemHref={designSystemHref} onSignOut={() => setSignOutConfirmOpen(true)} />
             </div>
           </div>
-          <nav
-            className="flex gap-1 overflow-x-auto border-t border-[var(--border-default)] px-2 py-2"
-            aria-label="Production workspace"
-          >
-            {shellNavItems.map(({ href, shortLabel, icon: Icon }) => {
-                const active =
-                  href === "/services"
-                  ? localPathname === "/services" && currentHash !== "#team"
-                  : isActivePath(localPathname, href);
-              return (
-                <Link
-                  key={`${href}-${shortLabel}`}
-                  href={toWorkspacePath(href)}
-                  className={`pressable-subtle flex min-h-14 min-w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 rounded-md border px-3 py-2 text-[10px] font-semibold ${
-                    active
-                      ? "border-[color-mix(in_oklab,var(--border-focus)_38%,var(--border-default))] bg-[var(--surface-panel-strong)] text-[var(--text-accent)] shadow-[var(--elevation-subtle)]"
-                      : "border-transparent text-white/80 hover:border-[var(--border-default)] hover:bg-[var(--surface-panel)] hover:text-white"
-                  }`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="max-w-full truncate">{shortLabel}</span>
-                </Link>
-              );
-            })}
-          </nav>
         </header>
 
         {showInProgressWarning ? (
@@ -553,13 +609,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               feedbackMutation.mutate({ kind: feedbackKind, message: feedbackMessage });
             }}
           >
-            <label className="block text-sm font-semibold text-[var(--text-primary)]">
-              Type
-              <select value={feedbackKind} onChange={(event) => setFeedbackKind(event.target.value as "ISSUE" | "FEEDBACK")} className="mt-1.5 h-11 w-full rounded-md border border-[var(--border-default)] px-3 text-sm">
-                <option value="ISSUE">Report an issue</option>
-                <option value="FEEDBACK">Share feedback</option>
-              </select>
-            </label>
+            <ProductionSelect label="Type" value={feedbackKind} onValueChange={setFeedbackKind} options={[{ value: "ISSUE", label: "Report an issue" }, { value: "FEEDBACK", label: "Share feedback" }]} labelClassName="mb-1.5 block text-sm font-semibold text-[var(--text-primary)]" triggerClassName="h-11" />
             <label className="block text-sm font-semibold text-[var(--text-primary)]">
               Message
               <textarea value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} rows={5} maxLength={5000} required className="mt-1.5 w-full resize-y rounded-md border border-[var(--border-default)] px-3 py-2 text-sm" placeholder="Tell us what happened or what would help." />

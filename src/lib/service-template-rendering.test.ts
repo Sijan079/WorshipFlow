@@ -47,6 +47,8 @@ export function runServiceTemplateRenderingTests() {
   assert.doesNotMatch(page, /<h2 className="text-base font-semibold text-\[var\(--text-primary\)\]">Service register<\/h2>/);
   assert.match(page, /const isRefreshingServices = servicesQuery\.isFetching;/);
   assert.match(createServiceModal, />Create Worship Service<\/DialogTitle>/);
+  assert.match(createServiceModal, /flex max-h-\[calc\(100dvh-1rem\)\] max-w-6xl flex-col overflow-hidden/);
+  assert.match(createServiceModal, /min-h-0 flex-1 overflow-y-auto/);
   assert.doesNotMatch(createServiceModal, /Defaults to next Sunday\./);
   assert.doesNotMatch(page, /Preview matches/);
   assert.match(page, /No template fields matched\. Update the text and try again\./);
@@ -84,7 +86,11 @@ export function runServiceTemplateRenderingTests() {
   assert.doesNotMatch(deleteConfirmationModal, />\s*Cancel\s*<\/button>/);
   assert.match(deleteConfirmationModal, /border border-\[var\(--border-default\)\] bg-transparent.*text-\[var\(--text-secondary\)\].*hover:border-transparent hover:bg-\[var\(--state-danger\)\] hover:text-\[var\(--action-primary-ink\)\]/);
   assert.match(deleteConfirmationModal, /active:border-transparent active:bg-\[var\(--state-danger\)\] active:text-\[var\(--action-primary-ink\)\]/);
-  assert.match(page, /grid-cols-\[2rem_minmax\(10rem,0\.8fr\)_minmax\(12rem,1\.2fr\)\]/);
+  assert.match(readOnlyDetails, /grid-cols-\[2rem_minmax\(0,1fr\)\]/);
+  assert.match(readOnlyDetails, /min-\[600px\]:grid-cols-\[2rem_minmax\(0,0\.8fr\)_minmax\(0,1\.2fr\)\]/);
+  assert.match(page, /aria-label=\{`\$\{selectionStateLabel\}: select all filtered services`\}/);
+  assert.match(page, /services-row-actions/);
+  assert.match(globals, /@media \(max-width: 1199px\)[\s\S]*\.services-register \.ui-row-menu-trigger/);
   assert.match(page, /service\.blocks\.map\(\(block, index\)/);
   assert.match(page, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.doesNotMatch(page, /<ul className="divide-y divide-\[var\(--rule-default\)\]">/);
@@ -97,7 +103,7 @@ export function runServiceTemplateRenderingTests() {
   assert.match(page, /if \(status === ServiceStatus\.READY\) return "var\(--state-success\)";/);
   assert.match(page, /if \(status === ServiceStatus\.DRAFT\) return "var\(--state-danger\)";/);
   assert.match(page, /className=\{`group \$\{/);
-  assert.match(page, /opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100/);
+  assert.match(page, /services-row-expand[^\"]*min-\[1200px\]:opacity-0 group-hover:opacity-100/);
   assert.match(page, /\{isEditing \? \(/);
   assert.match(serviceRowMenu, /service-row-menu-action-edit[^\"]*!text-\[var\(--text-primary\)\][^\"]*\[&_svg\]:!text-current/);
   assert.match(serviceRowMenu, /service\.status === ServiceStatus\.DRAFT/);

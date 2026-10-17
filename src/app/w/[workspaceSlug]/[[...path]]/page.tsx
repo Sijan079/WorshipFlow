@@ -58,6 +58,8 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="qr-generator" />;
     case "media-tools/background-generator":
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="background-generator" />;
+    case "media-tools/comment-card":
+      return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="comment-card" />;
     case "media-tools/resize-image":
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} mediaTool="resize-image" />;
     case "media-tools/background-removal":

@@ -94,6 +94,7 @@ test("formatter uses the dedicated document editor and existing export workflow"
   assert.match(source, /recovery\.clear\(\)/);
   assert.match(source, /extractorDraftText \|\| formatterDraftOpened/);
   assert.doesNotMatch(source, /Interactive Block Editor/);
+  assert.doesNotMatch(source, /aria-label="Media tools"/);
 });
 
 test("document viewport uses semantic surfaces and continuous mobile editing", () => {
@@ -104,6 +105,10 @@ test("document viewport uses semantic surfaces and continuous mobile editing", (
   assert.match(css, /overflow: auto/);
   assert.match(css, /100dvh/);
   assert.match(css, /data-continuous='true'/);
+  assert.match(css, /min-height: 60dvh/);
+  assert.match(css, /data-mobile-controls-open='true'/);
+  const editor = readFileSync(join(process.cwd(), "src", "features", "song-formatter", "song-document-editor.tsx"), "utf8");
+  assert.match(editor, /aria-controls="song-document-advanced-controls"/);
 });
 
 test("clearing the formatter removes recovery and returns to song selection", () => {

@@ -138,7 +138,11 @@ export function createErrorNotification(payload: Pick<ErrorNotificationRecord, "
 }
 
 export function removeErrorNotification(id: string) {
-  return apiFetch<{ success: true }>(`/api/error-notifications/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return apiFetch<{ success: true }>(`/api/error-notifications/${encodeURIComponent(id)}`, { method: "DELETE", keepalive: true });
+}
+
+export function clearErrorNotifications() {
+  return apiFetch<{ success: true; deleted: number }>("/api/error-notifications", { method: "DELETE" });
 }
 
 async function postExtractorRequest(path: string, body: BodyInit | Record<string, unknown>) {
@@ -383,6 +387,15 @@ export type ChecklistPresetRecord = {
   createdAt: string;
   updatedAt: string;
   items: ChecklistPresetItemRecord[];
+};
+
+export type CommentCardNameTemplateRecord = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ServiceTemplatePresetRecord = EditableSettingsPresetRecord & {

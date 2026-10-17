@@ -13,6 +13,7 @@ or existing local folder structure.
 - Phone Transfer
 - QR Generator
 - Background Generator
+- Comment Card
 - Resize Image
 
 Each tool has its own spec folder under `docs/specs/media-tools/`.
@@ -25,6 +26,7 @@ The Media Tools sidebar item owns a subgroup for individual tool URLs:
 - `/media-tools/phone-transfer`
 - `/media-tools/qr-generator`
 - `/media-tools/background-generator`
+- `/media-tools/comment-card`
 - `/media-tools/resize-image`
 
 The `/media-tools` route acts as the tool selector page.

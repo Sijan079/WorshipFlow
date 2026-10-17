@@ -1,5 +1,9 @@
 # WorshipFlow
 
+Project documentation: [index](docs/README.md),
+[mobile usability spec](docs/specs/mobile-usability/spec.md),
+[roadmap](docs/product/roadmap.md), and [backlog](docs/development/backlog.md).
+
 Server failures use structured logs and OpenTelemetry trace annotations.
 Run `npm run test:observability` to verify failure metrics and trace correlation.
 See [error observability setup](docs/deployment/vercel.md#error-observability)
@@ -87,21 +91,37 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Set both `DATABASE_URL` and `DIRECT_DATABASE_URL` in `.env`, then prepare the
-database:
-
-```powershell
-npx prisma migrate deploy
-npx prisma db seed
-```
-
-Start the local app:
+Put the hosted Supabase URL, publishable key, secret key, matching pooled
+`DATABASE_URL`, and migration-safe `DIRECT_DATABASE_URL` in ignored `.env.local`.
+Use `.env` for optional local settings. Start the local app against the hosted
+project:
 
 ```powershell
 npm run dev
 ```
 
-The default local URL is `http://localhost:3000`.
+The default local URL is `http://localhost:3000`. Changes made through the app
+appear in the hosted Supabase project selected by `.env.local`. `npm run dev`
+checks that Auth, Storage, and Postgres target the same project before starting.
+It does not apply schema migrations automatically; run and review migrations
+separately before using new database fields. Do not run the seed script against
+an existing hosted project unless you intend to add its sample records. This is
+a live project connection,
+so use a dedicated development project if you need isolated test data.
+
+In **Settings → Templates → Comment Card Name Template**, administrators can
+save several default filenames and choose one active name. Comment Card loads
+the active name each time the module opens while keeping saved comment content
+and layout settings.
+Apply the checked-in Prisma migration before using this setting on a database.
+
+For local sign-in with hosted Supabase, open that project's **Authentication →
+URL Configuration** in the Supabase Dashboard. Keep the deployed app as the
+Site URL and add `http://localhost:3000/**` to **Redirect URLs**. The app sends
+`http://localhost:3000/auth/callback` with a `next` query parameter for Google
+and email sign-in. Without the localhost allowlist entry, Supabase can return
+to the deployed Site URL instead. `supabase/config.toml` only configures the
+local Docker stack; it does not update hosted Auth settings.
 
 ### Docker Supabase Auth
 
@@ -127,17 +147,16 @@ against the local Docker Supabase stack.
 3. Launch local Supabase and Next.js together:
 
    ```powershell
-   npm run dev
+   npm run dev:docker
    ```
 
-`npm run dev` starts Docker Desktop automatically on Windows when needed, waits
+`npm run dev:docker` starts Docker Desktop automatically on Windows when needed, waits
 for its daemon, starts the local Supabase Docker stack (excluding the optional
 Vector log collector), then loads
 `.env.local.docker`, and applies the checked-in Prisma migrations before Next.js
 starts. On a fresh local database, it safely bootstraps the Prisma baseline before
 applying future migrations. Those process variables override hosted values in `.env.local`, keeping the OAuth callback on
-`http://localhost:3000/auth/callback`. Use `npm run dev:docker` for the same
-Docker-backed startup explicitly.
+`http://localhost:3000/auth/callback`.
 
 ### Importing a Remote Workspace Locally
 
@@ -239,12 +258,18 @@ invitation flow.
 ## Commands
 
 ```powershell
-npm run dev       # Local development
+npm run dev       # Local Next.js with hosted Supabase
 npm run dev:docker # Local development with Docker Supabase
 npm run build     # Prisma generation and production build
 npm run lint      # ESLint
 npm test          # Security and domain checks
 npm run test:formatter-file -- "C:\\path\\song.docx" # Print formatter output for a DOCX or PDF
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 1920 --height 1080 # Render standard and text-clarity comparison PNGs without starting the app
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 1080 --height 2400 --crop 40,120,900,600 # Resize first, then crop in target pixels; use --trim for automatic post-resize border removal
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 2400 --height 2400 --fit fill # Fill the complete target without distortion by center-cropping overflow
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 2400 --height 2400 --fit fill --sharpness 0.9 # Compare edge-aware text sharpening; accepted range is 0 to 2
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 2400 --height 2400 --fit contain --ai # Add a local Real-ESRGAN comparison; the official portable model downloads once into .tmp/tools
+npm run test:resize-image -- "C:\\path\\screenshot.png" --width 2400 --height 2400 --fit contain --ai --ai-provider openai --ai-region 300,200,1900,1400 # Retain the experimental OpenAI region-edit comparison
 npm run test:song-editor # Document editing, pagination, and draft recovery tests
 npm run test:formatter-drafts # Local PostgreSQL lifecycle/concurrency tests
 npm run cleanup:formatter # Delete expired formatter payloads once; -- --watch repeats every five minutes

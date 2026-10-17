@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getErrorMessage } from "@/lib/errors";
-import { requireExplicitWorkspaceRole } from "@/lib/security-context";
+import { WorkspaceAuthorizationError, requireExplicitWorkspaceRole } from "@/lib/security-context";
 import { ErrorNotificationSchema } from "@/lib/validation";
+
+function errorResponse(error: unknown, fallback: string) {
+  if (error instanceof WorkspaceAuthorizationError) return NextResponse.json({ error: error.message }, { status: error.status });
+  return NextResponse.json({ error: getErrorMessage(error, fallback) }, { status: 500 });
+}
 
 export async function GET() {
   try {
@@ -14,7 +19,7 @@ export async function GET() {
     });
     return NextResponse.json(notifications);
   } catch (error) {
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to load error notifications.") }, { status: 500 });
+    return errorResponse(error, "Failed to load error notifications.");
   }
 }
 
@@ -33,6 +38,18 @@ export async function POST(request: Request) {
     if (overflow.length) await prisma.errorNotification.deleteMany({ where: { id: { in: overflow.map((item) => item.id) } } });
     return NextResponse.json(notification, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: getErrorMessage(error, "Failed to save error notification.") }, { status: 500 });
+    return errorResponse(error, "Failed to save error notification.");
+  }
+}
+
+export async function DELETE() {
+  try {
+    const context = await requireExplicitWorkspaceRole("MEMBER");
+    const result = await prisma.errorNotification.deleteMany({
+      where: { workspaceId: context.workspaceId, userId: context.userId },
+    });
+    return NextResponse.json({ success: true, deleted: result.count });
+  } catch (error) {
+    return errorResponse(error, "Failed to clear error notifications.");
   }
 }

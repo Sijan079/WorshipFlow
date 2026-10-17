@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comment Card Test</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, Arial, "Segoe UI Emoji", sans-serif; color: #111827; background: #f8fafc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    main { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 20px; max-width: 1440px; margin: auto; padding: 24px; }
+    .panel { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 10%); }
+    form { padding: 20px; }
+    h1 { margin: 0; font-size: 22px; }
+    .intro { margin: 6px 0 20px; color: #64748b; font-size: 13px; line-height: 1.5; }
+    label { display: block; margin-top: 14px; color: #475569; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    input, textarea, select { width: 100%; min-height: 42px; margin-top: 6px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #111827; font: inherit; }
+    textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
+    input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
+    .dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { width: 100%; min-height: 44px; margin-top: 18px; border: 0; border-radius: 8px; background: #7c3aed; color: #fff; font-weight: 700; cursor: pointer; }
+    button:hover { background: #8754ee; }
+    button.secondary { margin-top: 10px; border: 1px solid #cbd5e1; background: #f1f5f9; color: #111827; }
+    .check { display: flex; min-height: 42px; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
+    .check input { width: 20px; min-height: 20px; margin: 0; padding: 0; }
+    .destination { min-height: 20px; margin: 7px 0 0; color: #64748b; font-size: 12px; }
+    .preview { display: flex; min-height: calc(100vh - 48px); flex-direction: column; overflow: hidden; }
+    .preview-header { display: flex; justify-content: space-between; gap: 16px; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; }
+    .canvas-wrap { flex: 1; overflow: auto; padding: 24px; background: #fff; }
+    .preview-list { display: grid; gap: 24px; width: 100%; }
+    .preview-part { display: grid; justify-items: center; gap: 8px; }
+    .preview-part-label { color: #475569; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    canvas { display: block; max-width: 100%; max-height: calc(100vh - 160px); box-shadow: 0 8px 24px rgb(15 23 42 / 12%); }
+    .status { color: #64748b; font-variant-numeric: tabular-nums; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 14px; } .preview { min-height: 540px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <form class="panel" id="controls">
+      <h1>Comment Card Test</h1>
+      <p class="intro">Changes preview immediately and are remembered on this computer. Purple marks the card edge; red marks the usable text area. Guides never appear in downloads.</p>
+
+      <label>Sender
+        <input name="sender" maxlength="120" placeholder="Commenter name" required>
+      </label>
+
+      <label class="check"><input name="showSender" type="checkbox" checked> Show sender</label>
+      <label class="check"><input name="showBoundaries" type="checkbox" checked> Show preview boundaries</label>
+
+      <label>Comment
+        <textarea name="comment" maxlength="10000" placeholder="Paste the comment here; long comments split automatically" required></textarea>
+      </label>
+
+      <label>Size preset
+        <select name="preset">
+          <option value="presentation">Presentation · 1920 × 1080</option>
+          <option value="phone">Phone · 1080 × 2400</option>
+          <option value="portrait">Portrait · 1080 × 1920</option>
+          <option value="square">Square · 1080 × 1080</option>
+          <option value="wide">Wide · 4800 × 2400</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+
+      <div class="dimensions">
+        <label>Width
+          <input name="width" type="number" min="1" max="12000" required>
+        </label>
+        <label>Height
+          <input name="height" type="number" min="1" max="12000" required>
+        </label>
+      </div>
+
+      <label>Fit
+        <select name="fit">
+          <option value="contain">Contain</option>
+          <option value="fill">Fill</option>
+          <option value="stretch">Stretch</option>
+        </select>
+      </label>
+
+      <label>Comment font size
+        <input name="fontSize" type="number" min="18" max="300" step="1" required>
+      </label>
+
+      <label>Filename
+        <input name="filename" maxlength="72" value="comment-card">
+      </label>
+
+      <button type="button" class="secondary" id="choose-folder">Choose download folder</button>
+      <p class="destination" id="destination">Using your browser's Downloads folder.</p>
+
+      <button type="submit">Download PNG</button>
+    </form>
+
+    <section class="panel preview" aria-label="Comment card preview">
+      <div class="preview-header"><span>Live preview</span><span class="status" id="status"></span></div>
+      <div class="canvas-wrap"><div class="preview-list" id="preview-list"></div></div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "worship-flow-comment-card-test-v1";
+    const BASE_WIDTH = 1920;
+    const BASE_HEIGHT = 1080;
+    const TEXT_SAFE_INSET = 24;
+    const FONT = 'Arial, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+    const presets = {
+      presentation: [1920, 1080], phone: [1080, 2400], portrait: [1080, 1920],
+      square: [1080, 1080], wide: [4800, 2400],
+    };
+    const form = document.querySelector("#controls");
+    const previewList = document.querySelector("#preview-list");
+    const status = document.querySelector("#status");
+    const destination = document.querySelector("#destination");
+    let directoryHandle;
+
+    function savedState() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch { return {}; }
+    }
+
+    const initial = Object.assign({
+      sender: "Maria Santos", comment: "Thank you for sharing this message 🙏✨",
+      preset: "presentation", width: 1920, height: 1080, fit: "contain", fontSize: 52, showSender: true, showBoundaries: true, filename: "comment-card",
+    }, savedState());
+    for (const [key, value] of Object.entries(initial)) if (form.elements[key]) {
+      if (form.elements[key].type === "checkbox") form.elements[key].checked = Boolean(value);
+      else form.elements[key].value = value;
+    }
+
+    function values() {
+      return {
+        sender: form.elements.sender.value,
+        comment: form.elements.comment.value,
+        preset: form.elements.preset.value,
+        width: Math.min(12000, Math.max(1, Number(form.elements.width.value) || 1)),
+        height: Math.min(12000, Math.max(1, Number(form.elements.height.value) || 1)),
+        fit: form.elements.fit.value,
+        fontSize: Math.min(300, Math.max(18, Number(form.elements.fontSize.value) || 52)),
+        showSender: form.elements.showSender.checked,
+        showBoundaries: form.elements.showBoundaries.checked,
+        filename: form.elements.filename.value,
+      };
+    }
+
+    function fitTransform(width, height, fit) {
+      if (fit === "stretch") return { scaleX: width / BASE_WIDTH, scaleY: height / BASE_HEIGHT, offsetX: 0, offsetY: 0 };
+      const scale = fit === "contain" ? Math.min(width / BASE_WIDTH, height / BASE_HEIGHT) : Math.max(width / BASE_WIDTH, height / BASE_HEIGHT);
+      return { scaleX: scale, scaleY: scale, offsetX: (width - BASE_WIDTH * scale) / 2, offsetY: (height - BASE_HEIGHT * scale) / 2 };
+    }
+
+    function wrapText(context, text, maxWidth) {
+      const lines = [];
+      for (const paragraph of text.split(/\r?\n/)) {
+        const words = paragraph.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) { if (lines.length) lines.push(""); continue; }
+        let line = "";
+        for (const word of words) {
+          if (context.measureText(word).width > maxWidth) {
+            if (line) { lines.push(line); line = ""; }
+            let segment = "";
+            for (const character of Array.from(word)) {
+              const candidate = segment + character;
+              if (segment && context.measureText(candidate).width > maxWidth) { lines.push(segment); segment = character; }
+              else segment = candidate;
+            }
+            line = segment; continue;
+          }
+          const candidate = line ? `${line} ${word}` : word;
+          if (!line || context.measureText(candidate).width <= maxWidth) line = candidate;
+          else { lines.push(line); line = word; }
+        }
+        if (line) lines.push(line);
+      }
+      return lines;
+    }
+
+    function fitTextToWidth(context, text, maxWidth) {
+      if (context.measureText(text).width <= maxWidth) return text;
+      const characters = Array.from(text);
+      while (characters.length && context.measureText(`${characters.join("")}…`).width > maxWidth) characters.pop();
+      return `${characters.join("")}…`;
+    }
+
+    function roundedRect(context, x, y, width, height, radius) {
+      context.beginPath(); context.roundRect(x, y, width, height, radius); context.fill();
+    }
+
+    function paginateLines(lines, firstCapacity, continuationCapacity) {
+      const pages = [];
+      for (let offset = 0; offset < lines.length;) {
+        while (offset < lines.length && lines[offset].trim() === "") offset += 1;
+        if (offset >= lines.length) break;
+        const capacity = pages.length ? continuationCapacity : firstCapacity;
+        const maximumEnd = Math.min(offset + capacity, lines.length);
+        let pageEnd = maximumEnd;
+        if (maximumEnd < lines.length) {
+          for (let index = maximumEnd - 1; index > offset; index -= 1) {
+            if (lines[index].trim() === "") { pageEnd = index; break; }
+          }
+          if (pageEnd === maximumEnd) {
+            for (let index = maximumEnd - 1; index >= offset; index -= 1) {
+              if (/[.!?][\"'’”)]*$/.test(lines[index].trim())) { pageEnd = index + 1; break; }
+            }
+          }
+        }
+        while (pageEnd > offset && lines[pageEnd - 1].trim() === "") pageEnd -= 1;
+        if (pageEnd === offset) pageEnd = maximumEnd;
+        pages.push(lines.slice(offset, pageEnd));
+        offset = pageEnd;
+      }
+      return pages.length ? pages : [[""]];
+    }
+
+    function commentPages(state) {
+      const context = document.createElement("canvas").getContext("2d");
+      const shortest = 1080, outer = Math.round(shortest * .08), paddingX = Math.round(shortest * .052), paddingY = Math.round(shortest * .045);
+      const senderSize = Math.min(180, Math.max(52, Math.round(state.fontSize * .9))), senderHeight = Math.round(senderSize * 1.25 + shortest * .02);
+      const lineHeight = Math.round(state.fontSize * 1.38), textWidth = BASE_WIDTH - outer * 2 - paddingX * 2 - TEXT_SAFE_INSET * 2;
+      context.font = `400 ${state.fontSize}px ${FONT}`;
+      const lines = wrapText(context, state.comment, textWidth);
+      const availableHeight = BASE_HEIGHT - Math.round(BASE_HEIGHT * .08) - outer - paddingY * 2 - TEXT_SAFE_INSET * 2;
+      const firstCapacity = Math.max(1, Math.floor((availableHeight - (state.showSender ? senderHeight : 0)) / lineHeight));
+      const continuationCapacity = Math.max(1, Math.floor(availableHeight / lineHeight));
+      return paginateLines(lines, firstCapacity, continuationCapacity);
+    }
+
+    function render(target, state, suppliedLines, pageShowSender = state.showSender, showGuides = false) {
+      target.width = state.width; target.height = state.height;
+      const context = target.getContext("2d");
+      const shortestOutput = Math.min(state.width, state.height);
+      context.fillStyle = "#fff"; context.fillRect(0, 0, state.width, state.height);
+      const inset = Math.round(shortestOutput * .04);
+      context.fillStyle = "#fff"; context.shadowColor = "rgba(15, 23, 42, .42)";
+      context.shadowBlur = Math.round(shortestOutput * .065); context.shadowOffsetY = Math.round(shortestOutput * .024);
+      roundedRect(context, inset, inset, state.width - inset * 2, state.height - inset * 2, Math.round(shortestOutput * .035));
+      context.shadowColor = "transparent";
+
+      const transform = fitTransform(state.width, state.height, state.fit);
+      context.save(); context.translate(transform.offsetX, state.fit === "contain" ? inset : transform.offsetY); context.scale(transform.scaleX, transform.scaleY);
+      const shortest = 1080, outer = Math.round(shortest * .08), bubbleX = outer;
+      const bubbleWidth = BASE_WIDTH - outer * 2, paddingX = Math.round(shortest * .052), paddingY = Math.round(shortest * .045);
+      const senderSize = Math.min(180, Math.max(52, Math.round(state.fontSize * .9))), safeWidth = bubbleWidth - paddingX * 2;
+      const maxTextWidth = safeWidth - TEXT_SAFE_INSET * 2;
+      const commentSize = state.fontSize;
+      context.font = `400 ${commentSize}px ${FONT}`;
+      const lines = suppliedLines || wrapText(context, state.comment, maxTextWidth);
+      const lineHeight = Math.round(commentSize * 1.38);
+      const y = Math.round(BASE_HEIGHT * .08);
+      const safeXLogical = bubbleX + paddingX;
+      const safeYLogical = y + paddingY;
+      context.textAlign = "left"; context.textBaseline = "top"; context.fillStyle = "#101828";
+      const safeBottom = BASE_HEIGHT - outer - paddingY;
+      context.beginPath(); context.rect(safeXLogical, safeYLogical, safeWidth, Math.max(0, safeBottom - safeYLogical)); context.clip();
+      const x = safeXLogical + TEXT_SAFE_INSET;
+      let textY = safeYLogical + TEXT_SAFE_INSET;
+      if (pageShowSender) {
+        context.font = `800 ${senderSize}px ${FONT}`; context.fillText(fitTextToWidth(context, state.sender || "Commenter name", maxTextWidth), x, textY);
+        textY += Math.round(senderSize * 1.25 + shortest * .02);
+      }
+      context.font = `400 ${commentSize}px ${FONT}`; context.fillStyle = "#1d2939";
+      for (const line of lines) { context.fillText(line, x, textY); textY += lineHeight; }
+      context.restore();
+
+      if (showGuides) {
+        const effectiveOffsetY = state.fit === "contain" ? inset : transform.offsetY;
+        const safeX = transform.offsetX + (outer + paddingX) * transform.scaleX;
+        const safeY = effectiveOffsetY + (Math.round(BASE_HEIGHT * .08) + paddingY) * transform.scaleY;
+        const guideSafeWidth = (bubbleWidth - paddingX * 2) * transform.scaleX;
+        const safeBottom = effectiveOffsetY + (BASE_HEIGHT - outer - paddingY) * transform.scaleY;
+        context.save();
+        context.lineWidth = Math.max(2, shortestOutput * .004);
+        context.setLineDash([Math.max(8, shortestOutput * .015), Math.max(6, shortestOutput * .01)]);
+        context.strokeStyle = "rgba(124, 58, 237, .95)";
+        context.strokeRect(inset, inset, state.width - inset * 2, state.height - inset * 2);
+        context.strokeStyle = "rgba(220, 38, 38, .95)";
+        context.strokeRect(safeX, safeY, guideSafeWidth, Math.max(0, safeBottom - safeY));
+        context.setLineDash([]);
+        context.fillStyle = "#7c3aed";
+        context.font = `700 ${Math.max(14, Math.round(shortestOutput * .018))}px Arial`;
+        context.fillText("Card boundary", inset + 10, inset + 10);
+        context.fillStyle = "#dc2626";
+        context.fillText("Text safe area", safeX + 10, safeY + 10);
+        context.restore();
+      }
+    }
+
+    function refresh() {
+      const state = values();
+      form.elements.sender.required = state.showSender;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const pages = commentPages(state);
+      const previewScale = Math.min(1, 1200 / Math.max(state.width, state.height));
+      const previewState = { ...state, width: Math.max(1, Math.round(state.width * previewScale)), height: Math.max(1, Math.round(state.height * previewScale)) };
+      previewList.replaceChildren();
+      pages.forEach((lines, index) => {
+        const wrapper = document.createElement("div"); wrapper.className = "preview-part";
+        const label = document.createElement("div"); label.className = "preview-part-label"; label.textContent = `Part ${index + 1} of ${pages.length}`;
+        const previewCanvas = document.createElement("canvas");
+        render(previewCanvas, previewState, lines, state.showSender && index === 0, state.showBoundaries);
+        wrapper.append(label, previewCanvas); previewList.append(wrapper);
+      });
+      status.textContent = `${state.width} × ${state.height} · ${state.fit} · ${pages.length} part${pages.length === 1 ? "" : "s"}`;
+    }
+
+    form.elements.preset.addEventListener("change", () => {
+      const size = presets[form.elements.preset.value];
+      if (size) { form.elements.width.value = size[0]; form.elements.height.value = size[1]; }
+      refresh();
+    });
+    for (const element of form.elements) if (element.name && element.name !== "preset") element.addEventListener("input", () => {
+      if (element.name === "width" || element.name === "height") form.elements.preset.value = "custom";
+      refresh();
+    });
+    function openHandleDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("worship-flow-comment-card", 1);
+        request.onupgradeneeded = () => request.result.createObjectStore("handles");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function storeDirectoryHandle(handle) {
+      const database = await openHandleDatabase();
+      const transaction = database.transaction("handles", "readwrite");
+      transaction.objectStore("handles").put(handle, "download-directory");
+    }
+
+    async function restoreDirectoryHandle() {
+      try {
+        const database = await openHandleDatabase();
+        const transaction = database.transaction("handles", "readonly");
+        const request = transaction.objectStore("handles").get("download-directory");
+        request.onsuccess = () => {
+          directoryHandle = request.result;
+          if (directoryHandle) destination.textContent = `Selected folder: ${directoryHandle.name} (permission may be requested when saving).`;
+        };
+      } catch { /* Browser download fallback remains available. */ }
+    }
+
+    document.querySelector("#choose-folder").addEventListener("click", async () => {
+      if (!("showDirectoryPicker" in window)) {
+        destination.textContent = "Folder selection requires Chrome or Edge; browser Downloads will be used here.";
+        return;
+      }
+      try {
+        directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+        await storeDirectoryHandle(directoryHandle);
+        destination.textContent = `Selected folder: ${directoryHandle.name}`;
+      } catch (error) {
+        if (error.name !== "AbortError") destination.textContent = "Could not use that folder. Browser Downloads will be used.";
+      }
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault(); const state = values(); const pages = commentPages(state);
+      const requestedName = (state.filename || "comment-card").trim() || "comment-card";
+      const baseName = requestedName.toLowerCase().endsWith(".png") ? requestedName : `${requestedName}.png`;
+      const outputs = pages.map((lines, index) => {
+        const outputCanvas = document.createElement("canvas"); render(outputCanvas, state, lines, state.showSender && index === 0);
+        const name = pages.length === 1 ? baseName : baseName.replace(/\.png$/i, `-part-${index + 1}.png`);
+        return { canvas: outputCanvas, name };
+      });
+      if (directoryHandle) {
+        try {
+          const permission = await directoryHandle.requestPermission({ mode: "readwrite" });
+          if (permission === "granted") {
+            for (const output of outputs) {
+              const fileHandle = await directoryHandle.getFileHandle(output.name, { create: true });
+              const writable = await fileHandle.createWritable();
+              const blob = await new Promise(resolve => output.canvas.toBlob(resolve, "image/png"));
+              await writable.write(blob); await writable.close();
+            }
+            destination.textContent = `Saved ${outputs.length} card${outputs.length === 1 ? "" : "s"} to ${directoryHandle.name}.`;
+            return;
+          }
+        } catch { destination.textContent = "Folder access failed; saved through browser Downloads instead."; }
+      }
+      for (const output of outputs) {
+        const link = document.createElement("a"); link.download = output.name; link.href = output.canvas.toDataURL("image/png"); link.click();
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+    });
+    restoreDirectoryHandle();
+    refresh();
+  </script>
+</body>
+</html>

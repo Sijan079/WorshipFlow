@@ -34,7 +34,7 @@ export function runWorkspaceRouteTests() {
   assert.match(page, /case "songs\/upload":[\s\S]*?redirect\([\s\S]*?song-formatter\/upload/);
   assert.match(page, /case "songs\/format":[\s\S]*?redirect\([\s\S]*?song-formatter\/format/);
 
-  for (const mediaTool of ["phone-transfer", "qr-generator", "background-generator", "resize-image", "background-removal"]) {
+  for (const mediaTool of ["phone-transfer", "qr-generator", "background-generator", "comment-card", "resize-image", "background-removal"]) {
     assert.match(
       page,
       new RegExp(
@@ -44,10 +44,9 @@ export function runWorkspaceRouteTests() {
   }
 
   assert.match(serviceBuilder, /const workspaceMediaToolsPath = \(tool\?: MediaTool\)/);
-  assert.match(serviceBuilder, /href=\{workspaceMediaToolsPath\(\)\}/);
   assert.equal(
     serviceBuilder.match(/href=\{workspaceMediaToolsPath\(tool\.id\)\}/g)?.length,
-    2,
+    1,
   );
   assert.doesNotMatch(serviceBuilder, /href=\{tool\.href\}/);
   assert.doesNotMatch(serviceBuilder, /href="\/media-tools"/);

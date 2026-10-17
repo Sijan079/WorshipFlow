@@ -171,10 +171,20 @@ Components should consume tokens by intent, not raw color family.
 
 ## Layout
 
-- Desktop: persistent 280px left OS rail, 12-column content grid, 24px
-  margins, 16px gutters
-- Tablet: 8-column grid, 16px margins, 16px gutters
-- Mobile: 4-column grid, 16px margins, 12px gutters, compact workflow nav
+- Desktop (1200px and wider): persistent left OS rail, 12-column content grid,
+  24px margins, 16px gutters
+- Tablet (600–1199px): 8-column grid, 16px margins, 16px gutters; menu button
+  opens the OS rail as a side drawer. Notifications and account controls sit at
+  the right of the collapsed header.
+- Mobile (under 600px): 4-column grid, 16px margins, 12px gutters; the same
+  side drawer and collapsed header controls. The logo stays inside the rail,
+  below its close button.
+- The Services register uses compact rows below 1200px with visible row actions
+  and bulk selection. Expanded service fields stack label and value on phones.
+- Below 1200px, Settings sections live in the collapsible workspace rail; the
+  page's section rail appears on desktop only. Phone editor controls may collapse
+  when the editing canvas needs priority, while export and save actions remain
+  reachable without scrolling a nested dialog.
 - Inspector panels: 320px when present
 - Base spacing unit: 8px
 - Large high-pressure work areas should keep at least 32px safe areas

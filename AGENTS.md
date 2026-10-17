@@ -137,7 +137,7 @@ Implementation rules:
 
 - Keep REST responses and validation type-safe.
 - Preserve compatibility with `prisma/` and `src/lib/prisma.ts`.
-- Always start the development server with `npm run dev` so it uses the local Docker Supabase stack. Do not start Next directly unless the user explicitly asks to bypass local Supabase.
+- Start the development server with `npm run dev` for the configured hosted Supabase development project. Use `npm run dev:docker` when isolated local Supabase data is needed. Do not start Next directly unless the user explicitly asks to bypass the configured startup checks.
 - Update `README.md` when setup or workflow instructions materially change.
 - If a request conflicts with the worship-service-only scope, call it out
   before implementing it.

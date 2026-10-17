@@ -23,6 +23,26 @@ export type ImageTransform = {
   canvasHeight: number;
 };
 
+export function validateSourceCrop(
+  crop: SourceCrop,
+  sourceWidth: number,
+  sourceHeight: number
+): string | null {
+  if (![crop.x, crop.y, crop.width, crop.height].every(Number.isInteger)) {
+    return "Crop coordinates and dimensions must be whole numbers.";
+  }
+  if (crop.x < 0 || crop.y < 0) {
+    return "Crop coordinates must be non-negative.";
+  }
+  if (crop.width <= 0 || crop.height <= 0) {
+    return "Crop width and height must be greater than zero.";
+  }
+  if (crop.x + crop.width > sourceWidth || crop.y + crop.height > sourceHeight) {
+    return "Crop must stay inside the source image.";
+  }
+  return null;
+}
+
 type TransformInput = {
   sourceWidth: number;
   sourceHeight: number;
@@ -103,6 +123,61 @@ export function detectContentBounds(
   }
 
   return { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
+}
+
+export function enhanceScreenshotPixels(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  amount = 0.55
+) {
+  if (pixels.length !== width * height * 4 || width <= 0 || height <= 0) {
+    throw new Error("Pixel data does not match the image dimensions.");
+  }
+  if (!Number.isFinite(amount) || amount < 0 || amount > 2) {
+    throw new Error("Screenshot enhancement amount must be between 0 and 2.");
+  }
+
+  const output = new Uint8ClampedArray(pixels);
+  const blurWeights = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+  const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+  const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+  const luminanceAt = (x: number, y: number) => {
+    const sampleX = Math.max(0, Math.min(width - 1, x));
+    const sampleY = Math.max(0, Math.min(height - 1, y));
+    const offset = (sampleY * width + sampleX) * 4;
+    return pixels[offset] * 0.2126 + pixels[offset + 1] * 0.7152 + pixels[offset + 2] * 0.0722;
+  };
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      let blurredLuminance = 0;
+      let gradientX = 0;
+      let gradientY = 0;
+      let weightIndex = 0;
+      for (let kernelY = -1; kernelY <= 1; kernelY += 1) {
+        for (let kernelX = -1; kernelX <= 1; kernelX += 1) {
+          const luminance = luminanceAt(x + kernelX, y + kernelY);
+          blurredLuminance += luminance * blurWeights[weightIndex];
+          gradientX += luminance * sobelX[weightIndex];
+          gradientY += luminance * sobelY[weightIndex];
+          weightIndex += 1;
+        }
+      }
+      blurredLuminance /= 16;
+      const originalLuminance = luminanceAt(x, y);
+      const edgeStrength = Math.hypot(gradientX, gradientY) / 4;
+      const edgeWeight = Math.max(0, Math.min(1, (edgeStrength - 6) / 42));
+      const luminanceDelta = amount * edgeWeight * (originalLuminance - blurredLuminance);
+      output[offset] = Math.round(pixels[offset] + luminanceDelta);
+      output[offset + 1] = Math.round(pixels[offset + 1] + luminanceDelta);
+      output[offset + 2] = Math.round(pixels[offset + 2] + luminanceDelta);
+      output[offset + 3] = pixels[offset + 3];
+    }
+  }
+
+  return output;
 }
 
 function assertDimensions({ sourceWidth, sourceHeight, targetWidth, targetHeight }: TransformInput) {

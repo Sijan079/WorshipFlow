@@ -76,6 +76,7 @@ export default function SongDocumentEditor(props: Props) {
   const mac = useSyncExternalStore(subscribePlatform, isMacPlatform, () => false);
   const [mobile, setMobile] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const [zoom, setZoom] = useState("100");
   const [viewportWidth, setViewportWidth] = useState(0);
   const [groupSize, setGroupSize] = useState<"2" | "3">("2");
@@ -370,7 +371,7 @@ export default function SongDocumentEditor(props: Props) {
   );
 
   return (
-    <section ref={region} className={styles.editor} data-continuous={continuous} data-page-columns={columns} data-outline-open={outline} data-shortcut-mode={shortcutPending} aria-label="Song Editor">
+    <section ref={region} className={styles.editor} data-continuous={continuous} data-page-columns={columns} data-outline-open={outline} data-shortcut-mode={shortcutPending} data-mobile-controls-open={mobileControlsOpen} aria-label="Song Editor">
       <div className={`ui-surface-elevated ui-operational-register ${styles.controls}`}>
       <header className={styles.header}>
         <div className={styles.title}>
@@ -400,6 +401,8 @@ export default function SongDocumentEditor(props: Props) {
         <button type="button" className={styles.tool} onClick={() => run(undo)} disabled={!canUndo || readOnly} aria-label="Undo" title="Undo (Ctrl/Cmd+Z)"><Undo2 /></button>
         <button type="button" className={styles.tool} onClick={() => run(redo)} disabled={!canRedo || readOnly} aria-label="Redo" title="Redo (Ctrl/Cmd+Shift+Z)"><Redo2 /></button>
         </div>
+        <button type="button" className={`${styles.tool} ${styles.mobileControlsToggle}`} aria-expanded={mobileControlsOpen} aria-controls="song-document-advanced-controls" onClick={() => setMobileControlsOpen((open) => !open)}>{mobileControlsOpen ? "Hide tools" : "More tools"}</button>
+        <div id="song-document-advanced-controls" className={styles.advancedControls}>
         <div className={styles.ribbonGroup} role="group" aria-label="Sections">
         <div className={styles.controlGroup}>
         <ProductionSelect ariaLabel="Section tag" value={currentTag} options={tagOptions} onValueChange={tag => run(tagSelection(tag))} disabled={readOnly} className="w-36" />
@@ -417,6 +420,7 @@ export default function SongDocumentEditor(props: Props) {
         <button type="button" className={styles.tool} disabled={!currentTag || readOnly} onClick={() => run(groupSections(currentTag, Number(groupSize) as 2 | 3))} title={`Regroup all ${currentTag || "selected tag"} sections`}>Apply grouping</button>
         </div>
         <span className={styles.ribbonLabel}>Groupings</span>
+        </div>
         </div>
         <div className={styles.viewControls}>
           <span className="text-xs text-[var(--text-secondary)]">{continuous ? "Continuous view" : `${pages} ${pages === 1 ? "page" : "pages"}`}</span>

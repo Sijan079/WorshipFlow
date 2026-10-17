@@ -172,6 +172,7 @@ model Workspace {
   logoDataUrl String? @db.Text
   serviceTemplatesInitialized Boolean @default(false)
   activeChecklistId String?
+  activeCommentCardNameTemplateId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -187,6 +188,8 @@ model Workspace {
   servantGroupPresets ServantGroupPreset[]
   checklistPresets ChecklistPreset[] @relation("WorkspaceChecklistPresets")
   activeChecklist ChecklistPreset? @relation("ActiveChecklist", fields: [activeChecklistId], references: [id], onDelete: SetNull)
+  commentCardNameTemplates CommentCardNameTemplate[] @relation("WorkspaceCommentCardNameTemplates")
+  activeCommentCardNameTemplate CommentCardNameTemplate? @relation("ActiveCommentCardNameTemplate", fields: [activeCommentCardNameTemplateId], references: [id], onDelete: SetNull)
   serviceTemplatePresets ServiceTemplatePreset[]
   programBlockTypes ProgramBlockType[]
   integrations WorkspaceIntegration[]
@@ -543,6 +546,19 @@ model ServiceTemplatePreset {
   templateBlocks ServiceTemplateBlock[]
 
   @@unique([workspaceId, code])
+}
+
+model CommentCardNameTemplate {
+  id String @id @default(uuid())
+  workspaceId String
+  name String @db.VarChar(72)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation("WorkspaceCommentCardNameTemplates", fields: [workspaceId], references: [id], onDelete: Cascade)
+  activeInWorkspaces Workspace[] @relation("ActiveCommentCardNameTemplate")
+
+  @@index([workspaceId, createdAt])
 }
 
 model ProgramBlockType {

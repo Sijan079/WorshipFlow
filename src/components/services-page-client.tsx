@@ -128,16 +128,16 @@ function ServicesListSkeleton() {
       {Array.from({ length: 5 }).map((_, index) => (
         <div
           key={`service-skeleton-${index}`}
-          className="grid grid-cols-[36px_minmax(0,1fr)_44px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px]"
+          className="grid grid-cols-[36px_minmax(0,1fr)] items-start gap-3 px-4 py-4 min-[600px]:grid-cols-[36px_minmax(0,1fr)_44px] min-[1200px]:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_44px]"
         >
           <div className="h-5 w-5 animate-pulse rounded-[4px] bg-[var(--surface-panel-strong)]" />
           <div className="space-y-2">
             <div className="h-5 w-36 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
-            <div className="h-4 w-24 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:hidden" />
+            <div className="h-4 w-24 animate-pulse rounded bg-[var(--surface-panel-strong)] min-[1200px]:hidden" />
           </div>
-          <div className="hidden h-5 w-28 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
-          <div className="hidden h-5 w-16 animate-pulse rounded bg-[var(--surface-panel-strong)] lg:block" />
-          <div className="h-10 w-10 animate-pulse rounded-md bg-[var(--surface-panel-strong)]" />
+          <div className="hidden h-5 w-28 animate-pulse rounded bg-[var(--surface-panel-strong)] min-[1200px]:block" />
+          <div className="hidden h-5 w-16 animate-pulse rounded bg-[var(--surface-panel-strong)] min-[1200px]:block" />
+          <div className="col-start-2 h-10 w-20 animate-pulse rounded-md bg-[var(--surface-panel-strong)] min-[600px]:col-auto min-[600px]:w-10" />
         </div>
       ))}
     </div>
@@ -1037,11 +1037,11 @@ function ReadOnlyServiceDetails({ service, servants }: { service: ServiceListIte
           return (
             <div
               key={block.id}
-              className="grid grid-cols-[2rem_minmax(10rem,0.8fr)_minmax(12rem,1.2fr)] items-start gap-3 rounded-md px-4 py-3 text-sm"
+              className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 rounded-md px-2 py-3 text-sm min-[600px]:grid-cols-[2rem_minmax(0,0.8fr)_minmax(0,1.2fr)] min-[600px]:px-4"
             >
               <span className="font-mono text-xs font-medium text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>
               <span className="font-medium text-[var(--text-primary)]">{block.label}</span>
-              <span className={`min-w-0 whitespace-pre-wrap break-words text-right ${value === "Not set" ? "text-[var(--text-muted)]" : "text-[var(--text-secondary)]"}`}>{value}</span>
+              <span className={`col-start-2 min-w-0 whitespace-pre-wrap break-words text-left min-[600px]:col-auto min-[600px]:text-right ${value === "Not set" ? "text-[var(--text-muted)]" : "text-[var(--text-secondary)]"}`}>{value}</span>
             </div>
           );
         })
@@ -1081,6 +1081,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [unlistedServantNames, setUnlistedServantNames] = useState<string[]>([]);
   const [selectedUnlistedServantNames, setSelectedUnlistedServantNames] = useState<string[]>([]);
   const selectionCheckboxRef = useRef<HTMLInputElement>(null);
+  const compactSelectionCheckboxRef = useRef<HTMLInputElement>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -1149,6 +1150,9 @@ export default function ServicesPageClient({ initialServices }: { initialService
   useEffect(() => {
     if (selectionCheckboxRef.current) {
       selectionCheckboxRef.current.indeterminate = selectedFilteredServiceCount > 0 && !allFilteredServicesSelected;
+    }
+    if (compactSelectionCheckboxRef.current) {
+      compactSelectionCheckboxRef.current.indeterminate = selectedFilteredServiceCount > 0 && !allFilteredServicesSelected;
     }
   }, [allFilteredServicesSelected, selectedFilteredServiceCount]);
 
@@ -1548,7 +1552,18 @@ export default function ServicesPageClient({ initialServices }: { initialService
           </div>
         ) : (
           <div>
-            <div className="ui-ledger-header hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 px-4 py-2.5 lg:grid">
+            <label className="flex min-h-11 items-center gap-3 border-b border-[var(--rule-default)] px-4 py-2.5 text-sm text-[var(--text-secondary)] min-[1200px]:hidden">
+              <input
+                ref={compactSelectionCheckboxRef}
+                type="checkbox"
+                checked={allFilteredServicesSelected}
+                onChange={toggleFilteredServiceSelection}
+                aria-label={`${selectionStateLabel}: select all filtered services`}
+                className="ui-checkbox h-5 w-5"
+              />
+              <span>{selectedFilteredServiceCount > 0 ? `${selectedFilteredServiceCount} selected` : "Select all services"}</span>
+            </label>
+            <div className="ui-ledger-header hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 px-4 py-2.5 min-[1200px]:grid">
               <label className="flex items-center pr-4">
                 <input
                   ref={selectionCheckboxRef}
@@ -1582,8 +1597,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         : "border-b border-[var(--rule-default)] bg-transparent"
                     }`}
                   >
-                    <div className="grid grid-cols-[36px_minmax(0,1fr)_88px] items-start gap-3 px-4 py-4 lg:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] lg:items-center">
-                      <div className="pr-3 pt-0.5 lg:pt-0">
+                    <div className="grid grid-cols-[36px_minmax(0,1fr)_88px] items-start gap-x-3 gap-y-2 px-4 py-4 min-[1200px]:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] min-[1200px]:items-center">
+                      <div className="pr-3 pt-0.5 min-[1200px]:pt-0">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1594,8 +1609,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">{service.dateLabel}</p>
-                        <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{service.ministryLabel}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--text-muted)] lg:hidden">
+                        <p className="mt-1 break-words text-sm text-[var(--text-secondary)] min-[1200px]:truncate">{service.ministryLabel}</p>
+                        <div className="mt-3 flex flex-col items-start gap-1 text-xs text-[var(--text-muted)] min-[1200px]:hidden">
                           <span>{service.templateLabel}</span>
                           <span className="inline-flex items-center gap-1.5" style={{ color: getServiceStatusColor(service.status) }}>
                             <span
@@ -1607,8 +1622,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
                           </span>
                         </div>
                       </div>
-                      <p className="hidden truncate text-sm text-[var(--text-secondary)] lg:block">{service.templateLabel}</p>
-                      <span className="hidden items-center gap-2 text-xs font-medium lg:inline-flex" style={{ color: getServiceStatusColor(service.status) }}>
+                      <p className="hidden truncate text-sm text-[var(--text-secondary)] min-[1200px]:block">{service.templateLabel}</p>
+                      <span className="hidden items-center gap-2 text-xs font-medium min-[1200px]:inline-flex" style={{ color: getServiceStatusColor(service.status) }}>
                         <span
                           aria-hidden="true"
                           className="h-1.5 w-1.5 rounded-full"
@@ -1616,12 +1631,12 @@ export default function ServicesPageClient({ initialServices }: { initialService
                         />
                         {formatServiceStatus(service.status)}
                       </span>
-                      <div className="flex justify-end gap-1">
+                      <div className="services-row-actions col-start-3 row-start-1 flex justify-end gap-1 min-[1200px]:col-auto min-[1200px]:row-auto">
                         <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="ui-row-menu-trigger opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+                              className="ui-row-menu-trigger group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                               aria-label={`Actions for ${service.dateLabel}`}
                               title="Service actions"
                             >
@@ -1659,7 +1674,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                             type="button"
                             onClick={() => toggleExpandedService(service)}
                             aria-expanded={isExpanded}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:text-[var(--text-primary)]"
+                            className="services-row-expand inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] min-[1200px]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                             aria-label={isExpanded ? "Collapse service" : "Expand service"}
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -1746,8 +1761,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
 
       <Dialog open={createModalOpen} onOpenChange={(open) => !open && setCreateModalOpen(false)}>
         {createModalOpen ? (
-          <DialogContent className="max-w-6xl overflow-hidden p-0">
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--rule-default)] px-5 py-4">
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-6xl flex-col overflow-hidden p-0 sm:max-h-[90dvh]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--rule-default)] px-4 py-3 sm:px-5 sm:py-4">
               <div>
                 <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Create Worship Service</DialogTitle>
               </div>
@@ -1764,7 +1779,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
               </div>
             </div>
 
-            <div className="max-h-[calc(90vh-10rem)] overflow-y-auto px-5 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
               <TemplateDefinedServiceFields
                 form={createForm}
                 errors={createErrors}
@@ -1777,27 +1792,31 @@ export default function ServicesPageClient({ initialServices }: { initialService
               />
             </div>
 
-            <div className="flex flex-wrap justify-end gap-3 px-5 py-4">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--rule-default)] bg-[var(--surface-panel-elevated)] px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
               <button
                 type="button"
                 onClick={() => setCreateParserOpen(true)}
-                className="pressable inline-flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg)] hover:bg-transparent hover:text-[var(--action-primary-bg)] active:border-[var(--action-primary-bg)] active:bg-transparent active:text-[var(--action-primary-bg)]"
+                aria-label="Parse text"
+                title="Parse text"
+                className="pressable inline-flex h-11 w-11 items-center justify-center gap-2 rounded-lg border border-[var(--border-default)] bg-transparent text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg)] hover:bg-transparent hover:text-[var(--action-primary-bg)] active:border-[var(--action-primary-bg)] active:bg-transparent active:text-[var(--action-primary-bg)] sm:w-auto sm:px-3"
               >
-                <WandSparkles className="h-4 w-4" />
-                Parse text
+                <WandSparkles className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Parse text</span>
               </button>
               <button
                 type="button"
                 onClick={submitCreateForm}
+                aria-label="Create service"
+                title="Create service"
                 disabled={
                   createServiceMutation.isPending
                   || serviceTemplatesQuery.isLoading
                   || !templateOptions.some((option) => option.value === createForm.templateType)
                 }
-                className="pressable inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60"
+                className="pressable inline-flex h-11 w-11 items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60 sm:w-auto sm:px-4"
               >
-                {createServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Create Service
+                {createServiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
+                <span className="hidden sm:inline">Create Service</span>
               </button>
             </div>
           </DialogContent>

@@ -6,9 +6,20 @@
 npm run dev
 ```
 
-Copy `.env.example` to `.env` and fill in local values when database, AI, or
-phone-transfer settings are needed. `APP_ACCESS_PASSWORD` can stay unset during
-local development.
+`npm run dev` runs Next.js locally against the hosted Supabase project configured
+in ignored `.env.local`. Its database, Auth, and Storage settings must refer to
+the same project. App data changes appear in that project's dashboard. Schema
+migrations are a separate explicit operation. Use `npm run dev:docker` to start
+the isolated local Docker Supabase stack instead.
+
+For Google or email sign-in against hosted Supabase, add
+`http://localhost:3000/**` to the hosted project's **Authentication → URL
+Configuration → Redirect URLs**. Keep its Site URL pointed at the deployed app.
+The local `supabase/config.toml` redirect setting does not change the hosted
+project.
+
+Copy `.env.example` to `.env` for optional AI or phone-transfer settings. Keep
+hosted database credentials and Supabase keys in ignored `.env.local`.
 
 For phone transfer testing from another device on the same network:
 

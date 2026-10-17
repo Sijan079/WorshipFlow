@@ -2,6 +2,12 @@
 
 This folder contains durable project documentation.
 
+Current planning references:
+
+- [Mobile usability audit and spec](./specs/mobile-usability/spec.md)
+- [Feature roadmap](./product/roadmap.md)
+- [Development backlog](./development/backlog.md)
+
 - `stitch-redesign-context.md` - current page, business-logic, responsive
   layout, and UX constraints for alternate Stitch designs.
 - `laws-of-ux-audit.md` - project-specific Laws of UX audit knowledge base.
