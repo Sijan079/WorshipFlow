@@ -71,6 +71,12 @@ const MEDIA_TOOL_NAV = [
   { href: "/media-tools/background-removal", label: "Remove Background" },
 ] as const;
 
+const DEV_NAV_PATHS = new Set(["/automation", "/media-tools/background-generator", "/media-tools/background-removal"]);
+
+function NavDevPill() {
+  return <span className="ml-auto shrink-0 rounded-full border border-[var(--rail-border-strong)] bg-[var(--rail-ghost-hover)] px-1.5 py-0.5 font-[var(--font-mono)] text-[10px] font-bold leading-none tracking-[0.08em] text-[var(--rail-text-secondary)]" title="In development" aria-label="In development">DEV</span>;
+}
+
 const SETTINGS_NAV = [
   { id: "general", label: "Workspace" },
   { id: "membership", label: "Membership" },
@@ -424,6 +430,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                       : isActivePath(localPathname, href);
                   const isMediaTools = href === "/media-tools";
                   const isSettings = href === "/settings";
+                  const isDev = DEV_NAV_PATHS.has(href);
                   const showMediaChildren = isMediaTools && mediaToolsOpen;
                   const showSettingsChildren = isSettings && settingsOpen;
 
@@ -455,6 +462,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                             <Icon className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 truncate">{label}</span>
+                          {isDev ? <NavDevPill /> : null}
                         </Link>
                         {isMediaTools || isSettings ? (
                           <button
@@ -468,7 +476,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                               className={`h-4 w-4 transition-transform ${(isMediaTools ? mediaToolsOpen : settingsOpen) ? "rotate-180" : ""}`}
                             />
                           </button>
-                        ) : active ? (
+                        ) : active && !isDev ? (
                           <span
                             className="mr-3 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--border-focus)]"
                             aria-hidden="true"
@@ -486,19 +494,21 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                           >
                             {MEDIA_TOOL_NAV.map((item) => {
                               const childActive = localPathname === item.href;
+                              const childDev = DEV_NAV_PATHS.has(item.href);
                               return (
                                 <Link
                                   key={item.href}
                                   href={toWorkspacePath(item.href)}
                                   onClick={() => setNavOpen(false)}
-                                  className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${
+                                  className={`pressable-subtle flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
                                     childActive
                                       ? "bg-[var(--surface-panel-strong)] text-white"
                                       : "text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"
                                   }`}
                                   aria-current={childActive ? "page" : undefined}
                                 >
-                                  {item.label}
+                                  <span className="min-w-0 truncate">{item.label}</span>
+                                  {childDev ? <NavDevPill /> : null}
                                 </Link>
                               );
                             })}

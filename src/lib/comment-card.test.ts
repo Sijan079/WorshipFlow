@@ -136,7 +136,7 @@ export function runCommentCardTests() {
   assert.match(siteTool, /textSafeAreaStyle/);
   assert.match(siteTool, /overflow-hidden/);
   assert.match(siteTool, /aria-label="Download filename"/);
-  assert.match(siteTool, /comment-card-filename-input/);
+  assert.match(siteTool, /appearance-none bg-transparent border-0 border-b/);
   assert.match(siteTool, /className="h-4 w-4"/);
   assert.match(siteTool, /editingFilename \? "Finish renaming" : "Rename comment card"/);
   assert.match(siteTool, /filename \|\| "comment-card"/);
@@ -144,7 +144,10 @@ export function runCommentCardTests() {
   assert.match(siteTool, /aria-pressed=\{fit === item\}/);
   assert.doesNotMatch(siteTool, /comment-card-ribbon-group/);
   assert.doesNotMatch(siteTool, /<fieldset/);
-  assert.match(globalStyles, /\.comment-card-toolbar[\s\S]*flex-wrap: wrap/);
+  assert.match(siteTool, /id="comment-card-options"[^>]*className="flex flex-wrap items-end gap-3/);
+  assert.match(siteTool, /max-\[599px\]:data-\[open=false\]:hidden/);
+  assert.match(siteTool, /appearance-none border-0 rounded-none bg-transparent/);
+  assert.doesNotMatch(globalStyles, /\.comment-card-(?:toolbar|editor-field|filename-input)/);
   assert.match(siteTool, /min-\[1200px\]:min-h-\[520px\]/);
   assert.match(siteTool, /aria-controls="comment-card-options" aria-expanded=\{optionsOpen\}/);
   assert.doesNotMatch(globalStyles, /\.comment-card-ribbon-group/);

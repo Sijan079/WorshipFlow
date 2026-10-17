@@ -60,6 +60,10 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /aria-expanded=\{navOpen\}/);
   assert.match(shell, /window\.addEventListener\("resize",/);
   assert.match(shell, /label: "Templates"/);
+  assert.match(shell, /DEV_NAV_PATHS = new Set\(\["\/automation"/);
+  assert.match(shell, /"\/media-tools\/background-generator", "\/media-tools\/background-removal"/);
+  assert.match(shell, /function NavDevPill/);
+  assert.match(shell, /\{isDev \? <NavDevPill \/> : null\}/);
   assert.match(shell, /function SettingsSubnav[\s\S]*?useSearchParams\(\)/);
   assert.match(shell, /<Suspense fallback=\{null\}>\s*<SettingsSubnav/);
   assert.doesNotMatch(shell, /export default function WorkspaceShell[\s\S]*?const searchParams = useSearchParams\(\)/);

@@ -382,11 +382,11 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
                 }}
                 maxLength={72}
                 spellCheck={false}
-                className="comment-card-filename-text comment-card-filename-input min-w-0 max-w-xl px-0 py-1 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                className="min-w-0 w-full max-w-xl appearance-none bg-transparent border-0 border-b border-[var(--border-default)] rounded-none px-0 py-1 font-[var(--type-body-font)] text-lg font-medium leading-6 tracking-normal text-[var(--text-primary)] shadow-none outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none focus-visible:outline-none"
                 placeholder="comment-card"
               />
             ) : (
-              <h1 className="comment-card-filename-text min-w-0 max-w-xl truncate text-[var(--text-primary)]" title={filename || "comment-card"}>{filename || "comment-card"}</h1>
+              <h1 className="min-w-0 max-w-xl truncate font-[var(--type-body-font)] text-lg font-medium leading-6 tracking-normal text-[var(--text-primary)]" title={filename || "comment-card"}>{filename || "comment-card"}</h1>
             )}
             <button
               ref={renameFilenameButtonRef}
@@ -442,7 +442,7 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
         <button type="button" className="flex min-h-11 w-full items-center justify-between border-b border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)] min-[600px]:hidden" aria-controls="comment-card-options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}>
           Card options <span aria-hidden="true">{optionsOpen ? "−" : "+"}</span>
         </button>
-        <div id="comment-card-options" data-open={optionsOpen} className="ui-register-toolbar comment-card-toolbar" role="group" aria-label="Comment card options">
+        <div id="comment-card-options" data-open={optionsOpen} className="flex flex-wrap items-end gap-3 p-4 min-[600px]:py-5 max-[599px]:data-[open=false]:hidden" role="group" aria-label="Comment card options">
           <div className="flex flex-col gap-1">
             <label className="technical-label" htmlFor="comment-card-font-size">Font size</label>
             <input
@@ -528,7 +528,7 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
                       onChange={(event) => setName(event.target.value)}
                       maxLength={120}
                       placeholder="Commenter name"
-                      className="comment-card-editor-field w-full shrink-0 p-0 font-extrabold leading-tight tracking-[-0.01em] text-[#101828] placeholder:text-[#98a2b3]"
+                      className="w-full shrink-0 appearance-none border-0 rounded-none bg-transparent p-0 font-extrabold leading-tight tracking-[-0.01em] text-[#101828] caret-[var(--action-primary-bg)] shadow-none outline-none placeholder:text-[#98a2b3] focus:bg-transparent focus:outline-none focus-visible:outline-none focus:shadow-[inset_0_-2px_0_var(--action-primary-bg)]"
                       style={{ fontSize: commentCardPreviewFontSize(calculateSenderFontSize(fontSize)) }}
                     />
                   ) : null}
@@ -538,7 +538,7 @@ export default function CommentCardTool({ showToast, workspaceSlug }: CommentCar
                     onChange={(event) => setComment(event.target.value)}
                     maxLength={10000}
                     placeholder="Type or paste the comment here"
-                    className={`${showSender ? "mt-[2%]" : ""} comment-card-editor-field min-h-0 w-full flex-1 resize-none overflow-auto p-0 text-[#1d2939] placeholder:text-[#98a2b3]`}
+                    className={`${showSender ? "mt-[2%]" : ""} min-h-0 w-full flex-1 resize-none overflow-auto appearance-none border-0 rounded-none bg-transparent p-0 text-[#1d2939] caret-[var(--action-primary-bg)] shadow-none outline-none placeholder:text-[#98a2b3] focus:bg-transparent focus:outline-none focus-visible:outline-none focus:shadow-[inset_0_-2px_0_var(--action-primary-bg)]`}
                     style={{ fontSize: commentCardPreviewFontSize(fontSize), lineHeight: commentCardPreviewFontSize(calculateCommentLineHeight(fontSize, lineSpacing)) }}
                   />
                 </div>
