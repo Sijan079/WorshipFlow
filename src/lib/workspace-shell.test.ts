@@ -60,6 +60,9 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /aria-expanded=\{navOpen\}/);
   assert.match(shell, /window\.addEventListener\("resize",/);
   assert.match(shell, /label: "Templates"/);
+  assert.match(shell, /function SettingsSubnav[\s\S]*?useSearchParams\(\)/);
+  assert.match(shell, /<Suspense fallback=\{null\}>\s*<SettingsSubnav/);
+  assert.doesNotMatch(shell, /export default function WorkspaceShell[\s\S]*?const searchParams = useSearchParams\(\)/);
   assert.doesNotMatch(shell, /min-h-14 min-w-\[5\.5rem\]/);
   assert.match(shell, /min-h-0 flex-1 overflow-y-auto overflow-x-hidden/);
   assert.doesNotMatch(shell, /github\.com\/Sijan079\/WorshipFlow\/issues\/new/);

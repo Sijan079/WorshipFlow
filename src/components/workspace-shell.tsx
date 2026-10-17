@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,6 +79,17 @@ const SETTINGS_NAV = [
   { id: "checklist", label: "Checklist" },
   { id: "integrations", label: "Integrations" },
 ] as const;
+
+function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate }: { localPathname: string; workspaceBasePath: string; onNavigate: () => void }) {
+  const searchParams = useSearchParams();
+
+  return SETTINGS_NAV.map((item) => {
+    const selected = localPathname === "/settings" && (searchParams.get("tab") || "general") === item.id;
+    const href = `${workspaceBasePath}${item.id === "general" ? "/settings" : `/settings?tab=${item.id}`}`;
+
+    return <Link key={item.id} href={href} onClick={onNavigate} aria-current={selected ? "page" : undefined} className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${selected ? "bg-[var(--surface-panel-strong)] text-white" : "text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"}`}>{item.label}</Link>;
+  });
+}
 
 const IN_PROGRESS_WARNINGS = {
   "/automation": "Sermon Captions",
@@ -190,7 +201,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const workspaceBasePath = workspaceSlug ? `/w/${encodeURIComponent(workspaceSlug)}` : "";
   const localPathname = workspaceBasePath && pathname.startsWith(workspaceBasePath)
     ? pathname.slice(workspaceBasePath.length) || "/"
@@ -498,10 +508,9 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                       <AnimatePresence initial={false}>
                         {showSettingsChildren ? (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="workspace-media-children ml-6 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3 min-[1200px]:hidden">
-                            {SETTINGS_NAV.map((item) => {
-                              const selected = localPathname === "/settings" && (searchParams.get("tab") || "general") === item.id;
-                              return <Link key={item.id} href={toWorkspacePath(item.id === "general" ? "/settings" : `/settings?tab=${item.id}`)} onClick={() => setNavOpen(false)} aria-current={selected ? "page" : undefined} className={`pressable-subtle flex min-h-11 items-center rounded-md px-3 py-2 text-xs font-semibold ${selected ? "bg-[var(--surface-panel-strong)] text-white" : "text-white/80 hover:bg-[var(--surface-panel)] hover:text-white"}`}>{item.label}</Link>;
-                            })}
+                            <Suspense fallback={null}>
+                              <SettingsSubnav localPathname={localPathname} workspaceBasePath={workspaceBasePath} onNavigate={() => setNavOpen(false)} />
+                            </Suspense>
                           </motion.div>
                         ) : null}
                       </AnimatePresence>
