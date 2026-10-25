@@ -10,13 +10,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Worship Flow OS Agent Guide
 
-Worship Flow OS is a worship service preparation platform for church tech and
-production teams. It is for preparing **worship services only**.
+Worship Flow OS is growing from a worship service preparation platform into a
+church management workspace. Worship production remains a distinct, critical
+workflow; Events is the first broader church module.
 
 ## Project Goal
 
-Help a team prepare one real worship service at a time with speed, clarity, and
-strict service-order accuracy.
+Help church teams coordinate events while preserving fast, accurate preparation
+for one real worship service at a time.
 
 Every feature should directly support at least one of these:
 
@@ -24,6 +25,7 @@ Every feature should directly support at least one of these:
 - Build and preserve the intended service flow
 - Assign people, songs, and production details to that service
 - Produce the outputs and handoff steps needed to run that service well
+- Coordinate church events, announcements, optional external registration, and attendance
 
 ## In Scope
 
@@ -37,6 +39,7 @@ Phase 1 work should prioritize:
 - Temporary media bridge workflows for phone-to-booth handoff
 - Automation job persistence
 - Generated output persistence
+- Calendar-first church events with workspace-scoped records
 
 ## Out of Scope
 
@@ -44,17 +47,18 @@ Do not introduce product scope or abstractions for:
 
 - Chat or messaging
 - Notifications
-- Recurring events
-- General event management
-- Fellowships or prayer meetings
-- Scheduling platforms
-- Complex RBAC or heavy authentication systems
+- General-purpose scheduling platforms beyond church events
+- Hosted public event pages or registration forms
+- Finance, pastoral care, and general member records until separately designed
+- Generic role frameworks or heavy authentication systems
 - Social features or engagement mechanics
 - Generic admin frameworks unrelated to worship service preparation
 
 ## Domain Rules
 
 - The core domain object is `WorshipService`.
+- `ChurchEvent` is separate from `WorshipService` and represents a church activity
+  such as a fellowship, prayer meeting, or baptism.
 - One `WorshipService` represents one real worship service such as Sunday,
   Ladies Ministry, or Youth Worship Service.
 - Do not expand `WorshipService` to cover unrelated church activities.
@@ -66,6 +70,8 @@ Do not introduce product scope or abstractions for:
   it with a global hard-coded sequence.
 - Built-in block enums may guide behavior, but must not force every church into
   the same visible lineup.
+- Event scheduling may warn about date conflicts but must not silently block an
+  organizer's decision to proceed.
 
 ## Architecture Rules
 
@@ -88,6 +94,9 @@ Implementation rules:
   feature-level validation files.
 - Prisma is the source of truth for persistence contracts.
 - Workspace APIs must verify active membership and role inside route handlers; Proxy only refreshes sessions and redirects.
+- Keep Owner/Admin/Member workspace roles for account compatibility. For implemented church modules, Member access resolves personal allow/block settings before workspace Member defaults; enforce each action in its route handler.
+- Event action grants are per person, module, and action; only Owner/Admin may
+  administer grants, and handlers must enforce them for member actions.
 - Prefer feature-based organization over generic utility sprawl.
 - Favor straightforward modules and explicit data flow over clever abstraction.
 - Reuse shared domain constants and enums for worship block behavior.
@@ -107,8 +116,8 @@ Implementation rules:
   (`13697574181324164099`).
 - Treat `DESIGN.md` as the detailed source of truth for visual, token, layout,
   component, and motion decisions.
-- Keep UI work focused on service-order clarity, production status visibility,
-  and low-friction task completion under pressure.
+- Keep service UI focused on service-order clarity and production status; keep
+  event UI focused on calendar visibility and low-friction coordination.
 - Redesigns must not look like generic AI-generated product UI. Start from the
   real worship-production task and existing information architecture; avoid
   ornamental gradients, glow, filler metrics, badge spam, repeated eyebrow
@@ -130,11 +139,21 @@ Implementation rules:
   otherwise.
 - Treat generated outputs and automation jobs as persisted records, not
   transient UI-only state.
-- Avoid schema fields that generalize the app away from worship-service
-  preparation without an explicit product request.
+- Keep new church-management schema tied to approved modules and avoid
+  speculative generic administration models.
 
 ## Working Rules
 
+- Start code navigation at `docs/codebase-map/INDEX.md`, then read only the
+  relevant module map. Use `docs/map.md` for product documentation and
+  `docs/current-state.md` for the dated project snapshot.
+- Treat codebase-map entries as navigation hints, not authoritative code.
+  Verify the linked source before changes. Use `npm run codemap -- find <name>`,
+  `refs <name>`, or `deps <name-or-path>` for small JSON results; do not load
+  the entire `symbols.json` registry into context.
+- After code changes, refresh affected entries with `npm run codemap -- update`.
+  The indexer reuses unchanged source entries and does not rewrite unchanged
+  outputs.
 - Keep REST responses and validation type-safe.
 - Preserve compatibility with `prisma/` and `src/lib/prisma.ts`.
 - Start the development server with `npm run dev` for the configured hosted Supabase development project. Use `npm run dev:docker` when isolated local Supabase data is needed. Do not start Next directly unless the user explicitly asks to bypass the configured startup checks.

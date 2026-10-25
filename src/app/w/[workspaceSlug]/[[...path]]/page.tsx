@@ -8,9 +8,12 @@ import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import ErrorNotificationsPage from "@/components/error-notifications-page";
 import { MEDIA_TOOLS_MODULE } from "@/lib/workspace-modules";
 import { getEnvironmentReport } from "@/lib/server-env";
-import { requireAuthenticatedUser } from "@/lib/security-context";
+import { requireAuthenticatedUser, requireWorkspaceContext } from "@/lib/security-context";
+import { hasModuleAction } from "@/lib/event-access";
 import DesignSystemGalleryClient from "@/components/design-system-gallery-client";
 import { canViewDesignSystem } from "@/lib/design-system-access";
+import EventsPageClient from "@/features/events/events-page-client";
+import SermonCaptionsPage from "@/features/sermon-captions/sermon-captions-page";
 
 type PageProps = {
   params: Promise<{ workspaceSlug: string; path?: string[] }>;
@@ -26,6 +29,8 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       return <WorshipServicePlannerClient />;
     case "services":
       return <ServicesPageClient />;
+    case "events":
+      return <EventsPageClient initialDate={new Date().toISOString().slice(0, 10)} />;
     case "teams":
       return <TeamsPageClient />;
     case "song-formatter/upload":
@@ -39,8 +44,10 @@ export default async function WorkspacePathPage({ params }: PageProps) {
     case "songs/library":
     case "songs/extraction":
       redirect(`/w/${encodeURIComponent(workspaceSlug)}/song-formatter/upload`);
-    case "settings":
-      return <SettingsPageClient environment={getEnvironmentReport()} />;
+    case "settings": {
+      const context = await requireWorkspaceContext(workspaceSlug);
+      return <SettingsPageClient environment={getEnvironmentReport()} canViewUsage={context.role !== "MEMBER"} />;
+    }
     case "design-system": {
       const user = await requireAuthenticatedUser();
       if (!canViewDesignSystem(user.email)) notFound();
@@ -48,8 +55,13 @@ export default async function WorkspacePathPage({ params }: PageProps) {
     }
     case "notifications":
       return <ErrorNotificationsPage />;
+    case "captions": {
+      const context = await requireWorkspaceContext(workspaceSlug);
+      if (!(await hasModuleAction(context, "CAPTIONS", "VIEW"))) notFound();
+      return <SermonCaptionsPage />;
+    }
     case "automation":
-      return <ServiceBuilderClient module="automation" />;
+      redirect(`/w/${encodeURIComponent(workspaceSlug)}/captions`);
     case "media-tools":
       return <ServiceBuilderClient module={MEDIA_TOOLS_MODULE} />;
     case "media-tools/phone-transfer":

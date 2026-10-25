@@ -22,9 +22,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   AudioLines,
-  AlertTriangle,
   Bell,
   CalendarDays,
+  CalendarRange,
   Captions,
   ChevronDown,
   CircleUserRound,
@@ -39,16 +39,18 @@ import {
   X,
 } from "lucide-react";
 import { canViewDesignSystem } from "@/lib/design-system-access";
+import { canShowModuleNavigation } from "@/lib/module-access";
 
 const SERVICE_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: ListMusic },
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
+  { href: "/events", label: "Events", shortLabel: "Events", icon: CalendarRange },
 ] as const;
 
 const PRODUCTION_NAV_ITEMS = [
   { href: "/song-formatter/upload", label: "Formatter", shortLabel: "Formatter", icon: AudioLines },
   { href: "/media-tools", label: "Media Tools", shortLabel: "Media", icon: MonitorPlay },
-  { href: "/automation", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
+  { href: "/captions", label: "Sermon Captions", shortLabel: "Captions", icon: Captions },
 ] as const;
 
 const WORKSPACE_NAV_ITEMS = [
@@ -71,7 +73,7 @@ const MEDIA_TOOL_NAV = [
   { href: "/media-tools/background-removal", label: "Remove Background" },
 ] as const;
 
-const DEV_NAV_PATHS = new Set(["/automation", "/media-tools/background-generator", "/media-tools/background-removal", "/media-tools/resize-image"]);
+const DEV_NAV_PATHS = new Set(["/captions", "/media-tools/background-generator", "/media-tools/background-removal", "/media-tools/resize-image"]);
 
 function NavDevPill() {
   return <span className="ml-auto shrink-0 rounded-full border border-[var(--rail-border-strong)] bg-[var(--rail-ghost-hover)] px-1.5 py-0.5 font-[var(--font-mono)] text-[10px] font-bold leading-none tracking-[0.08em] text-[var(--rail-text-secondary)]" title="In development" aria-label="In development">DEV</span>;
@@ -84,12 +86,13 @@ const SETTINGS_NAV = [
   { id: "tags", label: "Tags" },
   { id: "checklist", label: "Checklist" },
   { id: "integrations", label: "Integrations" },
+  { id: "usage", label: "Usage" },
 ] as const;
 
-function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate }: { localPathname: string; workspaceBasePath: string; onNavigate: () => void }) {
+function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate, canViewUsage }: { localPathname: string; workspaceBasePath: string; onNavigate: () => void; canViewUsage: boolean }) {
   const searchParams = useSearchParams();
 
-  return SETTINGS_NAV.map((item) => {
+  return SETTINGS_NAV.filter((item) => item.id !== "usage" || canViewUsage).map((item) => {
     const selected = localPathname === "/settings" && (searchParams.get("tab") || "general") === item.id;
     const href = `${workspaceBasePath}${item.id === "general" ? "/settings" : `/settings?tab=${item.id}`}`;
 
@@ -97,12 +100,7 @@ function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate }: { loca
   });
 }
 
-const IN_PROGRESS_WARNINGS = {
-  "/automation": "Sermon Captions",
-} as const;
-
-type InProgressWarningKey = keyof typeof IN_PROGRESS_WARNINGS;
-type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null } | null };
+type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null; canViewEvents?: boolean; canViewCaptions?: boolean } | null };
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
@@ -111,22 +109,6 @@ function isActivePath(pathname: string, href: string) {
   }
 
   return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
-}
-
-function getWarningKey(pathname: string, hash: string | null): InProgressWarningKey | null {
-  if (hash === null) {
-    return null;
-  }
-
-  if (pathname === "/services" && hash === "#team") {
-    return null;
-  }
-
-  if (pathname === "/automation") {
-    return pathname;
-  }
-
-  return null;
 }
 
 function formatWorkspaceRole(role?: string | null) {
@@ -219,8 +201,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const [mediaToolsOpen, setMediaToolsOpen] = useState(() => localPathname === "/media-tools" || localPathname.startsWith("/media-tools/"));
   const [settingsOpen, setSettingsOpen] = useState(() => localPathname === "/settings");
   const [currentHash, setCurrentHash] = useState<string | null>(null);
-  const warningKey = getWarningKey(localPathname, currentHash);
-  const warningTitle = warningKey ? IN_PROGRESS_WARNINGS[warningKey] : null;
   const sessionQuery = useQuery({ queryKey: ["auth", "session", workspaceSlug], queryFn: () => apiFetch<SessionResponse>(`/api/auth/session${workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : ""}`) });
   const notificationScope = notificationDeleteScope(workspaceSlug, sessionQuery.data?.user?.id);
   const notificationDeleteQueue = useErrorNotificationDeleteQueue(notificationScope);
@@ -232,7 +212,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
     : undefined;
   const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
   const accountAvatarUrl = sessionQuery.data?.user?.avatarUrl;
-  const [dismissedWarningKey, setDismissedWarningKey] = useState<InProgressWarningKey | null>(null);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -243,7 +222,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const pendingNotificationDeletes = new Set(notificationDeleteQueue.pendingIds);
   const alertCount = errorNotificationsQuery.data?.filter((item) => !pendingNotificationDeletes.has(item.id)).length ?? 0;
-  const showInProgressWarning = Boolean(warningTitle && dismissedWarningKey !== warningKey);
   const openReportWithError = useCallback((details: string, notificationId: string | null) => {
     setFeedbackKind("ISSUE");
     setFeedbackMessage(details);
@@ -422,7 +400,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                 {group.label}
               </p>
               <div className="mt-1.5 flex flex-col gap-1">
-                {group.items.map(({ href, label, icon: Icon }) => {
+                {group.items.filter((item) => canShowModuleNavigation(item.href, sessionQuery.data?.user?.canViewEvents ?? false, sessionQuery.data?.user?.canViewCaptions ?? false)).map(({ href, label, icon: Icon }) => {
                   const resolvedHref = toWorkspacePath(href);
                   const active =
                     href === "/services"
@@ -519,7 +497,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                         {showSettingsChildren ? (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="workspace-media-children ml-6 mt-1 flex flex-col gap-1 overflow-hidden border-l border-[var(--border-default)] pl-3 min-[1200px]:hidden">
                             <Suspense fallback={null}>
-                              <SettingsSubnav localPathname={localPathname} workspaceBasePath={workspaceBasePath} onNavigate={() => setNavOpen(false)} />
+                              <SettingsSubnav localPathname={localPathname} workspaceBasePath={workspaceBasePath} canViewUsage={sessionQuery.data?.user?.role === "OWNER" || sessionQuery.data?.user?.role === "ADMIN"} onNavigate={() => setNavOpen(false)} />
                             </Suspense>
                           </motion.div>
                         ) : null}
@@ -558,26 +536,6 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
             </div>
           </div>
         </header>
-
-        {showInProgressWarning ? (
-          <div className="workspace-content-light mx-auto max-w-[1540px] px-4 pt-4 lg:px-6" role="status">
-            <div className="flex items-start gap-3 rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--state-danger)_28%,transparent)] bg-[var(--state-danger-soft)] p-4 text-[var(--text-danger)] shadow-[var(--elevation-subtle)]">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--text-danger)]">{warningTitle} is still in development</p>
-                <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--text-danger)_82%,var(--text-primary))]">Some actions may be unavailable or incomplete.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDismissedWarningKey(warningKey)}
-                className="pressable inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--text-danger)] hover:bg-[color-mix(in_oklab,var(--state-danger)_10%,transparent)]"
-                aria-label="Dismiss development notice"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <main id="workspace-content" className="workspace-content workspace-content-light ui-stage-enter mx-auto min-h-screen max-w-[1540px] bg-[var(--surface-app)] px-4 py-5 lg:px-6 lg:py-6">{children}</main>
       </div>

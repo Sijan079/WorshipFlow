@@ -1,5 +1,5 @@
-import ServiceBuilderClient from "@/components/service-builder-client";
+import { redirect } from "next/navigation";
 
 export default function AutomationPage() {
-  return <ServiceBuilderClient module="automation" />;
+  redirect("/workspaces");
 }

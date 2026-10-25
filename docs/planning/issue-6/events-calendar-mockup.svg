@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc"><title id="title">Events calendar workspace concept</title><desc id="desc">Month calendar as the primary workspace, with a dark rail and selected event details.</desc>
+<rect x="0" y="0" width="1440" height="900" rx="0" fill="#f8fafc"/>
+<rect x="0" y="0" width="232" height="900" rx="0" fill="#090512"/>
+<text x="28" y="48" fill="#f7f1ff" font-family="Arial, sans-serif" font-size="19" font-weight="700">WorshipFlow</text>
+<text x="28" y="72" fill="#9f84c7" font-family="Arial, sans-serif" font-size="10" font-weight="700">CHURCH WORKSPACE</text>
+<line x1="20" y1="93" x2="212" y2="93" stroke="#493067"/>
+<text x="28" y="130" fill="#9f84c7" font-family="Arial, sans-serif" font-size="10" font-weight="700">WORK</text>
+<text x="44" y="173" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Dashboard</text>
+<text x="44" y="216" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Services</text>
+<rect x="16" y="235" width="200" height="44" rx="7" fill="#24113b"/>
+<rect x="16" y="235" width="4" height="44" rx="2" fill="#a875ff"/>
+<text x="44" y="263" fill="#f7f1ff" font-family="Arial, sans-serif" font-size="14" font-weight="700">Events</text>
+<text x="28" y="325" fill="#9f84c7" font-family="Arial, sans-serif" font-size="10" font-weight="700">PEOPLE &amp; TOOLS</text>
+<text x="44" y="370" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Teams</text>
+<text x="44" y="414" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Formatter</text>
+<text x="44" y="458" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Media Tools</text>
+<text x="28" y="524" fill="#9f84c7" font-family="Arial, sans-serif" font-size="10" font-weight="700">WORKSPACE</text>
+<text x="44" y="568" fill="#d0c1e5" font-family="Arial, sans-serif" font-size="14" font-weight="400">Settings</text>
+<rect x="232" y="0" width="1208" height="72" rx="0" fill="#ffffff"/>
+<line x1="232" y1="72" x2="1440" y2="72" stroke="#e2e8f0"/>
+<text x="264" y="45" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Workspace / Events</text>
+<text x="264" y="128" fill="#111827" font-family="Arial, sans-serif" font-size="30" font-weight="700">Events</text>
+<text x="264" y="155" fill="#64748b" font-family="Arial, sans-serif" font-size="14" font-weight="400">Coordinate dates, announcements, registration, and attendance.</text>
+<rect x="1260" y="104" width="148" height="44" rx="8" fill="#7c3aed"/>
+<text x="1288" y="132" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">+ New event</text>
+<rect x="264" y="181" width="776" height="47" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="285" y="211" fill="#111827" font-family="Arial, sans-serif" font-size="18" font-weight="700">December 2026</text>
+<text x="927" y="210" fill="#475569" font-family="Arial, sans-serif" font-size="16" font-weight="400">&lt;</text>
+<text x="992" y="210" fill="#475569" font-family="Arial, sans-serif" font-size="16" font-weight="400">&gt;</text>
+<rect x="1056" y="181" width="352" height="47" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="1081" y="210" fill="#7c3aed" font-family="Arial, sans-serif" font-size="13" font-weight="700">Month</text>
+<text x="1163" y="210" fill="#64748b" font-family="Arial, sans-serif" font-size="13" font-weight="400">Week</text>
+<text x="1240" y="210" fill="#64748b" font-family="Arial, sans-serif" font-size="13" font-weight="400">List</text>
+<text x="1310" y="210" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Today</text>
+<rect x="264" y="249" width="776" height="596" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="276.0" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">MON</text>
+<text x="386.9" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">TUE</text>
+<line x1="374.9" y1="293" x2="374.9" y2="845" stroke="#e2e8f0"/>
+<text x="497.7" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">WED</text>
+<line x1="485.7" y1="293" x2="485.7" y2="845" stroke="#e2e8f0"/>
+<text x="608.5" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">THU</text>
+<line x1="596.5" y1="293" x2="596.5" y2="845" stroke="#e2e8f0"/>
+<text x="719.4" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">FRI</text>
+<line x1="707.4" y1="293" x2="707.4" y2="845" stroke="#e2e8f0"/>
+<text x="830.3" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">SAT</text>
+<line x1="818.3" y1="293" x2="818.3" y2="845" stroke="#e2e8f0"/>
+<text x="941.1" y="279" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="700">SUN</text>
+<line x1="929.1" y1="293" x2="929.1" y2="845" stroke="#e2e8f0"/>
+<line x1="264" y1="293.0" x2="1040" y2="293.0" stroke="#e2e8f0"/>
+<line x1="264" y1="403.2" x2="1040" y2="403.2" stroke="#e2e8f0"/>
+<line x1="264" y1="513.4" x2="1040" y2="513.4" stroke="#e2e8f0"/>
+<line x1="264" y1="623.6" x2="1040" y2="623.6" stroke="#e2e8f0"/>
+<line x1="264" y1="733.8" x2="1040" y2="733.8" stroke="#e2e8f0"/>
+<text x="386.9" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">1</text>
+<text x="497.7" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">2</text>
+<text x="608.5" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">3</text>
+<text x="719.4" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">4</text>
+<text x="830.3" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">5</text>
+<text x="941.1" y="316.0" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">6</text>
+<text x="276.0" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">7</text>
+<text x="386.9" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">8</text>
+<text x="497.7" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">9</text>
+<text x="608.5" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">10</text>
+<text x="719.4" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">11</text>
+<text x="830.3" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">12</text>
+<text x="941.1" y="426.2" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">13</text>
+<text x="276.0" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">14</text>
+<text x="386.9" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">15</text>
+<text x="497.7" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">16</text>
+<text x="608.5" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">17</text>
+<text x="719.4" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">18</text>
+<text x="830.3" y="536.4" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">19</text>
+<text x="941.1" y="536.4" fill="#7c3aed" font-family="Arial, sans-serif" font-size="12" font-weight="700">20</text>
+<text x="276.0" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">21</text>
+<text x="386.9" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">22</text>
+<text x="497.7" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">23</text>
+<text x="608.5" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">24</text>
+<text x="719.4" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">25</text>
+<text x="830.3" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">26</text>
+<text x="941.1" y="646.6" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">27</text>
+<text x="276.0" y="756.8" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">28</text>
+<text x="386.9" y="756.8" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">29</text>
+<text x="497.7" y="756.8" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">30</text>
+<text x="608.5" y="756.8" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">31</text>
+<rect x="379.9" y="327.0" width="100" height="25" rx="4" fill="#eef2ff"/>
+<text x="385.9" y="344.0" fill="#4338ca" font-family="Arial, sans-serif" font-size="10" font-weight="700">Prayer meeting</text>
+<rect x="379.9" y="437.2" width="100" height="25" rx="4" fill="#eef2ff"/>
+<text x="385.9" y="454.2" fill="#4338ca" font-family="Arial, sans-serif" font-size="10" font-weight="700">Prayer meeting</text>
+<rect x="379.9" y="547.4" width="100" height="25" rx="4" fill="#eef2ff"/>
+<text x="385.9" y="564.4" fill="#4338ca" font-family="Arial, sans-serif" font-size="10" font-weight="700">Prayer meeting</text>
+<rect x="379.9" y="657.6" width="100" height="25" rx="4" fill="#eef2ff"/>
+<text x="385.9" y="674.6" fill="#4338ca" font-family="Arial, sans-serif" font-size="10" font-weight="700">Prayer meeting</text>
+<rect x="379.9" y="767.8" width="100" height="25" rx="4" fill="#eef2ff"/>
+<text x="385.9" y="784.8" fill="#4338ca" font-family="Arial, sans-serif" font-size="10" font-weight="700">Prayer meeting</text>
+<rect x="934.1" y="547.4" width="100" height="25" rx="4" fill="#e9ddff"/>
+<text x="940.1" y="564.4" fill="#5b21b6" font-family="Arial, sans-serif" font-size="10" font-weight="700">Christmas event</text>
+<rect x="934.1" y="576.4" width="100" height="25" rx="4" fill="#fef3c7"/>
+<text x="940.1" y="593.4" fill="#92400e" font-family="Arial, sans-serif" font-size="10" font-weight="700">Venue overlap</text>
+<rect x="1056" y="249" width="352" height="596" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="1080" y="285" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="700">Sunday, December 20</text>
+<text x="1080" y="316" fill="#111827" font-family="Arial, sans-serif" font-size="18" font-weight="700">Christmas Fellowship</text>
+<text x="1080" y="344" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">6:00–9:00 PM · Fellowship Hall</text>
+<rect x="1080" y="365" width="304" height="62" rx="7" fill="#fef3c7"/>
+<text x="1092" y="388" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="700">Schedule overlap</text>
+<text x="1092" y="408" fill="#92400e" font-family="Arial, sans-serif" font-size="11" font-weight="400">Another event starts at 5:30 PM</text>
+<line x1="1080" y1="448" x2="1384" y2="448" stroke="#e2e8f0"/>
+<text x="1080" y="480" fill="#475569" font-family="Arial, sans-serif" font-size="11" font-weight="700">REGISTRATION</text>
+<text x="1080" y="506" fill="#111827" font-family="Arial, sans-serif" font-size="13" font-weight="400">Google Form linked</text>
+<text x="1080" y="529" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="400">48 responses · 42 yes · 6 no</text>
+<line x1="1080" y1="550" x2="1384" y2="550" stroke="#e2e8f0"/>
+<text x="1080" y="582" fill="#475569" font-family="Arial, sans-serif" font-size="11" font-weight="700">ANNOUNCEMENT</text>
+<text x="1080" y="608" fill="#111827" font-family="Arial, sans-serif" font-size="13" font-weight="400">Facebook and Instagram drafts</text>
+<text x="1080" y="631" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="400">Review each platform before publishing</text>
+<rect x="1080" y="650" width="304" height="42" rx="7" fill="#f1f5f9"/>
+<text x="1152" y="676" fill="#111827" font-family="Arial, sans-serif" font-size="13" font-weight="700">Open announcement</text>
+<line x1="1080" y1="714" x2="1384" y2="714" stroke="#e2e8f0"/>
+<text x="1080" y="745" fill="#475569" font-family="Arial, sans-serif" font-size="11" font-weight="700">AFTER THE EVENT</text>
+<text x="1080" y="771" fill="#64748b" font-family="Arial, sans-serif" font-size="13" font-weight="400">Record headcount and visitors</text>
+<text x="264" y="876" fill="#64748b" font-family="Arial, sans-serif" font-size="11" font-weight="400">Design concept · illustrative events and counts · not implemented UI</text>
+</svg>

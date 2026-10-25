@@ -1,5 +1,12 @@
 # TODO
 
+## Sermon Captions
+
+- Validate the provider account permissions and Azure character metric availability
+  listed in the [Settings usage-view research](docs/planning/sermon-captions-usage-settings-viability.md).
+- Confirm the Azure resource tier and whether a useful monthly allowance can
+  be shown alongside the app-tracked character count.
+
 ## Background Generator
 
 - Review whether legacy filesystem-backed generated background records should be

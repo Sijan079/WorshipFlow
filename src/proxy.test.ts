@@ -6,6 +6,9 @@ export function runProxyTests() {
   assert.equal(isPublicPathForProxy("/"), true);
   assert.equal(isPublicPathForProxy("/login"), true);
   assert.equal(isPublicPathForProxy("/api/auth/login"), true);
+  assert.equal(isPublicPathForProxy("/captions/live/00000000-0000-4000-8000-000000000000"), true);
+  assert.equal(isPublicPathForProxy("/api/captions/live/00000000-0000-4000-8000-000000000000"), true);
+  assert.equal(isPublicPathForProxy("/api/workspaces/church/caption-sessions"), false);
   assert.equal(isPublicPathForProxy("/api/health"), false);
   assert.equal(isGlobalApiPathForProxy("/api/health"), true);
   assert.equal(isGlobalApiPathForProxy("/api/health/details"), false);

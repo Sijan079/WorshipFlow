@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProductionSelect } from "@/components/ui/production-select";
 import { apiFetch, type WorkspaceIntegrationRecord, type WorkspaceSettingsRecord } from "@/lib/api-client";
 import { canManageMember, type WorkspaceRole } from "@/lib/workspace-auth";
+import { MemberPermissions } from "@/components/member-permissions";
 
 function workspaceApiPath(path: string) {
   const slug = window.location.pathname.match(/^\/w\/([^/]+)/)?.[1];
@@ -224,6 +225,7 @@ export function MembershipSection() {
                 </div>
               </div>
             </section>
+            {canManage ? <MemberPermissions members={members.data?.members ?? []} /> : null}
           </>
         )}
 

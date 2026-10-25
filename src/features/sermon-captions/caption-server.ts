@@ -1,0 +1,34 @@
+import "server-only";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { WorkspaceAuthorizationError } from "@/lib/security-context";
+import { reportRouteFailure } from "@/lib/observability";
+import { CaptionProviderConfigurationError } from "./caption-providers";
+
+export const CAPTION_SESSION_MS = 3 * 60 * 60 * 1000;
+
+export function newOperatorToken() {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashOperatorToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export function validOperatorToken(provided: string | null, expectedHash: string) {
+  if (!provided || provided.length > 128) return false;
+  const actual = Buffer.from(hashOperatorToken(provided), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export function captionErrorResponse(error: unknown, request: Request, route: string, method: string) {
+  const status = error instanceof WorkspaceAuthorizationError ? error.status : error instanceof CaptionProviderConfigurationError ? 503 : 500;
+  if (status >= 500) reportRouteFailure(error, { route, method, status, request });
+  return NextResponse.json({ error: status === 500 ? "Caption request failed." : (error as Error).message }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+export function isUniqueConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}

@@ -1,0 +1,6 @@
+CREATE TYPE "CaptionConnectionStatus" AS ENUM ('CONNECTING', 'STREAMING', 'INTERRUPTED', 'ERROR');
+
+ALTER TABLE "CaptionSession"
+  ADD COLUMN "connectionStatus" "CaptionConnectionStatus" NOT NULL DEFAULT 'CONNECTING',
+  ADD COLUMN "lastHeartbeatAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN "connectionSequence" INTEGER NOT NULL DEFAULT 0;

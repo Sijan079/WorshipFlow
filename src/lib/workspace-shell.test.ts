@@ -60,7 +60,7 @@ export function runWorkspaceShellTests() {
   assert.match(shell, /aria-expanded=\{navOpen\}/);
   assert.match(shell, /window\.addEventListener\("resize",/);
   assert.match(shell, /label: "Templates"/);
-  assert.match(shell, /DEV_NAV_PATHS = new Set\(\["\/automation"/);
+  assert.match(shell, /DEV_NAV_PATHS = new Set\(\["\/captions"/);
   assert.match(shell, /"\/media-tools\/background-generator", "\/media-tools\/background-removal"/);
   assert.match(shell, /DEV_NAV_PATHS = new Set\(\[[^\]]*"\/media-tools\/resize-image"/);
   assert.match(shell, /function NavDevPill/);

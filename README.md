@@ -1,23 +1,39 @@
 # WorshipFlow
 
-Project documentation: [index](docs/README.md),
-[mobile usability spec](docs/specs/mobile-usability/spec.md),
-[roadmap](docs/product/roadmap.md), and [backlog](docs/development/backlog.md).
+Project documentation: [document map](docs/map.md),
+[current state](docs/current-state.md), [index](docs/README.md),
+and [follow-ups](TODO.md).
 
 Server failures use structured logs and OpenTelemetry trace annotations.
 Run `npm run test:observability` to verify failure metrics and trace correlation.
 See [error observability setup](docs/deployment/vercel.md#error-observability)
 for production log/trace retention and the optional OTLP metrics destination.
 
-WorshipFlow is a production workspace for preparing one real worship service
-at a time. It helps church worship and technical teams preserve the intended
-service order, assign people and songs, prepare booth media, and persist the
-outputs needed to run the service.
-
-It is not a general church-management, scheduling, messaging, or social
-platform.
+WorshipFlow is a church workspace growing from worship production into church
+management. It preserves the intended order of each real worship service and
+now includes a separate, calendar-first Events foundation for church activities.
+The Events module currently supports viewing and creating one-time events with
+optional external registration links. Weekly recurrence, attendance editing,
+form response sync, and social publishing are planned separately.
 
 ## Current Workflows
+
+### Events
+
+- Open the month calendar at `/w/{workspaceSlug}/events`, with a secondary list view
+- Create a one-time event with a date, time, venue, details, and optional external form link
+- See overlapping events as warnings; conflicts do not prevent creation
+- Store event, occurrence, announcement, visitor, and action-grant foundations in Prisma
+- Keep event records separate from worship services and their stored block order
+- In Settings → Membership, Admins can set Member defaults for Events View and Create, then allow or block those actions for an individual Member
+
+### Sermon Captions
+
+Open `/w/{workspaceSlug}/captions` on the booth PC. In **Audio setup**, select and test the PC input fed by the Ui24R speech AUX. Switch to **Live captions**, start the session, and share its text-only viewer link. Keep the booth Captions page open in its own tab or window during the broadcast; navigating that same tab to another page ends the booth stream. The link stays the same through temporary booth connection drops; the viewer distinguishes starting, live, interruption, and terminal errors. It shows the newest ten translated lines first. Stop the session when the service ends; its final ten lines remain available on the viewer for one hour, then expire. One session can run per workspace and expires after three hours. For the initial one-member pilot, share the session link directly with that member; anyone who receives the link can read it. Each later service gets a new link. Admins can set Member defaults and individual grants for **View captions** and **Start and stop captions** in Settings → Membership; a Member needs both actions to operate the booth feed.
+
+Set `DEEPGRAM_API_KEY`, `AZURE_TRANSLATOR_KEY`, and `AZURE_TRANSLATOR_REGION` in the server environment. The Deepgram key needs **Member** permission to issue temporary browser tokens. The Azure Translator key and Deepgram API key must never use a `NEXT_PUBLIC_` name. Apply the `20261025000000_sermon_captions_live`, `20261025010000_caption_module_permissions`, `20261025020000_caption_connection_state`, `20261025030000_caption_usage_day`, and `20261025040000_caption_usage_baseline` Prisma migrations in each environment. Audio goes from the booth browser to Deepgram; recognized text goes through WorshipFlow to Azure. Viewers receive only English text from the temporary link.
+
+Owner/Admin can open `/w/{workspaceSlug}/settings?tab=usage` to see the current UTC month's Azure characters. If a dated Azure Monitor baseline exists, the page shows the baseline plus later characters metered through this workspace as an estimate; use outside WorshipFlow after the export is excluded. The Angeles City Bible Church hosted development workspace has an October 2026 baseline of 8,538 characters from an Azure Monitor export ending October 25 at 19:54:44 Asia/Manila. For Deepgram project balances, also set server-only `DEEPGRAM_PROJECT_ID` and a separate `DEEPGRAM_BILLING_API_KEY` with billing access; without them, the page points to the Deepgram Console. The balance response does not identify free versus paid credits. The page does not stop broadcasts at a threshold. See [provider-usage research](docs/planning/sermon-captions-usage-settings-viability.md) for source limitations.
 
 ### Worship Services
 
@@ -47,13 +63,40 @@ platform.
 - Generate worship backgrounds when an AI provider is configured
 - Persist generated files and automation job status
 
+### Local Media Worker Spike
+
+To try the proposed `yt-dlp` worker flow without changing the app, install
+`yt-dlp` and FFmpeg on your PATH, then run:
+
+```powershell
+npm run try:media-worker
+npm run try:media-worker -- --format mp4
+```
+
+The command creates a two-second local fixture, serves it on localhost, runs
+`yt-dlp` and FFmpeg, and writes an MP3 or MP4 plus `job.json` under ignored
+`.tmp/media-worker-spike/<job-id>/`. JSON status lines show `queued`,
+`processing`, and `done` or `failed`. This verifies the local processing path;
+it does not verify YouTube availability or permission to download a video.
+
+For a YouTube video you have permission to download and convert, use the
+explicit opt-in:
+
+```powershell
+npm run try:media-worker -- --url "https://www.youtube.com/watch?v=VIDEO_ID" --format mp3 --execute --rights-confirmed
+```
+
+The real URL mode accepts HTTPS YouTube URLs only, downloads one video, and
+limits the file to 100 MB. Keep this local experiment separate from the
+deployed app; [the media converter spec](docs/specs/media-tools/media-converter/spec.md)
+remains disabled for web deployment.
+
 ### Workspace Setup
 
 - Review servants in a responsive roster with initials, search, group filters,
   selection, and bulk assignment
 - Configure ministries, service templates, song tags, and checklists
-- Use the dark, operator-first Production Grade Interface across desktop and
-  mobile layouts
+- Use the Production Grade Interface across desktop and mobile layouts
 
 ## Domain Rules
 
@@ -304,8 +347,8 @@ indicators, direct section actions, menu highlights and clear confirmation.
 
 ## Design Rules
 
-The interface is a dark worship-production workspace, not a generic SaaS
-dashboard. Use semantic tokens, real domain data, restrained motion, visible
+The interface is a worship-production workspace with light work surfaces and a
+dark navigation rail. Use semantic tokens, real domain data, restrained motion, visible
 focus states, and purposeful containment.
 
 Avoid ornamental gradients, glow, fake metrics, badge spam, repeated eyebrow
@@ -319,5 +362,4 @@ spacing, alignment, and dividers before adding another container.
   dashboard an alternate editing surface
 - Finish service-order, song, media-handoff, automation, and generated-output
   workflows
-- Design proper accounts separately before introducing organization or access
-  management UI
+- Refine the existing Supabase Auth and workspace access flows as needed

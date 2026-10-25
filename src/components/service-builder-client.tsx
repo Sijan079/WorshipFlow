@@ -36,7 +36,6 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import {
   apiFetch,
-  type CreateAutomationJobPayload,
   type CreateParticipantPayload,
   type CreateServicePayload,
   type CreateServiceSongPayload,
@@ -58,8 +57,6 @@ import {
 import { BLOCK_LABELS, SONG_BLOCK_TYPES } from "@/lib/service-display";
 import {
   BlockType,
-  JobStatus,
-  JobType,
   ServiceStatus,
   ServiceStatusValues,
   ServiceVariant,
@@ -69,7 +66,6 @@ import {
 import type {
   ExtractorWarningCode,
   LyricsExtractorAiRetryDescriptor,
-  LyricsExtractorSafeOutput,
 } from "@/lib/extractor-types";
 import { normalizeExtractorWarnings } from "@/lib/extractor-warnings";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
@@ -161,16 +157,8 @@ const MEDIA_TOOLS_HOME_COPY = {
     "Transfer, generate, and prepare worship-service media for projection and booth handoff.",
 };
 
-const JOB_DESCRIPTIONS: Record<JobType, string> = {
-  TRANSPOSE: "Extract lyrics from a secure temporary chord-sheet input.",
-  FREESHOW_GENERATE: "Generate a mock FreeShow export artifact.",
-  CAPTION_GENERATE: "Generate a mock caption output package.",
-  BACKGROUND_IMAGE_GENERATE: "Generate a worship presentation image background.",
-  BACKGROUND_VIDEO_GENERATE: "Generate a 15-second 480p worship background loop.",
-};
-
 const MODULE_CONTENT: Record<
-  WorkspaceModule,
+  Exclude<WorkspaceModule, "automation">,
   { title: string; description: string }
 > = {
   services: {
@@ -192,11 +180,6 @@ const MODULE_CONTENT: Record<
     title: "Production Media Tools",
     description:
       "Attach and review service media, screenshots, PDFs, and supporting production documents.",
-  },
-  automation: {
-    title: "Live Captions & Outputs",
-    description:
-      "Queue caption, translation, and export jobs while keeping generated outputs as service records.",
   },
 };
 
@@ -255,7 +238,7 @@ function ProgrammableBlockFields({
       <label className="block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-sm font-semibold text-[var(--text-secondary)]">
         {getBlockLabel(block)} notes
         <textarea value={typeof values.text === "string" ? values.text : ""} onChange={(event) => setValues({ text: event.target.value })} rows={4} className="mt-2 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-normal text-[var(--text-primary)]" placeholder="Add any notes or details for this service step." />
-        <button type="button" onClick={() => saveText(typeof values.text === "string" ? values.text : "")} disabled={saving} className="ui-btn-primary pressable mt-3 px-3 text-xs font-semibold disabled:opacity-50">{saving ? "Saving…" : "Save text"}</button>
+        <button type="button" onClick={() => saveText(typeof values.text === "string" ? values.text : "")} disabled={saving} className="ui-btn-primary pressable mt-3 px-3 text-xs font-semibold disabled:opacity-50">{saving ? "Savingâ€¦" : "Save text"}</button>
       </label>
     );
   }
@@ -265,8 +248,8 @@ function ProgrammableBlockFields({
     return (
       <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
         <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link></div>
-        <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} ×</button>)}</div>
-        <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team member…" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
+        <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} Ã—</button>)}</div>
+        <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team memberâ€¦" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
       </div>
     );
   }
@@ -290,21 +273,6 @@ function ProgrammableBlockFields({
       </div>
     </div>
   );
-}
-
-function getExtractorSummary(outputJson: unknown) {
-  if (!outputJson || typeof outputJson !== "object") {
-    return null;
-  }
-
-  const record = outputJson as Partial<LyricsExtractorSafeOutput>;
-  if (typeof record.extractedLineCount !== "number") {
-    return null;
-  }
-
-  const sectionText =
-    typeof record.sectionCount === "number" ? ` - ${record.sectionCount} sections` : "";
-  return `${record.extractedLineCount} extracted lines${sectionText}`;
 }
 
 function getFileNameWithoutExtension(fileName: string) {
@@ -340,7 +308,7 @@ function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upl
 
 const SongDocumentEditor = dynamic(() => import("@/features/song-formatter/song-document-editor"), {
   ssr: false,
-  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editor…</p>,
+  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editorâ€¦</p>,
 });
 
 export default function ServiceBuilderClient({
@@ -348,7 +316,7 @@ export default function ServiceBuilderClient({
   mediaTool,
   songStep,
 }: {
-  module: WorkspaceModule;
+  module: Exclude<WorkspaceModule, "automation">;
   mediaTool?: MediaTool;
   songStep?: SongWorkflowStep;
 }) {
@@ -366,7 +334,6 @@ export default function ServiceBuilderClient({
   const [activeServiceBlockId, setActiveServiceBlockId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [newServiceModalOpen, setNewServiceModalOpen] = useState(false);
-  const [automationJobType, setAutomationJobType] = useState<JobType>(JobType.FREESHOW_GENERATE);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [serviceAnalysisText, setServiceAnalysisText] = useState("");
   const [serviceAnalysisDraft, setServiceAnalysisDraft] = useState<AnalyzedServiceDraft | null>(null);
@@ -647,28 +614,6 @@ export default function ServiceBuilderClient({
     onSuccess: async () => {
       await invalidateServices();
       setFeedback("Detail saved.");
-    },
-    onError: (error: Error) => setFeedback(error.message),
-  });
-
-  const createJobMutation = useMutation({
-    mutationFn: ({
-      serviceId,
-      payload,
-    }: {
-      serviceId: string;
-      payload: CreateAutomationJobPayload;
-    }) =>
-      apiFetch(`/api/services/${serviceId}/jobs`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: async () => {
-      setFeedback("Automation queued.");
-      await invalidateServices();
-      window.setTimeout(() => {
-        void invalidateServices();
-      }, 2500);
     },
     onError: (error: Error) => setFeedback(error.message),
   });
@@ -2118,7 +2063,7 @@ export default function ServiceBuilderClient({
                                         {songName}
                                       </p>
                                       <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
-                                        Last touched by {editorName} · {lastTouchedAge}
+                                        Last touched by {editorName} Â· {lastTouchedAge}
                                       </p>
                                     </div>
                                   </div>
@@ -2148,7 +2093,7 @@ export default function ServiceBuilderClient({
                             })
                           ) : (
                             <div className="rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-4 text-sm text-[var(--text-secondary)]">
-                              {recovery.checking ? "Loading recent conversions…" : "No conversions yet."}
+                              {recovery.checking ? "Loading recent conversionsâ€¦" : "No conversions yet."}
                             </div>
                           )}
                         </div>
@@ -2209,7 +2154,7 @@ export default function ServiceBuilderClient({
                     </>
                   ) : (
                     <section className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-panel)] p-8 text-center shadow-[var(--elevation-subtle)]">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{recovery.checking ? "Recovering your draft…" : recovery.error ?? "No extracted draft yet"}</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{recovery.checking ? "Recovering your draftâ€¦" : recovery.error ?? "No extracted draft yet"}</p>
                       <p className="mt-2 text-xs text-[var(--text-secondary)]">
                         Start on Upload or paste lyrics, then the processed draft will open here.
                       </p>
@@ -2285,121 +2230,6 @@ export default function ServiceBuilderClient({
             ) : null}
 
           </div>
-        ) : null}
-        {module === "automation" ? (
-          <section className="border-y border-[var(--border-default)] py-5 text-[var(--text-primary)]">
-            <div className="mb-4">
-              <p className="technical-label">LIVE CAPTIONS & OUTPUTS</p>
-              <h2 className="mt-2 text-lg font-semibold">Output queue</h2>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Persist job history and generated outputs while keeping the workflow simple.
-              </p>
-            </div>
-
-            {selectedService ? (
-              <>
-                <form
-                  className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const formData = new FormData(event.currentTarget);
-                    const jobType = formData.get("jobType") as JobType;
-                    const rawInput = String(formData.get("inputJson") ?? "").trim();
-                    let inputJson: unknown = {};
-
-                    if (rawInput) {
-                      try {
-                        inputJson = JSON.parse(rawInput);
-                      } catch {
-                        setFeedback("Automation input JSON is invalid.");
-                        return;
-                      }
-                    }
-
-                    createJobMutation.mutate({
-                      serviceId: selectedService.id,
-                      payload: {
-                        jobType,
-                        inputJson,
-                      },
-                    });
-                    event.currentTarget.reset();
-                  }}
-                >
-                  <ProductionSelect
-                    ariaLabel="Automation job type"
-                    name="jobType"
-                    value={automationJobType}
-                    onValueChange={setAutomationJobType}
-                    options={Object.values(JobType)
-                      .filter((jobType) => jobType !== JobType.TRANSPOSE)
-                      .map((jobType) => ({ value: jobType, label: jobType }))}
-                    triggerClassName="bg-[var(--surface-panel)] text-[var(--text-primary)]"
-                  />
-                  <textarea
-                    name="inputJson"
-                    rows={4}
-                    placeholder='Optional JSON input, e.g. {"resolution":"1080p"}'
-                    className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={createJobMutation.isPending}
-                    className="pressable flex w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-3 text-sm font-semibold text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)] disabled:opacity-60"
-                  >
-                    <WandSparkles className="h-4 w-4" />
-                    Queue job
-                  </button>
-                </form>
-
-                <div className="mt-4 max-h-[420px] divide-y divide-[var(--border-default)] overflow-y-auto rounded-[var(--radius-card)] border border-[var(--border-default)]">
-                  {selectedService.jobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="bg-[var(--surface-panel)] p-4 hover:bg-[var(--surface-panel-alt)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{job.jobType}</p>
-                          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            {job.jobType === JobType.TRANSPOSE
-                              ? "Secure lyrics extraction history."
-                              : JOB_DESCRIPTIONS[job.jobType]}
-                          </p>
-                          {job.jobType === JobType.TRANSPOSE && getExtractorSummary(job.outputJson) ? (
-                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                              {getExtractorSummary(job.outputJson)}
-                            </p>
-                          ) : null}
-                        </div>
-                        <span className="inline-flex items-center gap-2 font-[var(--font-plex-mono)] text-xs text-[var(--state-ready)]">
-                          <span className={`status-pip ${job.status === JobStatus.DONE ? "status-pip-ready" : job.status === JobStatus.FAILED ? "status-pip-alert" : ""}`} />
-                          {job.status}
-                        </span>
-                      </div>
-                      {job.outputs.length > 0 ? (
-                        <div className="mt-3 space-y-2">
-                          {job.outputs.map((output) => (
-                            <a
-                              key={output.id}
-                              href={`/api/services/${selectedService.id}/outputs/${output.id}/download`}
-                              className="block rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-sm font-semibold text-[var(--text-accent)]"
-                            >
-                              {output.type} output
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-[var(--text-secondary)]">
-                Select a service to queue automation work.
-              </p>
-            )}
-          </section>
         ) : null}
       </div>
       </div>

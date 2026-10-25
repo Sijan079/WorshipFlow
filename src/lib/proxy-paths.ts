@@ -6,6 +6,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/mockups",
   "/auth/callback",
   "/api/auth/login",
+  "/captions/live",
+  "/api/captions/live",
 ];
 
 export function isPublicPathForProxy(pathname: string) {

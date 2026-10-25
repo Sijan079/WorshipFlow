@@ -24,7 +24,7 @@ const cspHeader = [
   "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com",
   "font-src 'self' data:",
   "media-src 'self' data: blob:",
-  `connect-src 'self' ws: wss:${supabaseConnectOrigin ? ` ${supabaseConnectOrigin}` : ""}`,
+  `connect-src 'self' ws: wss: wss://api.deepgram.com${supabaseConnectOrigin ? ` ${supabaseConnectOrigin}` : ""}`,
   "worker-src 'self' blob:",
 ].join("; ");
 
@@ -64,6 +64,15 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value: cspHeader,
+          },
+        ],
+      },
+      {
+        source: "/w/:workspaceSlug/captions",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
           },
         ],
       },

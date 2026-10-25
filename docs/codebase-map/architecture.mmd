@@ -1,0 +1,10 @@
+flowchart LR
+  Browser[Browser] --> Proxy[Next Proxy and Supabase session]
+  Proxy --> Pages[Workspace pages and UI]
+  Pages --> API[Workspace-scoped route handlers]
+  API --> Access[Membership and role checks]
+  Access --> Prisma[Prisma]
+  Prisma --> DB[(PostgreSQL)]
+  API --> Storage[Private output storage]
+  API --> Provider[Optional AI provider]
+  Pages --> Local[Browser-local media tools]

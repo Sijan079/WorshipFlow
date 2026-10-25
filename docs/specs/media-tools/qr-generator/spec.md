@@ -7,11 +7,12 @@ QR Generator creates scannable QR codes for worship-production links or text.
 ## Scope
 
 - Destination URL or text input.
-- Primary color selection.
-- Optional branding mode.
-- SVG-oriented preview and export controls.
+- Service resource, giving, connect card, livestream, sermon notes, and custom
+  title presets, plus editable title and subtitle.
+- Slide, print, and social output sizes.
+- QR-only or composed card export from the browser.
 
 ## Notes
 
-This tool is currently UI-first and should later be backed by real QR generation
-logic using token-compatible colors.
+The browser generates QR data with the `qrcode` package and composes downloadable
+assets locally. Presets are convenience copy, not separate product workflows.

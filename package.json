@@ -21,6 +21,9 @@
     "test:observability": "node --experimental-strip-types --test src/lib/observability.test.ts",
     "verify:song-editor": "node --experimental-strip-types scripts/verify-song-editor.mjs",
     "test:migrations": "node scripts/verify-current-migration-order.mjs",
+    "index:codebase": "node scripts/index-codebase.mjs",
+    "codemap": "node scripts/codemap.mjs",
+    "try:media-worker": "node scripts/try-media-worker.mjs",
     "seed:song-tags": "tsx prisma/seed-song-tags.ts",
     "provision:workspace": "tsx scripts/provision-workspace.ts",
     "migrate:default-workspace": "tsx scripts/migrate-default-workspace.ts"

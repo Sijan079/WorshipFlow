@@ -7,6 +7,7 @@ import { updateSession } from "@/lib/supabase/proxy";
 const LEGACY_WORKSPACE_PATHS = [
   "/dashboard",
   "/services",
+  "/events",
   "/teams",
   "/settings",
   "/planner",
@@ -14,6 +15,7 @@ const LEGACY_WORKSPACE_PATHS = [
   "/media-tools",
   "/assets",
   "/automation",
+  "/captions",
   "/pap",
 ];
 

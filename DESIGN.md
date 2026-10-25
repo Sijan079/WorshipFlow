@@ -25,10 +25,8 @@ For screen and flow reviews, use
 psychology reference. Apply only the laws that explain an observed usability
 problem.
 
-For Stitch redesign work, use
-[`docs/stitch-redesign-context.md`](docs/stitch-redesign-context.md) as the
-implementation-facing map of current pages, business logic, and
-logic-dependent layout constraints.
+For screen-specific work, use the [document map](docs/map.md) to find current
+routes, feature specs, and code entry points.
 
 ## Anti-AI-Slop Redesign Rule
 

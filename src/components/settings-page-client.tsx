@@ -29,6 +29,7 @@ import {
 import { moveTemplateBlock, normalizePresetCode } from "@/lib/settings-presets";
 import type { EnvironmentReport } from "@/lib/server-env";
 import { MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
+import CaptionUsageSection from "@/features/sermon-captions/caption-usage-section";
 
 type EditableEndpoint = "ministries" | "servant-groups";
 
@@ -92,6 +93,7 @@ const SETTINGS_TABS = [
   { id: "tags", label: "Tags" },
   { id: "checklist", label: "Checklist" },
   { id: "integrations", label: "Integrations" },
+  { id: "usage", label: "Usage" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
@@ -99,7 +101,7 @@ type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 const SETTINGS_NAV_GROUPS: Array<{ label: string; tabs: SettingsTab[] }> = [
   { label: "Workspace", tabs: ["general", "membership"] },
   { label: "Service setup", tabs: ["templates", "tags", "checklist"] },
-  { label: "Connections", tabs: ["integrations"] },
+  { label: "Connections", tabs: ["integrations", "usage"] },
 ];
 
 type ProgramFieldForm = {
@@ -1753,11 +1755,12 @@ function IntegrationsSection() {
   );
 }
 
-export default function SettingsPageClient({ environment }: { environment: EnvironmentReport }) {
+export default function SettingsPageClient({ environment, canViewUsage }: { environment: EnvironmentReport; canViewUsage: boolean }) {
   void environment;
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const activeTab: SettingsTab = SETTINGS_TABS.some((candidate) => candidate.id === requestedTab) ? requestedTab as SettingsTab : "general";
+  const availableTabs = SETTINGS_TABS.filter((candidate) => candidate.id !== "usage" || canViewUsage);
+  const activeTab: SettingsTab = availableTabs.some((candidate) => candidate.id === requestedTab) ? requestedTab as SettingsTab : "general";
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const ministriesQuery = useQuery({
     queryKey: ["settings", "ministries"],
@@ -1800,14 +1803,14 @@ export default function SettingsPageClient({ environment }: { environment: Envir
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let nextIndex: number | undefined;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % SETTINGS_TABS.length;
-    if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % availableTabs.length;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + availableTabs.length) % availableTabs.length;
     if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = SETTINGS_TABS.length - 1;
+    if (event.key === "End") nextIndex = availableTabs.length - 1;
     if (nextIndex === undefined) return;
 
     event.preventDefault();
-    selectTab(SETTINGS_TABS[nextIndex].id);
+    selectTab(availableTabs[nextIndex].id);
     tabRefs.current[nextIndex]?.focus();
   }
 
@@ -1820,9 +1823,9 @@ export default function SettingsPageClient({ environment }: { environment: Envir
               <div key={group.label} className={`min-w-0 ${groupIndex > 0 ? "mt-6" : ""}`}>
                 <p className="ui-technical-label px-3 font-semibold">{group.label}</p>
                 <div className="mt-1.5 grid gap-1">
-                  {group.tabs.map((tabId) => {
+                  {group.tabs.filter((tabId) => tabId !== "usage" || canViewUsage).map((tabId) => {
                     const tab = SETTINGS_TABS.find((candidate) => candidate.id === tabId)!;
-                    const index = SETTINGS_TABS.findIndex((candidate) => candidate.id === tabId);
+                    const index = availableTabs.findIndex((candidate) => candidate.id === tabId);
                     const selected = activeTab === tab.id;
                     return (
                       <button
@@ -1892,6 +1895,10 @@ export default function SettingsPageClient({ environment }: { environment: Envir
       <div id="settings-panel-integrations" role="tabpanel" aria-labelledby="settings-tab-integrations" tabIndex={0} hidden={activeTab !== "integrations"} className="space-y-5">
         {activeTab === "integrations" ? <IntegrationsSection /> : null}
       </div>
+
+      {canViewUsage ? <div id="settings-panel-usage" role="tabpanel" aria-labelledby="settings-tab-usage" tabIndex={0} hidden={activeTab !== "usage"} className="space-y-5">
+        {activeTab === "usage" ? <CaptionUsageSection /> : null}
+      </div> : null}
 
         </div>
       </div>

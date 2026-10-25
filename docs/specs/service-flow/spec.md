@@ -7,7 +7,7 @@ Service Flow manages worship service preparation in the approved block order.
 ## Scope
 
 - Worship service CRUD.
-- Compact services table for scan-first review.
+- Services register for scan-first review, with expandable service details.
 - Strict ordered service block rendering.
 - Participant assignment.
 - Song assignment to service blocks.
@@ -17,10 +17,12 @@ Service Flow manages worship service preparation in the approved block order.
 ## Domain Rules
 
 - `WorshipService` represents one real worship service.
-- Block order is invariant.
-- `AWIT_NG_PAKIKINIG` stays before `SCRIPTURE_READING`.
-- `AWIT_NG_PAGTUGON` stays after `SERMON`.
-- UI must never present alternate block sequences.
+- New services copy every active block from the selected workspace template in
+  that template's stored order.
+- After creation, each service owns its stored block order. Reordering a
+  template does not change existing services.
+- UI renders the service's stored order; built-in block types do not impose a
+  global visible sequence.
 - Service list rows are `checkbox | date | ministry | sermon verse | expand`.
 - Row-level editing is only exposed from the expanded details area, not the collapsed row.
 - Expanded row styling overrides checkbox-selected styling.
