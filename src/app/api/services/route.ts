@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { ministryCodeFromLegacy } from "@/lib/ministries";
 import { getErrorMessage } from "@/lib/errors";
 import { WorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
@@ -54,7 +55,8 @@ export async function GET() {
     });
 
     return NextResponse.json(services);
-  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch services") }, { status: 500 });
   }
 }
 
@@ -82,9 +84,9 @@ export async function POST(request: Request) {
       templatePresetCode,
       templateType,
     } = result.data;
-    const [ministryPreset, templatePreset] = await Promise.all([
+    const [ministry, templatePreset] = await Promise.all([
       ministryPresetCode
-        ? prisma.ministryPreset.findFirst({ where: { workspaceId, code: ministryPresetCode } })
+        ? prisma.ministry.findFirst({ where: { workspaceId, code: ministryCodeFromLegacy(ministryPresetCode), active: true } })
         : Promise.resolve(null),
       templatePresetCode
         ? prisma.serviceTemplatePreset.findFirst({
@@ -103,7 +105,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Select a valid saved service template." }, { status: 400 });
     }
     const resolvedTemplateType = (templatePreset?.templateType ?? templateType) as ServiceTemplateType;
-    const ministryName = ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
+    const ministryName = ministry?.label ?? mapAssignedMinistryToLegacyMinistryName(assignedMinistry as AssignedMinistry);
     const serviceVariant = mapTemplateTypeToServiceVariant(resolvedTemplateType);
     const persistedTemplateBlocks = templatePreset.templateBlocks;
     if (persistedTemplateBlocks.length === 0) {
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
     });
     const selectedPersonIds = resolvedTemplateBlocks.flatMap(({ block, values }) => block.kind === "PERSON" ? (values as { personIds: string[] }).personIds : []);
     if (selectedPersonIds.length > 0) {
-      const count = await prisma.servant.count({ where: { workspaceId, id: { in: selectedPersonIds } } });
+      const count = await prisma.person.count({ where: { workspaceId, id: { in: selectedPersonIds } } });
       if (count !== new Set(selectedPersonIds).size) return NextResponse.json({ error: "A selected person is unavailable in this workspace" }, { status: 400 });
     }
 
@@ -134,7 +136,8 @@ export async function POST(request: Request) {
           workspaceId,
           serviceDate,
           assignedMinistry: assignedMinistry as AssignedMinistry,
-          ministryPresetCode: ministryPreset?.code ?? ministryPresetCode ?? null,
+          ministryPresetCode: ministry?.code ?? ministryPresetCode ?? null,
+          ministryId: ministry?.id ?? null,
           sermonVerse,
           ministryName,
           status,
@@ -201,6 +204,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(completeService, { status: 201 });
-  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to create service") }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to create service") }, { status: 500 });
   }
 }

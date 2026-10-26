@@ -9,7 +9,6 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   apiFetch,
   type CreateServicePayload,
-  type EditableSettingsPresetRecord,
   type ServiceRecord,
   type ServiceTemplatePresetRecord,
   type SongRecord,
@@ -27,7 +26,8 @@ import {
   type ServiceTemplateType,
 } from "@/lib/service-records";
 import { ServiceStatus } from "@/lib/service-constants";
-import { fetchPeopleNames, type PersonNameRecord } from "@/features/people/people-api";
+import { fetchMinistryOptions, fetchPeopleNames, type MinistryOptionRecord, type PersonNameRecord } from "@/features/people/people-api";
+import { ministryCodeFromLegacy } from "@/lib/ministries";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -176,14 +176,17 @@ function formatTemplateLabel(templateType?: string | null) {
   return templateType === "FIRST_SUNDAY" ? "1st Sunday" : "Regular";
 }
 
-function buildMinistryOptions(records: EditableSettingsPresetRecord[] = []): MinistryOption[] {
+function buildMinistryOptions(records: MinistryOptionRecord[] = []): MinistryOption[] {
   if (records.length > 0) {
-    return records.filter((record) => record.active).map((record) => ({
+    return records.map((record) => ({
       value: record.code,
       label: record.label,
-      assignedMinistry: ASSIGNED_MINISTRY_OPTIONS.some((item) => item.value === record.code)
-        ? (record.code as AssignedMinistry)
-        : inferAssignedMinistryFromName(record.label),
+      // Services still record the older ministry enum; Church Leaders was called Leaders there.
+      assignedMinistry: record.code === "CHURCH_LEADERS"
+        ? "LEADERS"
+        : ASSIGNED_MINISTRY_OPTIONS.some((item) => item.value === record.code)
+          ? (record.code as AssignedMinistry)
+          : inferAssignedMinistryFromName(record.label),
     }));
   }
 
@@ -546,8 +549,8 @@ export default function ServicesPageClient({ initialServices }: { initialService
     staleTime: 30_000,
   });
   const ministriesQuery = useQuery({
-    queryKey: ["settings", "ministries"],
-    queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/ministries"),
+    queryKey: ["ministries", "options"],
+    queryFn: fetchMinistryOptions,
     staleTime: 30_000,
   });
   const serviceTemplatesQuery = useQuery({
@@ -573,7 +576,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
         ...service,
         dateKey: new Date(service.serviceDate).toISOString().slice(0, 10),
         dateLabel: formatServiceDate(service.serviceDate),
-        ministryLabel: ministryLabelByCode.get(service.ministryPresetCode ?? "")
+        ministryLabel: ministryLabelByCode.get(ministryCodeFromLegacy(service.ministryPresetCode ?? ""))
           ?? formatAssignedMinistry(service.assignedMinistry, service.ministryName),
         templateLabel: templateLabelByCode.get(service.templatePresetCode ?? "")
           ?? formatTemplateLabel(service.templateType),
@@ -583,7 +586,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const filteredServices = useMemo(() => {
     return services.filter((service) => {
       const matchesDate = !dateFilter || service.dateKey === dateFilter;
-      const serviceMinistry = service.ministryPresetCode ?? service.assignedMinistry ?? "MIXED";
+      const serviceMinistry = ministryCodeFromLegacy(service.ministryPresetCode ?? service.assignedMinistry ?? "MIXED");
       const matchesMinistry = !ministryFilter || ministryFilter === serviceMinistry;
       return matchesDate && matchesMinistry;
     });
@@ -827,7 +830,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
     setEditingServiceId(service.id);
     setEditBlockValues(getServiceBlockValues(service.blocks));
     setEditServiceDate(new Date(service.serviceDate).toISOString().slice(0, 10));
-    setEditMinistryPresetCode(service.ministryPresetCode ?? service.assignedMinistry ?? ministryOptions[0]?.value ?? "");
+    setEditMinistryPresetCode(ministryCodeFromLegacy(service.ministryPresetCode ?? service.assignedMinistry ?? ministryOptions[0]?.value ?? ""));
   }
 
   return (

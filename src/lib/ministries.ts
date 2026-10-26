@@ -10,7 +10,7 @@ export const DEFAULT_MINISTRIES = [
   { code: "TECH", label: "Tech", serviceOnly: false },
   { code: "MUSIC", label: "Music", serviceOnly: false },
   // Not a group of people: how a 5th Sunday service is run, by a mixed team.
-  { code: "MIXED", label: "Mixed", serviceOnly: true },
+  { code: "MIXED", label: "Mixed team (5th Sunday)", serviceOnly: true },
 ] as const;
 
 export type MinistryCode = (typeof DEFAULT_MINISTRIES)[number]["code"];

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { getErrorMessage } from "@/lib/errors";
 import prisma from "@/lib/prisma";
+import { ministryCodeFromLegacy } from "@/lib/ministries";
 import { UpdateWorshipServiceSchema } from "@/lib/validation";
 import { serviceDetailInclude } from "@/lib/service-data";
 import { getMissingServiceFields } from "@/lib/service-readiness";
@@ -57,7 +58,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json(service);
-  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch service") }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to fetch service") }, { status: 500 });
   }
 }
 
@@ -108,21 +110,22 @@ export async function PUT(request: Request, { params }: RouteParams) {
       const nextTemplatePresetCode = payload.templatePresetCode !== undefined
         ? payload.templatePresetCode
         : service.templatePresetCode;
-      const [ministryPreset, templatePreset] = await Promise.all([
+      const [ministry, templatePreset] = await Promise.all([
         nextMinistryPresetCode
-          ? tx.ministryPreset.findFirst({ where: { workspaceId, code: nextMinistryPresetCode } })
+          ? tx.ministry.findFirst({ where: { workspaceId, code: ministryCodeFromLegacy(nextMinistryPresetCode) } })
           : Promise.resolve(null),
         nextTemplatePresetCode
           ? tx.serviceTemplatePreset.findFirst({ where: { workspaceId, code: nextTemplatePresetCode } })
           : Promise.resolve(null),
       ]);
       const nextTemplateType = (templatePreset?.templateType ?? payload.templateType ?? service.templateType) as ServiceTemplateType;
-      const data: Prisma.WorshipServiceUpdateInput = {
+      const data: Prisma.WorshipServiceUncheckedUpdateInput = {
         serviceDate: payload.serviceDate,
         assignedMinistry: payload.assignedMinistry as AssignedMinistry | undefined,
-        ministryPresetCode: payload.ministryPresetCode !== undefined ? (ministryPreset?.code ?? payload.ministryPresetCode) : undefined,
+        ministryPresetCode: payload.ministryPresetCode !== undefined ? (ministry?.code ?? payload.ministryPresetCode) : undefined,
+        ministryId: payload.ministryPresetCode !== undefined ? (ministry?.id ?? null) : undefined,
         sermonVerse: payload.sermonVerse,
-        ministryName: ministryPreset?.label ?? mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
+        ministryName: ministry?.label ?? mapAssignedMinistryToLegacyMinistryName(nextAssignedMinistry),
         serviceVariant: mapTemplateTypeToServiceVariant(nextTemplateType) as "STANDARD" | "EXTENDED",
         status: payload.status,
         templateType: nextTemplateType,
@@ -181,7 +184,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
     });
 
     return NextResponse.json(updatedService);
-  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to update service") }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to update service") }, { status: 500 });
   }
 }
 
@@ -203,6 +207,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     });
 
     return NextResponse.json({ message: "Worship service deleted successfully" });
-  } catch (error: unknown) {    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete service") }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to delete service") }, { status: 500 });
   }
 }

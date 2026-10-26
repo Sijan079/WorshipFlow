@@ -26,7 +26,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (block.kind === "PERSON") {
       const personIds = (validation.values as { personIds: string[] }).personIds;
       if (personIds.length > 0) {
-        const count = await prisma.servant.count({ where: { workspaceId, id: { in: personIds } } });
+        const count = await prisma.person.count({ where: { workspaceId, id: { in: personIds } } });
         if (count !== personIds.length) return NextResponse.json({ error: "A selected person is unavailable in this workspace" }, { status: 400 });
       }
     }

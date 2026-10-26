@@ -41,6 +41,7 @@ import { runPersonSerializationTests } from "./features/people/person-serializat
 import { runPeopleRoutesTests } from "./features/people/people-routes.test.ts";
 import { runPeopleUiTests } from "./features/people/people-ui.test.ts";
 import { runMinistryTests } from "./features/ministries/ministry-validation.test.ts";
+import { runServicePeopleMinistryTests } from "./lib/service-people-ministry.test.ts";
 import "./lib/module-access.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
@@ -107,6 +108,7 @@ runPersonSerializationTests();
 runPeopleRoutesTests();
 runPeopleUiTests();
 runMinistryTests();
+runServicePeopleMinistryTests();
 runWorkspaceShellTests();
 runFeedbackTests();
 runWorkspaceRouteTests();

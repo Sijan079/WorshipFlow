@@ -6,6 +6,7 @@ import type { PersonPayload } from "./person-form";
 export type PeopleFilters = { search: string; status: string; ministryId: string };
 
 export type PersonNameRecord = { id: string; name: string };
+export type MinistryOptionRecord = { id: string; code: string; label: string; serviceOnly: boolean };
 
 export const PEOPLE_QUERY_KEY = ["people"] as const;
 export const MINISTRIES_QUERY_KEY = ["ministries"] as const;
@@ -50,4 +51,9 @@ export function updateMinistry(id: string, patch: { label?: string; active?: boo
 // Names only, for choosing someone on a service. Open to any member of the workspace.
 export function fetchPeopleNames() {
   return apiFetch<PersonNameRecord[]>("/api/people/names");
+}
+
+// Ministry choices for a service. Open to any member of the workspace.
+export function fetchMinistryOptions() {
+  return apiFetch<MinistryOptionRecord[]>("/api/ministries/options");
 }

@@ -52,6 +52,10 @@ Inactive. Any member of the workspace can read it, because building a service mu
 access to the People directory. It never returns birthdates, baptism details, or anything else
 from the directory, and it never appears on the public site.
 
+`/api/ministries/options` is the same kind of endpoint for a service's ministry choice: any
+workspace member can read the active ministries (id, code, label, and whether it is service-only)
+and nothing about their members.
+
 ## Hiding the admin app is not security
 
 The app at `/w/{slug}` is not protected by its path being unknown. Every request
