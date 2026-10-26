@@ -33,6 +33,11 @@ export function runUiTweaksTests() {
   assert.match(picker, /max-h-\[var\(--radix-popover-content-available-height\)\]/);
   assert.match(picker, /overflow-y-auto/);
   assert.match(picker, /collisionPadding/);
+  // The calendar is portaled and mounts a render after it opens, so the wheel and touch guard
+  // must attach through a callback ref (an effect would look for the element too early).
+  assert.match(picker, /const scrollGuardRef = useCallback\(/);
+  assert.match(picker, /ref=\{scrollGuardRef\}/);
+  assert.doesNotMatch(picker, /contentRef/);
   assert.match(read("src", "features", "people", "person-dialog.tsx"), /minYear=\{1900\}/);
   for (const source of [services, read("src", "features", "people", "person-dialog.tsx")]) {
     assert.doesNotMatch(source, /jumpToMonthAndYear=\{false\}/);
@@ -46,6 +51,10 @@ export function runUiTweaksTests() {
   assert.match(picker2, /<Search /);
   assert.match(picker2, /<ChevronDown /);
   assert.match(picker2, /ui-raised-field/);
+  // The dropdown shows five people, then scrolls: five 40px rows plus 8px of padding is 13rem.
+  assert.match(picker2, /max-h-52/);
+  assert.match(picker2, /flex h-10 w-full items-center/);
+  assert.doesNotMatch(picker2, /max-h-48/);
   assert.doesNotMatch(services, /Manage people|peopleHref/);
   assert.doesNotMatch(read("src", "components", "service-builder-client.tsx"), /Manage people/);
   const globals = read("src", "app", "globals.css");

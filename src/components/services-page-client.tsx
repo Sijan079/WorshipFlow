@@ -324,13 +324,13 @@ function TeamMemberPicker({
           <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
         {isOpen ? (
-          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-panel-elevated)] py-1 shadow-[var(--elevation-modal)]">
+          <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-panel-elevated)] py-1 shadow-[var(--elevation-modal)]">
             {availableMembers.length ? availableMembers.map((member) => (
               <button
                 key={member.id}
                 type="button"
                 onClick={() => selectMember(member.id)}
-                className="flex min-h-10 w-full items-center px-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
+                className="flex h-10 w-full items-center px-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-panel-alt)]"
               >
                 {member.name}
               </button>

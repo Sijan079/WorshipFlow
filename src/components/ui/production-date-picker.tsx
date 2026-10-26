@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "radix-ui";
 import {
@@ -58,7 +58,7 @@ export function ProductionDatePicker({
   placeholder = "Select date",
 }: ProductionDatePickerProps) {
   const labelId = useId();
-  const contentRef = useRef<HTMLDivElement>(null);
+  const scrollGuardCleanup = useRef<(() => void) | null>(null);
   const [open, setOpen] = useState(false);
   const selectedDate = parseCalendarDate(value);
   const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ?? new Date());
@@ -72,17 +72,20 @@ export function ProductionDatePicker({
 
   // A dialog locks page scrolling and ignores anything outside its own content. When the screen is
   // short enough that the calendar scrolls, stop wheel and touch at the calendar so it still can.
-  useEffect(() => {
-    const content = contentRef.current;
-    if (!open || !content) return;
+  // The calendar is portaled and mounts a render after it opens, so this attaches through a
+  // callback ref the moment the element exists.
+  const scrollGuardRef = useCallback((node: HTMLDivElement | null) => {
+    scrollGuardCleanup.current?.();
+    scrollGuardCleanup.current = null;
+    if (!node) return;
     const keepScrollHere = (event: Event) => event.stopPropagation();
-    content.addEventListener("wheel", keepScrollHere, { passive: true });
-    content.addEventListener("touchmove", keepScrollHere, { passive: true });
-    return () => {
-      content.removeEventListener("wheel", keepScrollHere);
-      content.removeEventListener("touchmove", keepScrollHere);
+    node.addEventListener("wheel", keepScrollHere, { passive: true });
+    node.addEventListener("touchmove", keepScrollHere, { passive: true });
+    scrollGuardCleanup.current = () => {
+      node.removeEventListener("wheel", keepScrollHere);
+      node.removeEventListener("touchmove", keepScrollHere);
     };
-  }, [open]);
+  }, []);
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -117,7 +120,7 @@ export function ProductionDatePicker({
 
         <Popover.Portal>
           <Popover.Content
-            ref={contentRef}
+            ref={scrollGuardRef}
             side="bottom"
             align="start"
             sideOffset={8}
