@@ -7,5 +7,8 @@ export function formatLastTouchedAge(value: string | undefined, now: number) {
   if (minutesAgo < 60) return `${minutesAgo}m ago`;
 
   const hoursAgo = Math.floor(minutesAgo / 60);
-  return `${hoursAgo}hr${hoursAgo === 1 ? "" : "s"} ago`;
+  if (hoursAgo < 24) return `${hoursAgo}hr${hoursAgo === 1 ? "" : "s"} ago`;
+
+  const daysAgo = Math.floor(hoursAgo / 24);
+  return `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`;
 }

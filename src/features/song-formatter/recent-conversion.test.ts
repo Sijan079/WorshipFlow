@@ -10,3 +10,11 @@ test("last-touch age uses compact minute and hour labels", () => {
   assert.equal(formatLastTouchedAge("2026-09-19T11:00:00.000Z", now), "1hr ago");
   assert.equal(formatLastTouchedAge("2026-09-19T04:00:00.000Z", now), "8hrs ago");
 });
+
+test("last-touch age switches to days after a full day", () => {
+  const now = Date.parse("2026-09-19T12:00:00.000Z");
+
+  assert.equal(formatLastTouchedAge("2026-09-19T00:00:00.000Z", now), "12hrs ago");
+  assert.equal(formatLastTouchedAge("2026-09-18T12:00:00.000Z", now), "1 day ago");
+  assert.equal(formatLastTouchedAge("2026-09-10T20:00:00.000Z", now), "8 days ago");
+});

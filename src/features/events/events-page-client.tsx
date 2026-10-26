@@ -137,7 +137,7 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Events</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Coordinate dates, announcements, registration, and attendance.</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">See and plan church events on a calendar, with a registration link when one is needed.</p>
         </div>
         {eventQuery.data?.canCreate ? <button type="button" onClick={() => openNewEvent()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"><Plus aria-hidden="true" className="h-4 w-4" /> New event</button> : null}
       </header>

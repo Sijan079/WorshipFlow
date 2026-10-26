@@ -238,7 +238,7 @@ function ProgrammableBlockFields({
       <label className="block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-sm font-semibold text-[var(--text-secondary)]">
         {getBlockLabel(block)} notes
         <textarea value={typeof values.text === "string" ? values.text : ""} onChange={(event) => setValues({ text: event.target.value })} rows={4} className="mt-2 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 text-sm font-normal text-[var(--text-primary)]" placeholder="Add any notes or details for this service step." />
-        <button type="button" onClick={() => saveText(typeof values.text === "string" ? values.text : "")} disabled={saving} className="ui-btn-primary pressable mt-3 px-3 text-xs font-semibold disabled:opacity-50">{saving ? "Savingâ€¦" : "Save text"}</button>
+        <button type="button" onClick={() => saveText(typeof values.text === "string" ? values.text : "")} disabled={saving} className="ui-btn-primary pressable mt-3 px-3 text-xs font-semibold disabled:opacity-50">{saving ? "Saving…" : "Save text"}</button>
       </label>
     );
   }
@@ -249,7 +249,7 @@ function ProgrammableBlockFields({
       <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
         <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link></div>
         <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} Ã—</button>)}</div>
-        <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team memberâ€¦" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
+        <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team member…" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
       </div>
     );
   }
@@ -308,7 +308,7 @@ function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upl
 
 const SongDocumentEditor = dynamic(() => import("@/features/song-formatter/song-document-editor"), {
   ssr: false,
-  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editorâ€¦</p>,
+  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editor…</p>,
 });
 
 export default function ServiceBuilderClient({
@@ -2063,7 +2063,7 @@ export default function ServiceBuilderClient({
                                         {songName}
                                       </p>
                                       <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
-                                        Last touched by {editorName} Â· {lastTouchedAge}
+                                        Last touched by {editorName} · {lastTouchedAge}
                                       </p>
                                     </div>
                                   </div>
@@ -2093,7 +2093,7 @@ export default function ServiceBuilderClient({
                             })
                           ) : (
                             <div className="rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-4 text-sm text-[var(--text-secondary)]">
-                              {recovery.checking ? "Loading recent conversionsâ€¦" : "No conversions yet."}
+                              {recovery.checking ? "Loading recent conversions…" : "No conversions yet."}
                             </div>
                           )}
                         </div>
@@ -2154,7 +2154,7 @@ export default function ServiceBuilderClient({
                     </>
                   ) : (
                     <section className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-panel)] p-8 text-center shadow-[var(--elevation-subtle)]">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{recovery.checking ? "Recovering your draftâ€¦" : recovery.error ?? "No extracted draft yet"}</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{recovery.checking ? "Recovering your draft…" : recovery.error ?? "No extracted draft yet"}</p>
                       <p className="mt-2 text-xs text-[var(--text-secondary)]">
                         Start on Upload or paste lyrics, then the processed draft will open here.
                       </p>
