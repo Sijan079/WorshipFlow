@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Edit3, Loader2, Menu, Plus, RefreshCw, Save, Search, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
-import { addTeamMember, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
+import { addTeamMember, dropdownReserve, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
 
 type ServiceFormState = {
   assignedMinistry: string;
@@ -262,7 +262,30 @@ function TeamMemberPicker({
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [reserve, setReserve] = useState(0);
   const availableMembers = filterTeamMembers(members, search, personIds);
+  const rowCount = availableMembers.length;
+
+  // Near the bottom of a dialog the open list would sit flush against its footer. Measure the room
+  // under the field, reserve any shortfall as space in the scroll area, and scroll the list into
+  // view with a margin.
+  useLayoutEffect(() => {
+    const field = fieldRef.current;
+    if (!isOpen || !field) {
+      setReserve(0);
+      return;
+    }
+    let scroller: HTMLElement | null = field.parentElement;
+    while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+    const visibleBottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight;
+    setReserve(dropdownReserve(visibleBottom - field.getBoundingClientRect().bottom, rowCount));
+  }, [isOpen, rowCount, search]);
+
+  useEffect(() => {
+    if (isOpen && reserve > 0) listRef.current?.scrollIntoView({ block: "nearest" });
+  }, [isOpen, reserve]);
 
   // Close the list when the pointer goes down anywhere outside this field.
   useEffect(() => {
@@ -301,7 +324,7 @@ function TeamMemberPicker({
           })}
         </div>
       ) : null}
-      <div className={`relative ${personIds.length > 0 ? "mt-2" : ""}`}>
+      <div ref={fieldRef} className={`relative ${personIds.length > 0 ? "mt-2" : ""}`}>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         <input
           type="text"
@@ -324,7 +347,7 @@ function TeamMemberPicker({
           <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
         {isOpen ? (
-          <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-panel-elevated)] py-1 shadow-[var(--elevation-modal)]">
+          <div ref={listRef} className="absolute z-20 mt-1 max-h-52 w-full scroll-mb-4 overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-panel-elevated)] py-1 shadow-[var(--elevation-raised)]">
             {availableMembers.length ? availableMembers.map((member) => (
               <button
                 key={member.id}
@@ -338,6 +361,7 @@ function TeamMemberPicker({
           </div>
         ) : null}
       </div>
+      {reserve > 0 ? <div aria-hidden="true" style={{ height: reserve }} /> : null}
     </div>
   );
 }

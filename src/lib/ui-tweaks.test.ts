@@ -55,6 +55,14 @@ export function runUiTweaksTests() {
   assert.match(picker2, /max-h-52/);
   assert.match(picker2, /flex h-10 w-full items-center/);
   assert.doesNotMatch(picker2, /max-h-48/);
+  // Near a dialog footer the field reserves room (measured, then scrolled into view with a margin),
+  // and the list uses a lighter shadow than a dialog or menu.
+  assert.match(picker2, /dropdownReserve\(/);
+  assert.match(picker2, /useLayoutEffect/);
+  assert.match(picker2, /scroll-mb-4/);
+  assert.match(picker2, /aria-hidden="true" style=\{\{ height: reserve \}\}/);
+  assert.match(picker2, /shadow-\[var\(--elevation-raised\)\]/);
+  assert.doesNotMatch(picker2, /elevation-modal/);
   assert.doesNotMatch(services, /Manage people|peopleHref/);
   assert.doesNotMatch(read("src", "components", "service-builder-client.tsx"), /Manage people/);
   const globals = read("src", "app", "globals.css");
