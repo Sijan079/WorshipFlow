@@ -23,9 +23,30 @@ export function runPeopleSchemaTests() {
   assert.match(schema, /^enum BaptismStatus \{[\s\S]*?BAPTIZED[\s\S]*?NOT_BAPTIZED[\s\S]*?UNKNOWN[\s\S]*?\}/m);
 
   const person = modelBlock(schema, "Person");
-  for (const field of ["workspaceId", "name", "status", "gender", "birthdate", "baptismStatus", "baptismDate", "createdByUserId", "updatedByUserId"]) {
+  for (const field of ["workspaceId", "firstName", "lastName", "status", "gender", "birthdate", "baptismStatus", "baptismDate", "createdByUserId", "updatedByUserId"]) {
     assert.ok(person.split(/[^A-Za-z]+/).includes(field), `Person.${field}`);
   }
+
+  assert.equal(person.split(/[^A-Za-z]+/).includes("name"), false, "Person has first and last name, not one name field");
+  assert.match(person, /\bfirstName\s+String\s*$/m);
+  assert.match(person, /\blastName\s+String\s*$/m);
+  assert.match(modelBlock(schema, "WorshipService"), /\bministryId\s+String\?/);
+
+  const namesFolder = readdirSync(join(root, "prisma", "migrations-current")).find((name) => name.endsWith("_person_names_and_service_ministry"));
+  assert.ok(namesFolder, "Expected a *_person_names_and_service_ministry migration");
+  const namesSql = readFileSync(join(root, "prisma", "migrations-current", namesFolder, "migration.sql"), "utf8");
+  assert.match(namesSql, /ADD COLUMN "firstName"/);
+  assert.match(namesSql, /ADD COLUMN "lastName"/);
+  assert.match(namesSql, /UPDATE "WorshipService"/, "Existing services keep their ministry");
+
+  // The destructive drop is queued, not applied, until the new code is deployed.
+  const queue = join(root, "prisma", "deploy-queue");
+  const dropFolder = existsSync(queue) ? readdirSync(queue).find((name) => name.endsWith("_drop_servants")) : undefined;
+  assert.ok(dropFolder, "Expected prisma/deploy-queue/*_drop_servants");
+  const dropSql = readFileSync(join(queue, dropFolder, "migration.sql"), "utf8");
+  assert.match(dropSql, /DROP TABLE "Servant"/);
+  assert.match(dropSql, /DROP TABLE "ServantGroupPreset"/);
+  assert.equal(readdirSync(join(root, "prisma", "migrations-current")).some((name) => name.endsWith("_drop_servants")), false, "The drop must not be in migrations-current until deploy");
 
   const ministry = modelBlock(schema, "Ministry");
   assert.match(ministry, /@@unique\(\[workspaceId, code\]\)/);

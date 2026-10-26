@@ -441,6 +441,7 @@ model WorshipService {
   ministryName  String
   ministryPresetCode String?
   assignedMinistry AssignedMinistry?
+  ministryId    String?
   sermonVerse   String?
   theme         String?
   status        ServiceStatus  @default(DRAFT)
@@ -453,6 +454,7 @@ model WorshipService {
   updatedAt     DateTime       @updatedAt
 
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ministry      Ministry?      @relation(fields: [ministryId], references: [id], onDelete: SetNull)
   blocks        WorshipServiceBlock[]
   songs         WorshipServiceSong[]
   details       WorshipServiceDetail[]
@@ -830,7 +832,8 @@ model GeneratedOutput {
 model Person {
   id              String        @id @default(uuid())
   workspaceId     String
-  name            String
+  firstName       String
+  lastName        String
   status          PersonStatus  @default(REGULAR)
   gender          ServantGender?
   birthdate       DateTime?     @db.Date
@@ -847,7 +850,7 @@ model Person {
   serviceAssignments ServiceServantAssignment[]
   blockPeople     BlockPerson[]
 
-  @@index([workspaceId, status, name])
+  @@index([workspaceId, status, lastName, firstName])
 }
 
 model Ministry {
@@ -863,6 +866,7 @@ model Ministry {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   leader      Person?   @relation("MinistryLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   members     PersonMinistry[]
+  services    WorshipService[]
 
   @@unique([workspaceId, code])
 }
