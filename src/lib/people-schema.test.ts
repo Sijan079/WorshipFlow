@@ -49,6 +49,12 @@ export function runPeopleSchemaTests() {
   assert.equal(readdirSync(join(root, "prisma", "migrations-current")).some((name) => name.endsWith("_drop_servants")), false, "The drop must not be in migrations-current until deploy");
 
   const ministry = modelBlock(schema, "Ministry");
+  assert.match(ministry, /\bserviceOnly\s+Boolean\b/);
+  const serviceOnlyFolder = readdirSync(join(root, "prisma", "migrations-current")).find((name) => name.endsWith("_ministry_service_only"));
+  assert.ok(serviceOnlyFolder, "Expected a *_ministry_service_only migration");
+  const serviceOnlySql = readFileSync(join(root, "prisma", "migrations-current", serviceOnlyFolder, "migration.sql"), "utf8");
+  assert.match(serviceOnlySql, /ADD COLUMN "serviceOnly" BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(serviceOnlySql, /SET "serviceOnly" = true WHERE "code" = 'MIXED'/);
   assert.match(ministry, /@@unique\(\[workspaceId, code\]\)/);
   assert.match(ministry, /\bleaderId\b/);
 

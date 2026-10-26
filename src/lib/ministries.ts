@@ -2,14 +2,15 @@
 // ministries (AssignedMinistry) and the servant groups (ServantGroup).
 
 export const DEFAULT_MINISTRIES = [
-  { code: "CHURCH_LEADERS", label: "Church Leaders" },
-  { code: "PASTORS", label: "Pastors" },
-  { code: "MENS", label: "Men's" },
-  { code: "LADIES", label: "Ladies'" },
-  { code: "YOUTH", label: "Youth" },
-  { code: "TECH", label: "Tech" },
-  { code: "MUSIC", label: "Music" },
-  { code: "MIXED", label: "Mixed" },
+  { code: "CHURCH_LEADERS", label: "Church Leaders", serviceOnly: false },
+  { code: "PASTORS", label: "Pastors", serviceOnly: false },
+  { code: "MENS", label: "Men's", serviceOnly: false },
+  { code: "LADIES", label: "Ladies'", serviceOnly: false },
+  { code: "YOUTH", label: "Youth", serviceOnly: false },
+  { code: "TECH", label: "Tech", serviceOnly: false },
+  { code: "MUSIC", label: "Music", serviceOnly: false },
+  // Not a group of people: how a 5th Sunday service is run, by a mixed team.
+  { code: "MIXED", label: "Mixed", serviceOnly: true },
 ] as const;
 
 export type MinistryCode = (typeof DEFAULT_MINISTRIES)[number]["code"];

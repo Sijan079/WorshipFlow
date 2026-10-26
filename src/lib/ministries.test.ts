@@ -8,6 +8,10 @@ export function runMinistriesTests() {
   );
   assert.equal(new Set(DEFAULT_MINISTRIES.map((ministry) => ministry.code)).size, DEFAULT_MINISTRIES.length);
 
+  // Mixed is how a service is run (a mixed team on a 5th Sunday), not a group people belong to.
+  const serviceOnly = DEFAULT_MINISTRIES.filter((ministry) => ministry.serviceOnly).map((ministry) => ministry.code);
+  assert.deepEqual(serviceOnly, ["MIXED"]);
+
   const labels = Object.fromEntries(DEFAULT_MINISTRIES.map((ministry) => [ministry.code, ministry.label]));
   assert.equal(labels.CHURCH_LEADERS, "Church Leaders");
   assert.equal(labels.MENS, "Men's");

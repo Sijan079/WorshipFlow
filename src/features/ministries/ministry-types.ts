@@ -3,6 +3,8 @@ export type MinistryRecord = {
   code: string;
   label: string;
   active: boolean;
+  /** Offered only on services (such as Mixed); never something a person belongs to. */
+  serviceOnly: boolean;
   leaderId: string | null;
   leaderName: string | null;
   memberCount: number;

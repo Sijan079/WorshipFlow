@@ -859,6 +859,7 @@ model Ministry {
   code        String
   label       String
   active      Boolean  @default(true)
+  serviceOnly Boolean  @default(false)
   leaderId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

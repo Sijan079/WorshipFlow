@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (!baptism.ok) return NextResponse.json({ error: { fieldErrors: { baptismDate: [baptism.error] } } }, { status: 400 });
 
     if (input.ministryIds) {
-      const ministries = await prisma.ministry.findMany({ where: { id: { in: input.ministryIds }, workspaceId: context.workspaceId }, select: { id: true } });
+      const ministries = await prisma.ministry.findMany({ where: { id: { in: input.ministryIds }, workspaceId: context.workspaceId, serviceOnly: false }, select: { id: true } });
       if (ministries.length !== input.ministryIds.length) {
         return NextResponse.json({ error: "Choose ministries from this church." }, { status: 400 });
       }

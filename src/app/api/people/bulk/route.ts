@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ count: result.count });
     }
 
-    const ministry = await prisma.ministry.findFirst({ where: { id: ministryId, workspaceId: context.workspaceId }, select: { id: true } });
+    const ministry = await prisma.ministry.findFirst({ where: { id: ministryId, workspaceId: context.workspaceId, serviceOnly: false }, select: { id: true } });
     if (!ministry) return NextResponse.json({ error: "Choose a ministry from this church." }, { status: 400 });
     const result = await prisma.personMinistry.createMany({
       data: personIds.map((personId) => ({ personId, ministryId: ministry.id })),

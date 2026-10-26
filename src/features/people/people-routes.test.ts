@@ -30,4 +30,9 @@ export function runPeopleRoutesTests() {
   // Ministries chosen for a person must belong to the same workspace.
   assert.match(list, /ministry\.findMany\(\{ where: \{ id: \{ in: [^\n]*workspaceId: context\.workspaceId/);
   assert.match(one, /ministry\.findMany\(\{ where: \{ id: \{ in: [^\n]*workspaceId: context\.workspaceId/);
+
+  // Service-only ministries (Mixed) are never something a person can belong to.
+  assert.match(list, /ministry\.findMany\(\{ where: \{ id: \{ in: [^\n]*serviceOnly: false/);
+  assert.match(one, /ministry\.findMany\(\{ where: \{ id: \{ in: [^\n]*serviceOnly: false/);
+  assert.match(bulk, /ministry\.findFirst\(\{ where: \{ id: ministryId[^\n]*serviceOnly: false/);
 }

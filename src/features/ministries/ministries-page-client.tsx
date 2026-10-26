@@ -112,7 +112,8 @@ export default function MinistriesPageClient() {
 
   const query = useQuery({ queryKey: MINISTRIES_QUERY_KEY, queryFn: fetchMinistries });
   const canEdit = query.data?.permissions.canEdit ?? false;
-  const all = query.data?.items ?? [];
+  // Service-only ministries (Mixed) are for services, not for grouping people.
+  const all = (query.data?.items ?? []).filter((ministry) => !ministry.serviceOnly);
   const items = showArchived ? all : all.filter((ministry) => ministry.active);
 
   // Resolves once the lists have reloaded, so a finished action never shows a stale list.

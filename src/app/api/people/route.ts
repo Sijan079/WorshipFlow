@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     const input = parsed.data;
 
-    const ministries = await prisma.ministry.findMany({ where: { id: { in: input.ministryIds }, workspaceId: context.workspaceId }, select: { id: true } });
+    const ministries = await prisma.ministry.findMany({ where: { id: { in: input.ministryIds }, workspaceId: context.workspaceId, serviceOnly: false }, select: { id: true } });
     if (ministries.length !== input.ministryIds.length) {
       return NextResponse.json({ error: "Choose ministries from this church." }, { status: 400 });
     }

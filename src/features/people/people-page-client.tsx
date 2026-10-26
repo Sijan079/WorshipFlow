@@ -76,7 +76,8 @@ export default function PeoplePageClient() {
   const ministriesQuery = useQuery({ queryKey: MINISTRIES_QUERY_KEY, queryFn: fetchMinistries });
   const people = peopleQuery.data?.items ?? [];
   const permissions = peopleQuery.data?.permissions ?? { canCreate: false, canEdit: false, canDelete: false };
-  const ministries = ministriesQuery.data?.items ?? [];
+  // Service-only ministries (Mixed) are for services, not for grouping people.
+  const ministries = (ministriesQuery.data?.items ?? []).filter((ministry) => !ministry.serviceOnly);
   const activeMinistries = ministries.filter((ministry) => ministry.active);
   const filtersActive = Boolean(search.trim() || ministryId || status !== "active");
 

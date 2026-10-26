@@ -5,6 +5,7 @@ export const MINISTRY_SELECT = {
   code: true,
   label: true,
   active: true,
+  serviceOnly: true,
   leaderId: true,
   leader: { select: { firstName: true, lastName: true } },
   _count: { select: { members: true } },
@@ -15,6 +16,7 @@ type MinistryRow = {
   code: string;
   label: string;
   active: boolean;
+  serviceOnly: boolean;
   leaderId: string | null;
   leader: { firstName: string; lastName: string } | null;
   _count: { members: number };
@@ -26,6 +28,7 @@ export function toMinistryRecord(row: MinistryRow): MinistryRecord {
     code: row.code,
     label: row.label,
     active: row.active,
+    serviceOnly: row.serviceOnly,
     leaderId: row.leaderId,
     leaderName: row.leader ? `${row.leader.firstName} ${row.leader.lastName}` : null,
     memberCount: row._count.members,

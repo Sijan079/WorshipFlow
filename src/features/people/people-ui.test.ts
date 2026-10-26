@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { datePartsToIso, emptyPersonForm, formToPayload, isoToDateParts, personToForm, validatePersonForm } from "./person-form.ts";
-import { formatBaptism, formatLongDate, formatStatusLabel, personInitials } from "./people-format.ts";
+import { STATUS_DESCRIPTIONS, formatBaptism, formatLongDate, formatStatusLabel, personInitials } from "./people-format.ts";
 import type { PersonRecord } from "./person-types.ts";
 
 const record: PersonRecord = {
@@ -75,6 +75,21 @@ export function runPeopleUiTests() {
   assert.equal(formatBaptism({ ...record, baptismStatus: "UNKNOWN", baptismDate: null }), "—");
   assert.equal(formatStatusLabel("INACTIVE"), "Inactive");
   assert.equal(personInitials("Angel Evee", "Hipolito"), "AH");
+
+  // Each status explains itself, so Regular and Member are never a guess.
+  assert.equal(STATUS_DESCRIPTIONS.MEMBER, "Has formally joined the church.");
+  assert.match(STATUS_DESCRIPTIONS.REGULAR, /not formally joined/);
+  for (const status of ["VISITOR", "REGULAR", "MEMBER", "INACTIVE", "ARCHIVED"] as const) {
+    assert.ok(STATUS_DESCRIPTIONS[status].length > 0, status);
+  }
+  const dialog = readFileSync(join(process.cwd(), "src", "features", "people", "person-dialog.tsx"), "utf8");
+  assert.match(dialog, /STATUS_DESCRIPTIONS\[form\.status\]/);
+
+  // People and Ministries screens leave service-only ministries (Mixed) out.
+  const peoplePage = readFileSync(join(process.cwd(), "src", "features", "people", "people-page-client.tsx"), "utf8");
+  const ministriesPage = readFileSync(join(process.cwd(), "src", "features", "ministries", "ministries-page-client.tsx"), "utf8");
+  assert.match(peoplePage, /!ministry\.serviceOnly/);
+  assert.match(ministriesPage, /!ministry\.serviceOnly/);
 
   // The screens are reachable: nav entries exist and the page gate checks PEOPLE access.
   const shell = readFileSync(join(process.cwd(), "src", "components", "workspace-shell.tsx"), "utf8");
