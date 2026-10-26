@@ -44,6 +44,7 @@ import { runServicePeopleMinistryTests } from "./lib/service-people-ministry.tes
 import { runTeamsRetiredTests } from "./lib/teams-retired.test.ts";
 import { runUiTweaksTests } from "./lib/ui-tweaks.test.ts";
 import { runCronAuthTests } from "./lib/cron-auth.test.ts";
+import { runCaptionUiTests } from "./features/sermon-captions/caption-ui.test.ts";
 import "./lib/module-access.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
@@ -113,6 +114,7 @@ runServicePeopleMinistryTests();
 runTeamsRetiredTests();
 runUiTweaksTests();
 runCronAuthTests();
+runCaptionUiTests();
 runWorkspaceShellTests();
 runFeedbackTests();
 runWorkspaceRouteTests();

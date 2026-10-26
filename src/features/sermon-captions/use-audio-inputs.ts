@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { calculateAudioLevel, resolveAudioInput } from "./audio-level";
+import { usableAudioInputs } from "./caption-ui";
 
-type CheckState = "idle" | "checking" | "receiving" | "error";
+export type AudioCheckState = "idle" | "checking" | "receiving" | "error";
 
-export default function AudioCheck({ selectedId, onSelectedIdChange }: { selectedId: string; onSelectedIdChange: (id: string) => void }) {
+// Lists the PC's recording inputs, asks for microphone permission, and runs the local level test.
+// The test never records or sends audio anywhere. Unmounting stops the test and frees the device.
+export function useAudioInputs(selectedId: string) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [state, setState] = useState<CheckState>("idle");
+  const [state, setState] = useState<AudioCheckState>("idle");
   const [message, setMessage] = useState("Choose the PC input carrying the Ui24R AUX feed.");
   const [level, setLevel] = useState(0);
   const streamRef = useRef<MediaStream | null>(null);
@@ -15,6 +18,9 @@ export default function AudioCheck({ selectedId, onSelectedIdChange }: { selecte
   const frameRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
   const requestRef = useRef(0);
+
+  const options = usableAudioInputs(devices);
+  const needsPermission = options.length === 0 || devices.some((device) => device.kind === "audioinput" && !device.label);
   const meterPercent = Math.round(Math.sqrt(level) * 100);
 
   const stopAudio = useCallback(() => {
@@ -72,7 +78,7 @@ export default function AudioCheck({ selectedId, onSelectedIdChange }: { selecte
       const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       permissionStream.getTracks().forEach((track) => track.stop());
       if (await refreshDevices()) {
-        setMessage("Input names are available. Select the PC Line In used for captions.");
+        setMessage("The input names are now listed. Select the PC Line In used for captions.");
         setState("idle");
       }
     } catch (error) {
@@ -136,45 +142,5 @@ export default function AudioCheck({ selectedId, onSelectedIdChange }: { selecte
     setMessage("Input test stopped. Audio was not recorded or sent to a caption provider.");
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="min-w-56 flex-1 text-sm font-semibold text-[var(--text-primary)]">
-          PC recording input
-          <select
-            value={selectedId}
-            onChange={(event) => {
-              stopTest();
-              onSelectedIdChange(event.target.value);
-            }}
-            className="ui-field mt-2 block min-h-11 w-full px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
-          >
-            <option value="">Select an input</option>
-            {devices.map((device, index) => (
-              <option key={`${device.deviceId}-${index}`} value={device.deviceId}>
-                {device.label || `Recording input ${index + 1}`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" onClick={() => void revealInputs()} disabled={state === "checking" || state === "receiving"} className="ui-btn-secondary min-h-11 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]">
-          Show input names
-        </button>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        {state === "receiving" ? (
-          <button type="button" onClick={stopTest} className="ui-btn-secondary min-h-11 px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]">Stop input test</button>
-        ) : (
-          <button type="button" onClick={() => void startTest()} disabled={!selectedId || state === "checking"} className="ui-btn-primary min-h-11 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]">Test audio input</button>
-        )}
-        <div className="min-w-32 flex-1" aria-label="Input signal level" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={meterPercent}>
-          <div className="h-2.5 overflow-hidden rounded-full bg-[var(--surface-panel-strong)]">
-            <div className="h-full bg-[var(--state-success)]" style={{ width: `${meterPercent}%` }} />
-          </div>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{state === "receiving" ? level === 0 ? "Quiet" : "Signal present" : "Input level"}</p>
-        </div>
-      </div>
-      <p role="status" className={`text-sm ${state === "error" ? "text-[var(--text-danger)]" : "text-[var(--text-secondary)]"}`}>{message}</p>
-    </div>
-  );
+  return { options, needsPermission, state, message, level, meterPercent, revealInputs, startTest, stopTest };
 }
