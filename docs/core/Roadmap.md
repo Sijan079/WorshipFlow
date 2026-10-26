@@ -20,9 +20,13 @@ write the failing check first, build, verify, document.
    fresh in step 3.
    Check: `npm test` (schema and migration shape, default Ministries); hosted DB
    shows 0 people, the Ministries seeded, and the Servant table untouched.
-2. **PEOPLE permission module.**
-   Check: a Member with no grant is refused the directory; a Member with a grant
-   can read it.
+2. **PEOPLE permission module** (done 2026-10-26). Grantable VIEW, CREATE, EDIT;
+   hard delete stays Owner/Admin only; Ministries follow PEOPLE. The Membership
+   settings list it automatically. No People route handlers exist yet, so
+   enforcement is `requirePeopleAction`, ready for step 3.
+   Check: `npm test` covers the role and grant matrix (Member with no grant is
+   refused; a granted Member can read; Create and Edit need View; Delete is never
+   granted to a Member); the permissions route accepts PEOPLE; hosted enum has it.
 3. **People and Ministries screens.** Enter the roster fresh, switch the service
    pickers and service "assigned ministry" to `Person` and `Ministry`, then retire
    the Teams page, the servants API, and the Ministries and Servant Groups

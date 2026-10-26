@@ -14,11 +14,15 @@ team enters and edits all People data; congregants only see the public site.
 - Per-person, per-module, per-action grants stay, with workspace-level Member
   defaults. Only Owner/Admin can administer grants. Every route handler enforces
   the check itself; the proxy does not authorize.
-- New module PEOPLE with actions VIEW, CREATE, EDIT, DELETE. Member default:
-  no access. Owner/Admin have full access. Team-leader scoped access (a leader
-  sees only their ministry) is a later addition.
-- Ministries: access follows PEOPLE for now. Decide separately if it needs its
-  own grants.
+- Module PEOPLE (built, step 2) with grantable actions VIEW, CREATE, and EDIT
+  (edit includes archive). Member default: no access. Create and Edit also
+  require View. **Hard delete is not grantable**: only Owner and Admin can
+  permanently delete a person. Owner/Admin have full access. Team-leader scoped
+  access (a leader sees only their ministry) is a later addition.
+- Ministries follow PEOPLE (decided 2026-10-26). Give them their own grants only
+  if a real need appears. Rules live in
+  `src/features/people/people-access-rules.ts`, enforced per route handler with
+  `requirePeopleAction`.
 - Site management (pages, posts, publish) is a module with its own actions
   (VIEW, CREATE, EDIT, DELETE, PUBLISH). Exact enum names are set in
   `Data-Model.md`.
