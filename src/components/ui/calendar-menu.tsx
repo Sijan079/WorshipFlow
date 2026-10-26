@@ -62,6 +62,21 @@ export function CalendarMenu({
     };
   }, [open]);
 
+  // A dialog locks page scrolling and ignores anything outside its own content, which would
+  // swallow the wheel and touch here. Stopping the event at the list, before it reaches the
+  // document, lets the list scroll normally.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || !list) return;
+    const keepScrollHere = (event: Event) => event.stopPropagation();
+    list.addEventListener("wheel", keepScrollHere, { passive: true });
+    list.addEventListener("touchmove", keepScrollHere, { passive: true });
+    return () => {
+      list.removeEventListener("wheel", keepScrollHere);
+      list.removeEventListener("touchmove", keepScrollHere);
+    };
+  }, [open]);
+
   // Keep the highlighted row inside the visible part of the list.
   useEffect(() => {
     const list = listRef.current;
@@ -102,7 +117,7 @@ export function CalendarMenu({
         aria-label={`${label}: ${selectedLabel}`}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
-        className="inline-flex min-h-10 items-center justify-between gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+        className="inline-flex min-h-10 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-alt)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
       >
         {selectedLabel}
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-[var(--text-secondary)] transition-transform", open && "rotate-180")} aria-hidden="true" />

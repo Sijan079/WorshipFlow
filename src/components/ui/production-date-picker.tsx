@@ -113,7 +113,7 @@ export function ProductionDatePicker({
               <button
                 type="button"
                 onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
                 aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -140,7 +140,7 @@ export function ProductionDatePicker({
                 type="button"
                 onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
                 disabled={monthIsAfter(nextMonth, maxValue)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)] disabled:opacity-40"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)] disabled:opacity-40"
                 aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />

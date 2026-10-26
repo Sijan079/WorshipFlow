@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   calendarYearOptions,
   formatCalendarDate,
@@ -44,6 +46,22 @@ export function runCalendarDateTests() {
   assert.equal(moveMenuIndex(3, "PageUp", 127), 0);
   assert.equal(moveMenuIndex(4, "x", 12), 4);
   assert.equal(moveMenuIndex(-1, "ArrowDown", 12), 0);
+
+  // The menus live outside the dialog's own content, so a dialog's scroll lock would swallow
+  // the wheel and touch. The list handles both itself.
+  const menu = readFileSync(join(process.cwd(), "src", "components", "ui", "calendar-menu.tsx"), "utf8");
+  // React attaches its handlers at the document, level with the lock, so these must be
+  // native listeners on the list element itself.
+  assert.match(menu, /list\.addEventListener\("wheel", keepScrollHere/);
+  assert.match(menu, /list\.addEventListener\("touchmove", keepScrollHere/);
+  assert.doesNotMatch(menu, /onWheel=/);
+
+  // The header controls (previous, month, year, next) have no borders and share one size.
+  const picker = readFileSync(join(process.cwd(), "src", "components", "ui", "production-date-picker.tsx"), "utf8");
+  assert.equal((picker.match(/border border-\[var\(--border-default\)\]/g) ?? []).length, 2, "only the field and the calendar panel keep a border");
+  assert.doesNotMatch(menu, /border border-\[var\(--border-default\)\]/);
+  assert.equal((picker.match(/h-10 w-10/g) ?? []).length, 2, "previous and next are the same size as the menus");
+  assert.match(menu, /min-h-10/);
 
   // The next-month button stops at the month of the latest allowed date.
   assert.equal(monthIsAfter(new Date(2026, 10, 1), "2026-10-26"), true);
