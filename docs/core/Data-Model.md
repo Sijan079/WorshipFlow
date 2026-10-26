@@ -9,7 +9,10 @@ intent and the decisions behind schema changes.
 
 ### Person (workspace-scoped)
 
-- `name`, `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR).
+- `firstName` and `lastName`, both required, so people with the same first name can
+  be told apart. Shown as "First Last", sorted by last name then first name. A
+  two-word first name ("Angel Evee") stays in `firstName`.
+- `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR).
 - `gender`: optional (MALE, FEMALE), carried over from the old servant roster.
 - `birthdate`: optional full date.
 - `baptismStatus`: BAPTIZED, NOT_BAPTIZED, UNKNOWN.
@@ -55,9 +58,10 @@ intent and the decisions behind schema changes.
 ## Changed models
 
 - `Servant` is replaced by `Person` plus Ministry membership, **without a data
-  migration**: the roster is entered fresh on the People screens at step 3. Until
-  then Teams and the service pickers keep using `Servant`. The old table stays
-  until step 8.
+  migration**: the roster is entered fresh by hand on the People screens. The
+  `Servant` and `ServantGroupPreset` tables and the `ServantGroup` enum are dropped
+  by a migration held in `prisma/deploy-queue/` and applied only when the new code
+  is merged and deployed, because the live deployed app still reads them.
 - `ServiceServantAssignment` and `BlockPerson` store `personName` text, not a
   link to a servant. Step 1 adds an optional `personId` to both and keeps
   `personName` as the record of who served. Linking happens at step 3, if wanted,
@@ -72,7 +76,9 @@ intent and the decisions behind schema changes.
   4 months of occurrences; extend as time passes.
 - Remove `EventVisitor` (superseded by Person with status VISITOR) and
   `EventRegistrationProvider` (the registration link stays as a plain URL).
-- `WorshipService`: add optional `headcount` (nullable integer).
+- `WorshipService`: add optional `headcount` (nullable integer), and an optional
+  `ministryId` pointing at `Ministry` (backfilled from the old ministry code; the
+  old enum column stays until the final cleanup).
 - `ChurchEventOccurrence.attendanceCount` stays as the optional per-occurrence
   headcount.
 - `EventAnnouncement` becomes a church-wide `Announcement`: title, body, optional

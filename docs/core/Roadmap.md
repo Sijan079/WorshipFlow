@@ -27,10 +27,14 @@ write the failing check first, build, verify, document.
    Check: `npm test` covers the role and grant matrix (Member with no grant is
    refused; a granted Member can read; Create and Edit need View; Delete is never
    granted to a Member); the permissions route accepts PEOPLE; hosted enum has it.
-3. **People and Ministries screens.** Enter the roster fresh, switch the service
-   pickers and service "assigned ministry" to `Person` and `Ministry`, then retire
-   the Teams page, the servants API, and the Ministries and Servant Groups
-   sections in Settings.
+3. **People and Ministries screens.** One step, built in this order, tests first,
+   one commit per piece: schema (split name, service `ministryId`, queue the
+   Servant drop); People API; People screen and person dialog; Ministries API and
+   screen; switch the service pickers, text parser and "add to roster" flow to
+   People; switch the service ministry to `Ministry`; remove the Teams page,
+   `/api/servants`, and the two Settings preset sections, and put People and
+   Ministries in the nav. The roster is entered fresh by hand (no bulk add).
+   Applying `prisma/deploy-queue/` (drops `Servant` data) happens at deploy time.
    Check: create, edit, archive, restore; hard delete is Owner/Admin only;
    baptism date is rejected unless status is BAPTIZED.
    After this step, write a thin project design skill in `.claude/skills/` that
