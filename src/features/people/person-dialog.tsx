@@ -3,10 +3,21 @@
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
+import { formatCalendarDate } from "@/lib/calendar-date";
 import type { MinistryRecord } from "@/features/ministries/ministry-types";
-import { MONTH_NAMES, formatStatusLabel } from "./people-format";
-import { emptyPersonForm, personToForm, validatePersonForm, type PersonForm, type PersonFormErrors } from "./person-form";
+import { formatStatusLabel } from "./people-format";
+import {
+  datePartsToIso,
+  emptyPersonForm,
+  isoToDateParts,
+  personToForm,
+  validatePersonForm,
+  type DateParts,
+  type PersonForm,
+  type PersonFormErrors,
+} from "./person-form";
 import type { PersonRecord } from "./person-types";
 import { BAPTISM_STATUSES, PERSON_STATUSES, type BaptismStatus } from "./person-validation";
 
@@ -17,46 +28,34 @@ const BAPTISM_LABELS: Record<BaptismStatus, string> = {
   UNKNOWN: "Don't know",
 };
 
-function dayOptions() {
-  return [{ value: "", label: "Day" }, ...Array.from({ length: 31 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }))];
-}
-
-function monthOptions() {
-  return [{ value: "", label: "Month" }, ...MONTH_NAMES.map((name, index) => ({ value: String(index + 1), label: name }))];
-}
-
-function yearOptions() {
-  const current = new Date().getFullYear();
-  return [{ value: "", label: "Year" }, ...Array.from({ length: current - 1899 }, (_, index) => ({ value: String(current - index), label: String(current - index) }))];
-}
-
-function DateSelects({
+function DateField({
   legend,
-  year,
-  month,
-  day,
+  parts,
   error,
-  disabled,
   onChange,
 }: {
   legend: string;
-  year: string;
-  month: string;
-  day: string;
+  parts: DateParts;
   error?: string;
-  disabled?: boolean;
-  onChange: (next: { year: string; month: string; day: string }) => void;
+  onChange: (next: DateParts) => void;
 }) {
+  const iso = datePartsToIso(parts);
   return (
-    <fieldset disabled={disabled} className="min-w-0">
-      <legend className={LABEL_CLASS}>{legend}</legend>
-      <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-2">
-        <ProductionSelect ariaLabel={`${legend}, month`} value={month} onValueChange={(value) => onChange({ year, month: value, day })} options={monthOptions()} disabled={disabled} />
-        <ProductionSelect ariaLabel={`${legend}, day`} value={day} onValueChange={(value) => onChange({ year, month, day: value })} options={dayOptions()} disabled={disabled} />
-        <ProductionSelect ariaLabel={`${legend}, year`} value={year} onValueChange={(value) => onChange({ year: value, month, day })} options={yearOptions()} disabled={disabled} />
-      </div>
+    <div className="min-w-0">
+      <ProductionDatePicker
+        label={legend}
+        labelClassName={LABEL_CLASS}
+        value={iso === null || iso === "incomplete" ? "" : iso}
+        onValueChange={(value) => onChange(isoToDateParts(value || null))}
+        allowClear
+        jumpToMonthAndYear
+        showToday={false}
+        maxValue={formatCalendarDate(new Date())}
+        placeholder="Choose a date"
+        triggerClassName="min-h-11"
+      />
       {error ? <p className="mt-1 text-sm text-[var(--state-danger)]" role="alert">{error}</p> : null}
-    </fieldset>
+    </div>
   );
 }
 
@@ -145,11 +144,9 @@ export function PersonDialog({
             />
           </div>
 
-          <DateSelects
+          <DateField
             legend="Birthdate"
-            year={form.birthYear}
-            month={form.birthMonth}
-            day={form.birthDay}
+            parts={{ year: form.birthYear, month: form.birthMonth, day: form.birthDay }}
             error={errors.birthdate}
             onChange={(next) => patch({ birthYear: next.year, birthMonth: next.month, birthDay: next.day })}
           />
@@ -188,11 +185,9 @@ export function PersonDialog({
               options={BAPTISM_STATUSES.map((status) => ({ value: status, label: BAPTISM_LABELS[status] }))}
             />
             {form.baptismStatus === "BAPTIZED" ? (
-              <DateSelects
+              <DateField
                 legend="Baptism date (optional)"
-                year={form.baptismYear}
-                month={form.baptismMonth}
-                day={form.baptismDay}
+                parts={{ year: form.baptismYear, month: form.baptismMonth, day: form.baptismDay }}
                 error={errors.baptismDate}
                 onChange={(next) => patch({ baptismYear: next.year, baptismMonth: next.month, baptismDay: next.day })}
               />

@@ -3,11 +3,19 @@
 import { useId, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "radix-ui";
-import { formatCalendarDate, getCalendarDays, parseCalendarDate } from "@/lib/calendar-date";
+import {
+  calendarYearOptions,
+  formatCalendarDate,
+  getCalendarDays,
+  isCalendarDayDisabled,
+  monthIsAfter,
+  parseCalendarDate,
+} from "@/lib/calendar-date";
 import { cn } from "@/lib/utils";
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const MONTH_NAMES = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date(2026, month, 1)));
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type ProductionDatePickerProps = {
@@ -19,6 +27,15 @@ type ProductionDatePickerProps = {
   labelClassName?: string;
   triggerClassName?: string;
   allowClear?: boolean;
+  /** Shows month and year menus so a distant date, such as a birth year, is a few taps away. */
+  jumpToMonthAndYear?: boolean;
+  /** Latest date that can be chosen (YYYY-MM-DD). Later days are disabled. */
+  maxValue?: string;
+  /** Oldest year offered in the year menu. */
+  minYear?: number;
+  /** Shows the "Today" shortcut. Turn off for dates that are never today, such as birthdays. */
+  showToday?: boolean;
+  placeholder?: string;
 };
 
 export function ProductionDatePicker({
@@ -30,12 +47,24 @@ export function ProductionDatePicker({
   labelClassName,
   triggerClassName,
   allowClear = false,
+  jumpToMonthAndYear = false,
+  maxValue,
+  minYear = 1900,
+  showToday = true,
+  placeholder = "Select date",
 }: ProductionDatePickerProps) {
   const labelId = useId();
   const [open, setOpen] = useState(false);
   const selectedDate = parseCalendarDate(value);
   const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ?? new Date());
   const calendarDays = useMemo(() => getCalendarDays(visibleMonth), [visibleMonth]);
+  const maxDate = maxValue ? parseCalendarDate(maxValue) : null;
+  const yearOptions = useMemo(
+    () => calendarYearOptions(maxDate?.getFullYear() ?? new Date().getFullYear(), minYear),
+    [maxDate, minYear],
+  );
+  const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+  const selectClass = "min-h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]";
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -63,7 +92,7 @@ export function ProductionDatePicker({
               triggerClassName,
             )}
           >
-            <span className={selectedDate ? undefined : "text-[var(--text-muted)]"}>{selectedDate ? DATE_FORMATTER.format(selectedDate) : "Select date"}</span>
+            <span className={selectedDate ? undefined : "text-[var(--text-muted)]"}>{selectedDate ? DATE_FORMATTER.format(selectedDate) : placeholder}</span>
             <CalendarDays className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
           </button>
         </Popover.Trigger>
@@ -89,11 +118,33 @@ export function ProductionDatePicker({
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </button>
-              <p className="font-medium text-[var(--text-primary)]">{MONTH_FORMATTER.format(visibleMonth)}</p>
+              {jumpToMonthAndYear ? (
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Month"
+                    value={visibleMonth.getMonth()}
+                    onChange={(event) => setVisibleMonth(new Date(visibleMonth.getFullYear(), Number(event.target.value), 1))}
+                    className={selectClass}
+                  >
+                    {MONTH_NAMES.map((name, month) => <option key={name} value={month}>{name}</option>)}
+                  </select>
+                  <select
+                    aria-label="Year"
+                    value={visibleMonth.getFullYear()}
+                    onChange={(event) => setVisibleMonth(new Date(Number(event.target.value), visibleMonth.getMonth(), 1))}
+                    className={selectClass}
+                  >
+                    {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <p className="font-medium text-[var(--text-primary)]">{MONTH_FORMATTER.format(visibleMonth)}</p>
+              )}
               <button
                 type="button"
                 onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+                disabled={monthIsAfter(nextMonth, maxValue)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)] disabled:opacity-40"
                 aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -104,15 +155,17 @@ export function ProductionDatePicker({
               {WEEKDAY_LABELS.map((weekday) => <span key={weekday} className="py-1 text-xs font-medium text-[var(--text-muted)]">{weekday}</span>)}
               {calendarDays.map((day) => {
                 const isSelected = day.value === value;
+                const disabled = isCalendarDayDisabled(day.value, maxValue);
                 return (
                   <button
                     key={day.value}
                     type="button"
+                    disabled={disabled}
                     onClick={() => selectDate(day.value)}
                     aria-label={DATE_FORMATTER.format(day.date)}
                     aria-pressed={isSelected}
                     className={cn(
-                      "h-9 rounded-md text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]",
+                      "h-9 rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]",
                       isSelected
                         ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]"
                         : day.inCurrentMonth
@@ -136,13 +189,15 @@ export function ProductionDatePicker({
                   Clear date
                 </button>
               ) : <span />}
-              <button
-                type="button"
-                onClick={() => selectDate(formatCalendarDate(new Date()))}
-                className="text-sm font-semibold text-[var(--text-accent)] hover:text-[var(--action-primary-bg-hover)]"
-              >
-                Today
-              </button>
+              {showToday ? (
+                <button
+                  type="button"
+                  onClick={() => selectDate(formatCalendarDate(new Date()))}
+                  className="text-sm font-semibold text-[var(--text-accent)] hover:text-[var(--action-primary-bg-hover)]"
+                >
+                  Today
+                </button>
+              ) : <span />}
             </div>
           </div>
           </Popover.Content>

@@ -38,3 +38,19 @@ export function getCalendarDays(month: Date): CalendarDay[] {
     };
   });
 }
+
+// Years for a "jump to year" menu, newest first.
+export function calendarYearOptions(maxYear: number, minYear: number) {
+  return Array.from({ length: Math.max(0, maxYear - minYear + 1) }, (_, index) => maxYear - index);
+}
+
+export function isCalendarDayDisabled(value: string, maxValue?: string) {
+  return Boolean(maxValue) && value > (maxValue as string);
+}
+
+// True when the whole month starts after the latest allowed date.
+export function monthIsAfter(month: Date, maxValue?: string) {
+  const max = maxValue ? parseCalendarDate(maxValue) : null;
+  if (!max) return false;
+  return month.getFullYear() * 12 + month.getMonth() > max.getFullYear() * 12 + max.getMonth();
+}
