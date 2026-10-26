@@ -61,7 +61,6 @@ export function runCaptionUiTests() {
   assert.match(header, /<CaptionControls/);
   assert.doesNotMatch(page.slice(page.indexOf("</section>")), /<CaptionControls/);
   assert.match(page, /<CaptionPreview/);
-  assert.match(page, /<ViewerLink/);
   assert.match(page, /usePAPToasts/);
   assert.match(page, /PAPToastViewport/);
   assert.doesNotMatch(page, /apiFetch|fetch\(|sessionStorage|MediaRecorder|getUserMedia|useEffect/);
@@ -143,7 +142,7 @@ export function runCaptionUiTests() {
   assert.match(read("use-caption-session.ts"), /fetchActiveSession\(/);
 
   // Display components take props. They do not fetch, hold refs, or touch browser storage.
-  for (const file of ["audio-input-step.tsx", "audio-settings-button.tsx", "audio-settings-dialog.tsx", "caption-info.tsx", "caption-controls.tsx", "caption-message.tsx", "caption-preview.tsx", "caption-status.tsx", "viewer-link.tsx"]) {
+  for (const file of ["audio-input-step.tsx", "audio-settings-button.tsx", "audio-settings-dialog.tsx", "caption-info.tsx", "caption-controls.tsx", "caption-message.tsx", "caption-preview.tsx", "caption-status.tsx", "share-button.tsx", "share-dialog.tsx"]) {
     const source = read(file);
     assert.doesNotMatch(source, /apiFetch|fetch\(|useRef|sessionStorage|getUserMedia|MediaRecorder/, file);
   }
@@ -156,11 +155,8 @@ export function runCaptionUiTests() {
   assert.match(read("caption-message.tsx"), /role="status"/);
   assert.doesNotMatch(read("caption-controls.tsx"), /role="status"/);
   assert.match(read("caption-controls.tsx"), /ui-btn-primary/);
-  assert.match(read("viewer-link.tsx"), /min-h-11/);
-  assert.doesNotMatch(read("viewer-link.tsx"), /min-h-10 /);
 
   // Every start, stop and copy gives a toast.
   const hook = read("use-caption-session.ts");
   assert.match(hook, /notify\(/);
-  assert.match(hook, /Viewer link copied/);
 }

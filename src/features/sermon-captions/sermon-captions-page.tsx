@@ -11,8 +11,10 @@ import CaptionMessage from "./caption-message";
 import CaptionPreview from "./caption-preview";
 import CaptionStatus from "./caption-status";
 import { captionIsRunning } from "./caption-ui";
+import ShareButton from "./share-button";
+import ShareDialog from "./share-dialog";
+import { useCaptionLink } from "./use-caption-link";
 import { useCaptionSession } from "./use-caption-session";
-import ViewerLink from "./viewer-link";
 
 const NO_INPUT: AudioInputChoice = { id: "", label: "" };
 
@@ -22,9 +24,11 @@ const NO_INPUT: AudioInputChoice = { id: "", label: "" };
 export default function SermonCaptionsPage() {
   const [input, setInput] = useState<AudioInputChoice>(NO_INPUT);
   const [audioOpen, setAudioOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const captions = useCaptionSession({ inputId: input.id, notify: showToast });
   const running = captionIsRunning(captions.state);
+  const captionLink = useCaptionLink({ enabled: shareOpen, notify: showToast });
 
   return (
     <div className="flex min-h-[calc(100dvh-6.5rem)] flex-col gap-6 py-1 lg:min-h-[calc(100dvh-7rem)] lg:px-2 min-[1200px]:min-h-[calc(100dvh-3rem)]">
@@ -34,6 +38,7 @@ export default function SermonCaptionsPage() {
           <p className="ui-page-description">Prepare the booth audio feed for live English captions.</p>
         </div>
         <div className="flex items-center gap-3">
+          {captions.canShare ? <ShareButton onClick={() => setShareOpen(true)} /> : null}
           <AudioSettingsButton onClick={() => setAudioOpen(true)} />
           <CaptionControls
             state={captions.state}
@@ -55,10 +60,22 @@ export default function SermonCaptionsPage() {
           </div>
           <CaptionPreview lines={captions.lines} />
           <CaptionMessage message={captions.message} />
-          {captions.viewerUrl ? <ViewerLink url={captions.viewerUrl} onCopy={() => void captions.copyViewerLink()} /> : null}
         </div>
       </section>
 
+      {shareOpen ? (
+        <ShareDialog
+          link={captionLink.link}
+          loading={captionLink.loading}
+          error={captionLink.error}
+          running={running}
+          regenerating={captionLink.regenerating}
+          onCopy={() => void captionLink.copy()}
+          onRegenerate={() => void captionLink.regenerate()}
+          notify={showToast}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
       {audioOpen ? <AudioSettingsDialog input={input} onInputChange={setInput} locked={running} onClose={() => setAudioOpen(false)} /> : null}
       <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
     </div>

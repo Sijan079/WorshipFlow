@@ -3,7 +3,35 @@ export type CaptionDisplayLine = { line: number; english: string; final: boolean
 export const CAPTION_RETENTION_MS = 60 * 60 * 1000;
 export const CAPTION_HEARTBEAT_STALE_MS = 15_000;
 
-export type CaptionPublicStatus = "connecting" | "live" | "interrupted" | "error" | "ended";
+export type CaptionPublicStatus = "waiting" | "connecting" | "live" | "interrupted" | "error" | "ended";
+
+// A session that has sent no heartbeat for this long is treated as dead, so Start may take it over.
+export const CAPTION_TAKEOVER_STALE_MS = 2 * 60 * 1000;
+
+export function isTakeoverStale(lastHeartbeatAt: Date, now = new Date()) {
+  return now.getTime() - lastHeartbeatAt.getTime() >= CAPTION_TAKEOVER_STALE_MS;
+}
+
+export type CaptionAvailability = { kind: "live" } | { kind: "retained"; until: Date } | { kind: "gone" };
+
+// What a listener may see of a session: the live feed, or its last lines for one hour after it ends.
+// A live session past its three-hour limit is retained from that limit, like one that was stopped.
+export function sessionAvailability(session: { status: string; expiresAt: Date }, now = new Date()): CaptionAvailability {
+  if (session.status === "LIVE" && session.expiresAt.getTime() > now.getTime()) return { kind: "live" };
+  const until = session.status === "LIVE" ? retainedCaptionExpiry(session.expiresAt) : session.expiresAt;
+  return until.getTime() > now.getTime() ? { kind: "retained", until } : { kind: "gone" };
+}
+
+// The church has one link, so the viewer follows whichever session is live, else the latest one
+// still inside its hold. Nothing at all means "waiting".
+export function selectViewerSession<T extends { status: string; expiresAt: Date; createdAt: Date }>(sessions: T[], now = new Date()) {
+  const available = sessions
+    .map((session) => ({ session, availability: sessionAvailability(session, now) }))
+    .filter((entry) => entry.availability.kind !== "gone");
+  const live = available.find((entry) => entry.availability.kind === "live");
+  if (live) return live;
+  return available.sort((a, b) => b.session.createdAt.getTime() - a.session.createdAt.getTime())[0] ?? null;
+}
 
 export function captionViewerStatus(
   session: { status: string; expiresAt: Date; connectionStatus: string; lastHeartbeatAt: Date },

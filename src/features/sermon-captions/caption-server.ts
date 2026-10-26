@@ -8,6 +8,11 @@ import { CaptionProviderConfigurationError } from "./caption-providers";
 
 export const CAPTION_SESSION_MS = 3 * 60 * 60 * 1000;
 
+// The listener link. 24 random bytes is 32 base64url characters; see `isViewerToken`.
+export function newViewerToken() {
+  return randomBytes(24).toString("base64url");
+}
+
 export function newOperatorToken() {
   return randomBytes(32).toString("base64url");
 }

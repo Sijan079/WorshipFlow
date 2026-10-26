@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
 import { hasModuleAction } from "@/lib/event-access";
-import { retainedCaptionExpiry } from "@/features/sermon-captions/caption-contract";
+import { isTakeoverStale, retainedCaptionExpiry } from "@/features/sermon-captions/caption-contract";
+import { canRegenerateCaptionLink, canShareCaptionLink } from "@/features/sermon-captions/caption-link";
 import { requestDeepgramToken } from "@/features/sermon-captions/caption-providers";
 import { CAPTION_SESSION_MS, captionErrorResponse, hashOperatorToken, isUniqueConflict, newOperatorToken } from "@/features/sermon-captions/caption-server";
 
@@ -13,8 +14,17 @@ export async function GET(request: Request) {
       where: { workspaceId: context.workspaceId, status: "LIVE", expiresAt: { gt: new Date() } },
       select: { id: true, operatorUserId: true, createdAt: true, expiresAt: true },
     });
-    const canOperate = await hasModuleAction(context, "CAPTIONS", "OPERATE");
-    return NextResponse.json({ session: session ? { ...session, canManage: context.role !== "MEMBER" } : null, canOperate }, { headers: { "Cache-Control": "no-store" } });
+    const [canOperate, shareGrant] = await Promise.all([
+      hasModuleAction(context, "CAPTIONS", "OPERATE"),
+      hasModuleAction(context, "CAPTIONS", "SHARE"),
+    ]);
+    const canShare = canShareCaptionLink(context.role, { VIEW: true, SHARE: shareGrant });
+    return NextResponse.json({
+      session: session ? { ...session, canManage: context.role !== "MEMBER" } : null,
+      canOperate,
+      canShare,
+      canRegenerate: canRegenerateCaptionLink(context.role),
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return captionErrorResponse(error, request, "/api/caption-sessions", "GET");
   }
@@ -32,8 +42,18 @@ export async function POST(request: Request) {
       })));
     }
     await prisma.captionLine.deleteMany({ where: { session: { is: { workspaceId: context.workspaceId, status: "ENDED", expiresAt: { lte: now } } } } });
-    const active = await prisma.captionSession.findFirst({ where: { workspaceId: context.workspaceId, status: "LIVE" }, select: { id: true } });
-    if (active) return NextResponse.json({ error: "A caption session is already running in this workspace." }, { status: 409 });
+    const active = await prisma.captionSession.findFirst({ where: { workspaceId: context.workspaceId, status: "LIVE" }, select: { id: true, lastHeartbeatAt: true } });
+    if (active && !isTakeoverStale(active.lastHeartbeatAt, now)) {
+      return NextResponse.json({ error: "A caption session is already running in this workspace." }, { status: 409 });
+    }
+    // A session that has sent no heartbeat for two minutes is dead (the booth crashed or lost its
+    // connection). End it so the new one can start on the same listener link.
+    if (active) {
+      await prisma.captionSession.updateMany({
+        where: { id: active.id, status: "LIVE" },
+        data: { status: "ENDED", endedAt: now, expiresAt: retainedCaptionExpiry(now) },
+      });
+    }
     if (!process.env.DEEPGRAM_API_KEY || !process.env.AZURE_TRANSLATOR_KEY) {
       return NextResponse.json({ error: "Deepgram and Azure Translator are not configured on this server." }, { status: 503 });
     }

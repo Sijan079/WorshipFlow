@@ -179,6 +179,7 @@ enum WorkspaceAction {
   ATTENDANCE
   DRAFT
   PUBLISH
+  SHARE
 }
 
 enum MembershipStatus {
@@ -257,6 +258,7 @@ model Workspace {
   automationJobs AutomationJob[]
   generatedOutputs GeneratedOutput[]
   captionSessions CaptionSession[]
+  captionSettings CaptionSettings?
   captionUsageDays CaptionUsageDay[]
   captionUsageBaselines CaptionUsageBaseline[]
   people    Person[]
@@ -874,6 +876,18 @@ model CaptionSession {
   lines CaptionLine[]
 
   @@index([workspaceId, status, expiresAt])
+}
+
+// One stable listener link per church. The token is in the public URL and is shown again as a QR
+// code, so it is stored as plain text; it only grants read-only caption text.
+model CaptionSettings {
+  id String @id @default(uuid())
+  workspaceId String @unique
+  viewerToken String @unique
+  createdAt DateTime @default(now())
+  rotatedAt DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model CaptionLine {

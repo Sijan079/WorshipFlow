@@ -6,6 +6,8 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
   { module: "CAPTIONS", label: "Sermon Captions", actions: [
     { action: "VIEW", label: "View captions" },
     { action: "OPERATE", label: "Operate live captions" },
+    // Needs View. Regenerating the link is never listed: only Owner and Admin can do it.
+    { action: "SHARE", label: "Share captions link" },
   ] },
   // Hard delete is not listed: only Owner and Admin can permanently delete a person.
   { module: "PEOPLE", label: "People and ministries", actions: [

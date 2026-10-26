@@ -7,7 +7,7 @@ import { CaptionStreamConnection } from "./caption-connection";
 import type { CaptionRunState } from "./caption-ui";
 import {
   fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
-  stopSessionOnLeave, viewerUrlFor, type CaptionLine, type CaptionSession, type PresenceStatus,
+  stopSessionOnLeave, type CaptionLine, type CaptionSession, type PresenceStatus,
 } from "./caption-session-api";
 import { clearOperatorToken, loadOperatorToken, saveOperatorToken } from "./operator-token-store";
 
@@ -33,7 +33,8 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   const [state, setState] = useState<CaptionRunState>("idle");
   const [message, setMessage] = useState("Choose an audio input with the options button, then start captions.");
   const [lines, setLines] = useState<CaptionLine[]>([]);
-  const [viewerUrl, setViewerUrl] = useState("");
+  const [canShare, setCanShare] = useState(false);
+  const [canRegenerate, setCanRegenerate] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const connectionRef = useRef<CaptionStreamConnection | null>(null);
   const assemblerRef = useRef(new CaptionAssembler());
@@ -64,15 +65,16 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
     const reconnectOnOffline = () => connectionRef.current?.interrupt();
     window.addEventListener("online", retryOnOnline);
     window.addEventListener("offline", reconnectOnOffline);
-    void fetchActiveSession().then(({ session: current, canOperate: allowed }) => {
+    void fetchActiveSession().then(({ session: current, canOperate: allowed, canShare: share, canRegenerate: regenerate }) => {
       if (!mounted) return;
       setCanOperate(allowed);
+      setCanShare(share);
+      setCanRegenerate(regenerate);
       if (!current) {
         if (!allowed) setMessage("A workspace admin can grant you permission to operate Sermon Captions in Membership settings.");
         return;
       }
       setSession(current);
-      setViewerUrl(viewerUrlFor(window.location.origin, current.id));
       const savedToken = loadOperatorToken(current.id);
       setOperatorToken(savedToken);
       setMessage(allowed && (savedToken || current.canManage) ? "A session is active. Start a new one after stopping it." : "Another operator is running captions.");
@@ -123,7 +125,6 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       }
       activeRef.current = null;
       setSession(null);
-      setViewerUrl("");
       setOperatorToken("");
       setMessage(STOPPED_MESSAGE);
       notify("Captions stopped.", "success");
@@ -162,7 +163,6 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       saveOperatorToken(current.id, token);
       setSession(current);
       setOperatorToken(token);
-      setViewerUrl(viewerUrlFor(window.location.origin, current.id));
       setLines([]);
       assemblerRef.current = new CaptionAssembler();
       queueRef.current = Promise.resolve();
@@ -221,7 +221,6 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       }
       setSession(null);
       setOperatorToken("");
-      setViewerUrl("");
       setState("idle");
       stoppingRef.current = false;
       setMessage(`Could not start captions: ${errorMessage(error)}`);
@@ -237,22 +236,14 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       clearOperatorToken(session.id);
       setSession(null);
       setOperatorToken("");
-      setViewerUrl("");
       setMessage(STOPPED_MESSAGE);
       notify("Captions stopped.", "success");
     } catch (error) { setMessage(errorMessage(error)); notify(errorMessage(error), "error"); }
   }
 
-  function copyViewerLink() {
-    return navigator.clipboard.writeText(viewerUrl).then(
-      () => { setMessage("Viewer link copied."); notify("Viewer link copied.", "success"); },
-      () => { setMessage("Could not copy the link. Select and copy it instead."); notify("Could not copy the link. Select and copy it instead.", "error"); },
-    );
-  }
-
   return {
-    state, session, message, lines, viewerUrl, canOperate,
+    state, session, message, lines, canOperate, canShare, canRegenerate,
     canStopExisting: canOperate && Boolean(operatorToken || session?.canManage),
-    start, stop, stopExisting, copyViewerLink,
+    start, stop, stopExisting,
   };
 }
