@@ -1,302 +1,202 @@
-# Design - Worship Production OS
+# Design
 
-This repository follows the Stitch MCP project **Worship Production OS**
-(`13697574181324164099`). The active design system is **Production Grade
-Interface**. If older local guidance conflicts with it, prefer the Stitch
-source.
+Status: contract, written 2026-10-26 (see `docs/changes/20261026.md`). It
+records the approach hand-built into Services, Teams, the Song Formatter, and
+Settings, and applies it to every new screen (People, Ministries, Events,
+Announcements, Site management). The earlier Stitch project and the mockup sets
+in `public/mockups/` are historical and are not the source of truth. The source
+of truth is this file, `tokens.css`, and `src/app/globals.css`.
 
-The private Stitch project **Worship Flow OS - Alternate UI**
-(`15260948165642445938`) contains historical experimental comparison work. It
-does not replace the active design system.
+Old pages are brought in line only when a change touches them.
 
-## Design Goal
+Each rule is tagged **Built** (the app already does it) or **Target** (decided,
+not yet in the code). New screens follow both.
 
-The UI should help a worship and production team understand, at a glance:
+## Experience principles
 
-- What service they are working on
-- What comes next in the service flow
-- What still needs attention before live execution
+The design starts from how the app should feel to a person, not from how it is
+laid out. Many users are elderly and not tech-savvy; the rest are a busy tech
+team. The reference for **feel** is the Song Formatter. The reference for
+**structure** (tabular data) is Services.
 
-Every layout, component, and transition should reduce hesitation under
-pressure, not add personality for its own sake.
+1. **One job per screen, in a straight line.** The Formatter goes upload, then
+   review, then export, with one primary button in the same place each time and
+   a visible "Extracting…" while it works. A person always knows the next step.
+2. **Use metaphors people already know.** The Formatter's result is a paper page
+   with page numbers, zoom, undo and redo, like a word processor. Prefer a
+   familiar object over a new interface.
+3. **Explain in plain sentences, and be honest about uncertainty.** A warning
+   says what was found, what the app did, and what to check ("It was kept so you
+   can confirm whether it is a lyric"). It points to where, and it ranks what
+   matters. Never show a confident result the app is unsure of.
+4. **Nothing is easy to lose.** Autosave with a visible check, undo, recovery
+   across devices, a list of recent work. Destructive actions say what will be
+   removed.
+5. **The page is the interface.** Edit the thing itself, in place, instead of
+   filling a form about it.
+6. **Show the next action in words.** Primary actions have visible labels.
+   Icons support words; they do not replace them.
 
-For screen and flow reviews, use
-[`docs/laws-of-ux-audit.md`](docs/laws-of-ux-audit.md) as the project-wide
-psychology reference. Apply only the laws that explain an observed usability
-problem.
+These come from the owner's direction (focus on UX for a person) and from what
+the Formatter already does; the wording is the author's summary and can be
+rewritten in the owner's own words.
 
-For screen-specific work, use the [document map](docs/map.md) to find current
-routes, feature specs, and code entry points.
+## Two surfaces
 
-## Anti-AI-Slop Redesign Rule
+- **App** (`/w/{workspaceSlug}`): used by the church's tech team. Light work
+  surfaces, a dark navigation rail, purple as a signal. Everything below applies
+  to it.
+- **Public site** (`/c/{workspaceSlug}`): read by anyone, including many
+  seniors. It has the church's identity, not the admin tool's. See "Public
+  site".
 
-Every redesign starts with the operator's real task, the existing information
-architecture, and live domain data. It should feel purpose-built for worship
-service preparation, not assembled from a generic SaaS dashboard recipe.
+Every screen must work on a phone.
 
-- Do not add workflow heroes, decorative gradients or glow, fake metrics,
-  placeholder analytics, ornamental status dots, filler copy, or badge spam.
-- Do not default to equal card grids when a list, description group, or
-  deliberate hierarchy communicates the information more directly.
-- Do not repeat eyebrow labels, headings, and descriptions that say the same
-  thing.
-- Use semantic tokens instead of introducing one-off colors, shadows, or
-  radii.
-- Keep motion functional and restrained. A transition must explain a state or
-  spatial change.
-- Treat loading, empty, error, keyboard, focus, mobile, and reduced-motion
-  behavior as part of the design, not as cleanup.
-- Preserve domain language and strict stored service order. Visual novelty
-  never outranks operational clarity.
+## Approach (structure)
 
-## Brand Direction
+Hand-built, task-first screens. Start from what the user is trying to do and
+from real data. Prefer an open ledger, hairline rules, and spacing over extra
+containers. Avoid ornamental gradients and glow, filler metrics, badge spam,
+repeated eyebrow labels, and equal card grids with no real hierarchy. Use
+semantic tokens, never one-off colors, shadows, or radii.
 
-- Light, paper-clear operational workspaces anchored by a dark production rail
-- Calm, readable, authoritative surfaces under pressure
-- Cinematic only where it improves clarity, never at the cost of speed
-- Prioritize service order accuracy, operator speed, and fast recognition
+## Page contract
 
-## Motion Principles
+1. **Header** (Built; `ui-page-header`, `ui-page-title`, `ui-page-description`): the
+   title and a one-line description on the left, the primary Add action on the
+   right. The description exists to explain what a module is for. Settings is
+   the exception: it has no page header, because its purpose is already known.
+2. **One register** per page (Built; `ui-surface-elevated ui-operational-register`)
+   holding a toolbar and an open ledger. Do not wrap a page-level list in
+   another card, and do not make a card per row.
+3. **Toolbar order** (Built): filters, then "Clear filters" (only while a filter is
+   active), then the count, then refresh, then bulk-action icons (only once rows
+   are selected). The Add action stays in the header, never the toolbar.
+4. **Ledger** (Built; `ui-ledger-header`, `ui-ledger-row`): aligned columns, hairline
+   rules, selection as a faint purple wash with no second border. Below 1200px
+   secondary columns collapse into a muted line under the title.
+5. **Rows**: a trailing row menu (`ui-row-menu-trigger`, 44px). The
+   hover rule is Built: on screens that support hover
+   (`(hover: hover) and (pointer: fine)`) it appears on row hover or keyboard
+   focus; on phones and tablets it is always visible. Decide by hover support,
+   not screen width. The three-dot icon is Target (Services and Teams show a
+   hamburger icon today). Clicking a row either expands it inline or opens its
+   edit dialog; pick one per module and keep it. Expanded rows stay connected to their row
+   with one purple left rule.
+6. **States**: loading is a row skeleton (Built) that does not flash on refetch
+   (Target); empty states say what is missing and what to do (Built); list-load
+   errors show a danger band with a Retry button (Built in Settings only, Target
+   everywhere else). Every page needs all three.
+7. **Settings sections** (Built): Add sits beside the section heading, Save appears only
+   when the section has unsaved changes, rows show their own dirty or failed
+   state, and editing is inline instead of in modals.
 
-Motion is a communication layer, not decoration.
+## Controls
 
-- Stack: Next.js 16, React 19, Tailwind CSS 4, TypeScript
-- Use CSS and Tailwind transitions for hover, focus, pressed states, loading
-  indicators, and simple entrances
-- Use Motion for React only for expand, reorder, and enter or leave behavior
-- Consider native browser or Next.js View Transitions later for major
-  page-to-page navigation
-- Animate primarily with `transform` and `opacity`
-- Most interactions: 120-240ms
-- Larger panels: up to 320ms
-- No bounce effects
-- Keep button scaling between `0.97` and `1.01`
-- No large staggered entrances for routine content
-- Do not animate information users are urgently trying to read
-- Motion must never delay saving, navigation, form submission, or live output
-- Use movement to show where an item came from and where it went
-- Respect reduced motion globally; use `useReducedMotion()` for JS-driven motion
+- Buttons: `ui-btn-primary` (purple, 44px), `ui-btn-secondary`, `ui-btn-cancel`
+  (outline, red on hover) are Built. `ui-btn-danger` visibly red at rest is
+  Target; Services and Teams use a button that turns red only on hover.
+- Inputs: `ui-field`. Selects: `ProductionSelect`. Checkboxes: `ui-checkbox`.
+- Dialogs: the shared Radix `Dialog`, one surface (Built); `ui-modal-close` and
+  an explicit Cancel in every dialog (Target); actions right-aligned. Destructive confirmations state what
+  will be removed.
+- Feedback (Target): every mutation shows a success toast and an error toast.
+  No silent failures. Today only Services and the Formatter use toasts.
+- Press-and-hold row selection may supplement the visible checkbox but is never
+  the only way to select.
+- Touch targets are at least 44px for primary controls and row triggers.
 
-## Tokens
+## Color
 
-`tokens.css` is the canonical editable token source.
-
-- Base palette variables use `--palette-*`
-- Services and Teams define the reference operational workspace palette through
-  `--palette-workspace-*` primitives and `--workspace-*` semantic contracts.
-- The dark navigation rail uses `--palette-rail-*` primitives and `--rail-*`
-  semantic contracts. Do not place raw rail or workspace colors in
-  `globals.css`.
-- Semantic UI intent uses `--surface-*`, `--text-*`, `--border-*`,
-  `--action-*`, `--state-*`, `--radius-*`, and `--elevation-*`
-- `src/app/globals.css` is the semantic application layer
-- Older `--color-*` names may remain temporarily as migration aliases
-- New UI work should prefer semantic tokens directly
-
-## Palette
-
-The operational workspace established by Services and Teams uses:
-
-- Canvas and primary panels: `#ffffff`
-- Subtle fields and row support: `#f8fafc`
-- Inactive controls and secondary actions: `#f1f5f9`
-- Primary, secondary, and muted text: `#111827`, `#475569`, `#64748b`
-- Default and strong rules: `#e2e8f0`, `#cbd5e1`
-- Primary action and focus: `#7c3aed`; primary hover: `#8754ee`
-- Danger: `#b91c1c`; success: `#047857`; warning: `#b45309`
-
-The following dark Stitch palette remains the foundation for the production
-rail, live-production surfaces, and compatibility styles:
-
-Use this Stitch palette:
-
-- `surface`: `#0f1624`
-- `surface-dim`: `#0a0f1a`
-- `surface-bright`: `#293750`
-- `surface-container-lowest`: `#0a0f1a`
-- `surface-container-low`: `#141d2d`
-- `surface-container`: `#192336`
-- `surface-container-high`: `#202c40`
-- `surface-container-highest`: `#293750`
-- `on-surface`: `#eef2ff`
-- `on-surface-variant`: `#b7c0d4`
-- `outline`: `#71809a`
-- `outline-variant`: `#36445c`
-- `surface-tint`: `#c4b5fd`
-- `primary`: `#c4b5fd`
-- `on-primary`: `#171126`
-- `primary-container`: `#7c3aed`
-- `on-primary-container`: `#f6f0ff`
-- `secondary`: `#89ceff`
-- `secondary-container`: `#00a2e6`
-- `tertiary`: `#ffb2b7`
-- `tertiary-container`: `#c81a42`
-- `error`: `#ffb4ab`
-- `error-container`: `#93000a`
-- `background`: `#0b1326`
-- `surface-variant`: `#2d3449`
-
-## Semantic Roles
-
-Components should consume tokens by intent, not raw color family.
-
-- Surfaces: `--surface-canvas`, `--surface-panel`, `--surface-panel-alt`,
-  `--surface-panel-strong`, `--surface-panel-elevated`, `--surface-overlay`,
-  `--surface-overlay-strong`
-- Text: `--text-primary`, `--text-secondary`, `--text-muted`,
-  `--text-inverse`, `--text-accent`, `--text-danger`
-- Borders and rules: `--border-default`, `--border-strong`,
-  `--border-focus`, `--rule-default`, `--rule-strong`
-- Actions and states: `--action-primary-bg`, `--action-primary-bg-hover`,
-  `--action-primary-ink`, `--state-success`, `--state-warning`,
-  `--state-danger`, `--state-live`, `--state-ready`, `--state-idle`
-- Shape: `--radius-control`, `--radius-card`, `--radius-container`,
-  `--radius-pill`
-- Elevation: `--elevation-none`, `--elevation-subtle`,
-  `--elevation-raised`, `--elevation-modal`
+- Components use only semantic tokens (`--surface-*`, `--text-*`, `--border-*`,
+  `--rule-*`, `--action-*`, `--state-*`, `--radius-*`, `--elevation-*`). Do not
+  put raw colors in components or `globals.css`.
+- Light workspace palette (see `tokens.css`): canvas and panels `#ffffff`,
+  subtle fields `#f8fafc`, inactive controls `#f1f5f9`, text `#111827`
+  `#475569` `#64748b`, rules `#e2e8f0` `#cbd5e1`, action and focus `#7c3aed`
+  (hover `#8754ee`), danger `#b91c1c`, success `#047857`, warning `#b45309`.
+- Purple is a signal: primary actions, focus rings, selection, the active tab,
+  and accent text on hover. It is never a status color and never a ledger
+  background.
+- Status is a small dot plus a colored label, not a filled badge. Red means an
+  error only; "Draft" uses a neutral color.
+- The dark navigation rail uses `--rail-*` tokens and stays.
 
 ## Typography
 
-- Inter for display and body
-- Geist for labels, metadata, timestamps, codes, and technical readouts
-- `display-lg`: 48/56, 700, `-0.02em`
-- `headline-lg`: 32/40, 600, `-0.01em`
-- `headline-md`: 24/32, 600
-- `body-lg`: 18/28, 400
-- `body-md`: 16/24, 400
-- `label-md`: 14/20, 500, `0.02em`
-- `label-sm`: 12/16, 500, `0.05em`
+- Inter for display and body. Geist Mono for technical text.
+- Page title 30px/600. Section title 16px/600. Body and row text 14px.
+- **No text under 12px** (Target: Settings and the rail use 10-11px labels today). Form labels and headings are sentence case.
+- Uppercase mono labels are reserved for small codes and metadata (counts,
+  timestamps, numbering), never headings or form labels.
+
+## Accessibility and plain language
+
+- WCAG 2.2 AA is required on both surfaces: text contrast of at least 4.5:1 at
+  its size on every surface it sits on (muted text included), visible focus
+  states, and no information carried by color alone. Check contrast; do not
+  assume.
+- Primary actions and toolbar actions have visible words. Icon-only controls are
+  for secondary actions, with an accessible label and a tooltip.
+- Use the words staff use: People, Ministries, Events, Announcements. Avoid
+  jargon in the UI; "register" and "ledger" are design terms, not user terms.
+- Reduced motion is respected globally.
+
+## Navigation
+
+(Target; the rail still uses group labels and shared icons.) The rail lists, in order: Dashboard, People, Ministries, Events, Announcements,
+Page Builder, Worship (expandable: Services, Songs, Media Tools, Captions), and
+Settings. No group labels: the list is short. Every item has its own distinct
+icon (Services and Events must not share one). In-development items carry a
+small "DEV" pill. The rail uses the dark `--rail-*` tokens.
 
 ## Layout
 
-- Desktop (1200px and wider): persistent left OS rail, 12-column content grid,
-  24px margins, 16px gutters
-- Tablet (600–1199px): 8-column grid, 16px margins, 16px gutters; menu button
-  opens the OS rail as a side drawer. Notifications and account controls sit at
-  the right of the collapsed header.
-- Mobile (under 600px): 4-column grid, 16px margins, 12px gutters; the same
-  side drawer and collapsed header controls. The logo stays inside the rail,
-  below its close button.
-- The Services register uses compact rows below 1200px with visible row actions
-  and bulk selection. Expanded service fields stack label and value on phones.
-- Below 1200px, Settings sections live in the collapsible workspace rail; the
-  page's section rail appears on desktop only. Phone editor controls may collapse
-  when the editing canvas needs priority, while export and save actions remain
-  reachable without scrolling a nested dialog.
-- Inspector panels: 320px when present
-- Base spacing unit: 8px
-- Large high-pressure work areas should keep at least 32px safe areas
-- Compact controls and touch zones: 40px
-- Standard action controls: 44px
-- Teams-style ledger action zone: 72px row height by 60px width
+- Breakpoints: 1200px is the desktop switch (persistent rail, ledger columns,
+  Settings tab rail); 600px divides phone from tablet. Do not introduce other
+  switches.
+- Content width up to 1540px. Page rhythm `space-y-6`. Ledger rows have a
+  minimum height of `--ledger-row-min-height`.
+- Phone and tablet use the side drawer for navigation. There are no bottom
+  sheets; dialogs are centered.
 
-## Surfaces and Shape
+## Motion
 
-- Operational workspace canvas and registers are white; inactive fields and
-  dropdown triggers use the cool gray `workspace-control-inactive` primitive.
-- Operational registers use fine slate rules and restrained cool-gray shadows;
-  selected rows use a low-opacity purple wash without adding a new border.
-- Level 0 canvas: `#0b1326`
-- Level 1 containers: `#171f33` with a subtle outline
-- Level 2 active or floating surfaces: `#222a3d` or `#2d3449`
-- Shadows should stay tight and low-opacity
-- Detached formatter controls use `--workspace-elevation-floating` for neutral,
-  all-sided separation; keep overflow visible so its shadow is not clipped.
-- Purple ambient shadow is allowed only when active separation needs to read
-- Chips and badges: 4px radius
-- Standard buttons, inputs, and cards: 8px radius
-- Large containers and modals: 12px radius
+Motion explains state or spatial change, never decorates.
 
-## Component Direction
+- CSS and Tailwind transitions first: `--dur-fast` 120ms, `--dur-base` 180ms,
+  `--ease-out`. Panels up to 220ms. No bounce.
+- Motion for React only for expand, reorder, and enter/leave.
+- Animate `transform` and `opacity`. Button scale stays between 0.97 and 1.01.
+- Never animate information users are urgently reading, and never delay saving
+  or navigation.
 
-- Primary buttons: electric purple or `primary-container` fill with high
-  contrast white text; hover uses the slightly lighter purple action token
-- Save actions use the same primary treatment as Create Service.
-- Destructive buttons are transparent with primary text and a default border;
-  hover fills with danger red, removes the visible border, and uses white text.
-- Secondary buttons: transparent or dark ghost surface with a 1px slate border
-- Cancel buttons: use the shared `ui-btn-cancel` treatment—transparent, 1px
-  default border, secondary text, and danger-colored border and text on hover.
-  Do not use a filled secondary button for Cancel.
-- Inputs: darker than surrounding surfaces, etched appearance, purple focus
-- Technical buttons: compact Geist labels
-- Service cards: drag handle where ordering exists; active item may use a 4px
-  primary stripe
-- Status indicators: saturated pips for Live, Ready, Idle, and alert states
-- Inspector panels: right-aligned, compact, and data-dense
+## Public site
 
-### Settings Collection Actions
+Target: nothing here is built yet.
 
-- Each settings section owns one Save action in its section header; do not place Save buttons on individual collection rows.
-- Hide the section Save action until that section contains unsaved changes; hide it again when changes are saved or reverted.
-- Each settings section places its Add action beside the section heading; do not append an inline add row or trailing add button to the collection.
-- Opening Add may reveal a compact creation form directly below the section header.
-- Keep row actions limited to operations that affect only that row, such as status, expand, reorder, or delete.
+- It looks like the church, not the admin tool. Default template is neutral,
+  warm, and light, with large readable type. It does not inherit the app's
+  purple production look.
+- Each church picks one of about five color and font presets. Block layouts are
+  fixed; there are no custom layouts or themes beyond the presets.
+- Body text is at least 18px, tap targets at least 44px, contrast meets AA, and
+  navigation is always visible.
+- The template is designed when the Site module is built (Roadmap step 8), as
+  working pages in the app, and this section is then expanded.
 
-### Operational Lists
+## Automated checks
 
-- Prefer an open ledger with aligned columns and horizontal rules for dense,
-  repeated records.
-- Do not wrap a page-level list in a card unless the boundary introduces a
-  separate task or context.
-- Expanded rows should remain visually connected to their source row through
-  indentation or one purposeful accent rule.
+`npm test` fails when any `.tsx` file adds a text size under 12px
+(`text-[10px]`, `text-[0.7rem]`) or a raw hex color. Existing violations are
+listed in `src/lib/design-rules-baseline.json` and only print a warning, so old
+pages are fixed when touched. Fixing legacy violations lowers the count; run
+`npm run design:baseline` afterward to record it. Never regenerate the baseline
+to allow a new violation. The rules live in `src/lib/design-rules.ts`.
 
-### Operational Page Contract
+## Tokens and exports
 
-The Services page establishes the shared visual grammar for other operational
-directories such as Teams. Reuse these contracts instead of rebuilding their
-chrome per page:
-
-- Page headers use `ui-page-header`, `ui-page-title`, and
-  `ui-page-description`; the primary Add action sits opposite the title group.
-- Registers use `ui-surface-elevated ui-operational-register`, with filters and
-  record counts in one `ui-register-toolbar` row.
-- Dense lists use `ui-ledger-header` and `ui-ledger-row`. Selection changes the
-  row background subtly; it does not add a second card or heavy border.
-- On touch-heavy ledgers, a one-second press-and-hold may supplement the visible
-  checkbox for row selection. Cancel the gesture when the pointer moves for
-  scrolling, and never trigger it from buttons, links, or form controls.
-- Row-level actions use one `ui-row-menu-trigger` and a shared
-  `ui-action-menu-content`. Edit-like actions use `ui-action-menu-item`; delete
-  actions add `ui-action-menu-item-danger`.
-- Contextual multi-row actions may use compact icon-only controls when their
-  selection context is already visible. Keep an accessible label and tooltip;
-  assignment actions may use a restrained lift with a purple hover state, and
-  destructive actions use the shared animated trash treatment.
-- Text inputs and textareas use `ui-field`: an engraved, darker surface with a
-  default outline and the semantic focus border. Selects use
-  `ProductionSelect` so their trigger and dropdown states stay consistent.
-- Modal headers use one title and `ui-modal-close`. Keep helpful copy only when
-  it prevents a likely mistake. Modal actions remain unframed and right-aligned;
-  Cancel uses `ui-btn-cancel` and the primary action uses `ui-btn-primary`.
-- Empty and loading states occupy the register body without adding another
-  nested surface.
-
-### Modals
-
-- Use the shared Radix-based `Dialog` component for focus trapping, Escape
-  handling, and focus return.
-- Keep one modal surface. Group long forms with headings, spacing, and rules
-  instead of nested cards.
-- Keep primary and secondary actions visually distinct and visible while an
-  operation is pending.
-- Use icon-only close or remove actions only with an accessible label and a
-  practical hit target.
-
-## Screen Set
-
-The app should continue mapping Stitch workflows into:
-
-- Service Flow Hub
-- Worship Song Formatter - Landing
-- Worship Song Formatter - Interactive Editor
-- Worship Song Library
-- Production Media Tools
-- Live Sermon Captions & Translation
-- Design System
-
-## Exports
-
-Keep `tokens.css` aligned with this design system and keep `src/app/globals.css`
-aligned as the semantic UI contract layer.
+`tokens.css` is the canonical token source and `src/app/globals.css` is the
+semantic application layer. Keep them aligned with this file. Some older
+`--color-*` names remain as migration aliases; prefer semantic tokens in new
+work.

@@ -1,20 +1,25 @@
 # WorshipFlow
 
-Project documentation: [document map](docs/map.md),
-[current state](docs/current-state.md), [index](docs/README.md),
-and [follow-ups](TODO.md).
+WorshipFlow is becoming a multi-church church management system with a public
+church website for each church. Each church is a workspace. It began as a
+worship-service preparation tool; that work is now the Worship module.
 
-Server failures use structured logs and OpenTelemetry trace annotations.
-Run `npm run test:observability` to verify failure metrics and trace correlation.
-See [error observability setup](docs/deployment/vercel.md#error-observability)
-for production log/trace retention and the optional OTLP metrics destination.
+**Where the product is going** is recorded in [`docs/core/`](docs/core/):
+[Product](docs/core/Product.md), [Architecture](docs/core/Architecture.md),
+[Data model](docs/core/Data-Model.md),
+[Access and privacy](docs/core/Access-and-Privacy.md), and
+[Roadmap](docs/core/Roadmap.md). Later changes to those decisions are logged in
+`docs/changes/YYYYMMDD.md`. Agent and contributor rules are in
+[AGENTS.md](AGENTS.md); the visual contract is [DESIGN.md](DESIGN.md).
 
-WorshipFlow is a church workspace growing from worship production into church
-management. It preserves the intended order of each real worship service and
-now includes a separate, calendar-first Events foundation for church activities.
-The Events module currently supports viewing and creating one-time events with
-optional external registration links. Weekly recurrence, attendance editing,
-form response sync, and social publishing are planned separately.
+**What exists today** is described under Current Workflows below: Worship
+(services, songs, media tools, sermon captions), a calendar-first Events
+foundation, a Teams roster, and workspace settings and access. **Planned, not
+built yet:** People, Ministries, Announcements, the public Site and page
+builder, and a summary Dashboard.
+
+Server failures use structured logs and OpenTelemetry trace annotations. Run
+`npm run test:observability` to verify failure metrics and trace correlation.
 
 ## Current Workflows
 
@@ -33,7 +38,7 @@ Open `/w/{workspaceSlug}/captions` on the booth PC. In **Audio setup**, select a
 
 Set `DEEPGRAM_API_KEY`, `AZURE_TRANSLATOR_KEY`, and `AZURE_TRANSLATOR_REGION` in the server environment. The Deepgram key needs **Member** permission to issue temporary browser tokens. The Azure Translator key and Deepgram API key must never use a `NEXT_PUBLIC_` name. Apply the `20261025000000_sermon_captions_live`, `20261025010000_caption_module_permissions`, `20261025020000_caption_connection_state`, `20261025030000_caption_usage_day`, and `20261025040000_caption_usage_baseline` Prisma migrations in each environment. Audio goes from the booth browser to Deepgram; recognized text goes through WorshipFlow to Azure. Viewers receive only English text from the temporary link.
 
-Owner/Admin can open `/w/{workspaceSlug}/settings?tab=usage` to see the current UTC month's Azure characters. If a dated Azure Monitor baseline exists, the page shows the baseline plus later characters metered through this workspace as an estimate; use outside WorshipFlow after the export is excluded. The Angeles City Bible Church hosted development workspace has an October 2026 baseline of 8,538 characters from an Azure Monitor export ending October 25 at 19:54:44 Asia/Manila. For Deepgram project balances, also set server-only `DEEPGRAM_PROJECT_ID` and a separate `DEEPGRAM_BILLING_API_KEY` with billing access; without them, the page points to the Deepgram Console. The balance response does not identify free versus paid credits. The page does not stop broadcasts at a threshold. See [provider-usage research](docs/planning/sermon-captions-usage-settings-viability.md) for source limitations.
+Owner/Admin can open `/w/{workspaceSlug}/settings?tab=usage` to see the current UTC month's Azure characters. If a dated Azure Monitor baseline exists, the page shows the baseline plus later characters metered through this workspace as an estimate; use outside WorshipFlow after the export is excluded. The Angeles City Bible Church hosted development workspace has an October 2026 baseline of 8,538 characters from an Azure Monitor export ending October 25 at 19:54:44 Asia/Manila. For Deepgram project balances, also set server-only `DEEPGRAM_PROJECT_ID` and a separate `DEEPGRAM_BILLING_API_KEY` with billing access; without them, the page points to the Deepgram Console. The balance response does not identify free versus paid credits. The page does not stop broadcasts at a threshold.
 
 ### Worship Services
 
@@ -88,8 +93,7 @@ npm run try:media-worker -- --url "https://www.youtube.com/watch?v=VIDEO_ID" --f
 
 The real URL mode accepts HTTPS YouTube URLs only, downloads one video, and
 limits the file to 100 MB. Keep this local experiment separate from the
-deployed app; [the media converter spec](docs/specs/media-tools/media-converter/spec.md)
-remains disabled for web deployment.
+deployed app; the media converter remains disabled for web deployment.
 
 ### Workspace Setup
 
@@ -107,8 +111,8 @@ New services copy all active blocks from the selected template. After
 creation, the service owns that stored order. UI code must render that order
 and must not replace it with a global hard-coded lineup.
 
-See [AGENTS.md](AGENTS.md) for product and architecture guardrails and
-[DESIGN.md](DESIGN.md) for the visual system.
+See [AGENTS.md](AGENTS.md) for guardrails, [docs/core/](docs/core/) for the
+product baseline, and [DESIGN.md](DESIGN.md) for the visual system.
 
 ## Stack
 
@@ -286,8 +290,10 @@ rotate it in Google Cloud Console before continuing.
 
 Supabase Auth provides user sessions and email invitations. Each church is a
 workspace addressed at `/w/{workspaceSlug}`. Access requires an active
-workspace membership. Owners and Admins can manage invitations; Members have
-read-only access.
+workspace membership. Owners and Admins can manage invitations. Members see only
+what their per-module, per-action grants allow; the Member default for new
+modules is no access. Accounts are for the church's tech team; congregants do
+not log in and will see only the public site.
 
 Provision a workspace with:
 
@@ -295,8 +301,8 @@ Provision a workspace with:
 npm run provision:workspace -- --name "Example Church" --slug example --owner-email owner@example.com
 ```
 
-See [docs/architecture.md](docs/architecture.md) for the tenancy boundary and
-invitation flow.
+See [Architecture](docs/core/Architecture.md) for the tenancy boundary and
+[Access and privacy](docs/core/Access-and-Privacy.md) for roles and grants.
 
 ## Commands
 
@@ -321,11 +327,11 @@ npm run verify:song-editor # Isolated browser fixture at http://127.0.0.1:4318
 
 The song editor fixture uses test identity responses and the real editor/DOCX
 code. It does not access workspace data. For the full authenticated workflow,
-use `npm run dev`. See the [formatter spec](docs/specs/song-formatter/spec.md)
-for editing and temporary cross-device recovery behavior. The normal development
-command starts the five-minute draft cleanup runner. Production requires the
-[authenticated cleanup schedule](docs/deployment/vercel.md#formatter-draft-cleanup)
-before enabling this workflow; no cloud scheduler is provisioned by local development.
+use `npm run dev`. The formatter supports editing and temporary cross-device
+draft recovery. The normal development
+command starts the five-minute draft cleanup runner. Production requires an authenticated cleanup schedule
+(a secret-protected call to `/api/internal/formatter-cleanup`) before enabling
+this workflow; no cloud scheduler is provisioned by local development.
 
 For the real server-backed recovery hook in disposable local database fixtures:
 `node --env-file=.env.local.docker --experimental-strip-types scripts/verify-formatter-drafts.mjs`.
@@ -347,19 +353,15 @@ indicators, direct section actions, menu highlights and clear confirmation.
 
 ## Design Rules
 
-The interface is a worship-production workspace with light work surfaces and a
-dark navigation rail. Use semantic tokens, real domain data, restrained motion, visible
-focus states, and purposeful containment.
-
-Avoid ornamental gradients, glow, fake metrics, badge spam, repeated eyebrow
-copy, unnecessary card grids, and nested modal surfaces. Prefer typography,
-spacing, alignment, and dividers before adding another container.
+See [DESIGN.md](DESIGN.md) for the visual contract.
+Use semantic tokens, real domain data, restrained motion, visible focus states,
+and purposeful containment. Avoid ornamental gradients, glow, fake metrics,
+badge spam, repeated eyebrow copy, unnecessary card grids, and nested modal
+surfaces. Many users are elderly: favor plain wording and large targets.
 
 ## Near-Term Direction
 
-- Continue the page-by-page UI and accessibility overhaul
-- Connect configured checklists to service preparation without making the
-  dashboard an alternate editing surface
-- Finish service-order, song, media-handoff, automation, and generated-output
-  workflows
-- Refine the existing Supabase Auth and workspace access flows as needed
+Follow [docs/core/Roadmap.md](docs/core/Roadmap.md): Person and Ministry schema
+with the Servant migration, then PEOPLE permissions and screens, a daily
+database keep-alive, Events repeat and headcounts, Announcements, and the public
+Site.
