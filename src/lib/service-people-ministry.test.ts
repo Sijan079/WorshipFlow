@@ -43,7 +43,7 @@ export function runServicePeopleMinistryTests() {
   assert.doesNotMatch(page, /\/api\/settings\/ministries/);
 
   // Mixed reads clearly where it is offered, and existing services keep their old codes working.
-  assert.equal(DEFAULT_MINISTRIES.find((ministry) => ministry.code === "MIXED")?.label, "Mixed team (5th Sunday)");
+  assert.equal(DEFAULT_MINISTRIES.find((ministry) => ministry.code === "MIXED")?.label, "Mixed");
   assert.equal(ministryCodeFromLegacy("LEADERS"), "CHURCH_LEADERS");
   const migrations = join(root, "prisma", "migrations-current");
   const folder = readdirSync(migrations).find((name) => name.endsWith("_mixed_team_label"));

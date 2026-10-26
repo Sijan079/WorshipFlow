@@ -172,6 +172,20 @@ textarea:focus-visible {
   outline: none;
 }
 
+/* A raised field: lifted off the page with a soft shadow instead of sunk into it. Every input gets a
+   global inset shadow, so this has to be a rule here. Used for choosing a person on a service. */
+.ui-raised-field {
+  background-color: var(--surface-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  box-shadow: var(--elevation-subtle);
+}
+
+.ui-raised-field:focus-visible {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
 /* Plain text fields in forms, matching the Services text boxes: a rounded border on a
    transparent field, never sunken, and the border turns purple when the field is selected.
    Every input gets a global grey fill and inset shadow above, so this has to be a rule here. */

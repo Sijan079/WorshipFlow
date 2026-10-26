@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Check, ChevronDown, ChevronUp, Edit3, Loader2, Menu, Plus, RefreshCcw, Save, Trash2, WandSparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Edit3, Loader2, Menu, Plus, RefreshCw, Save, Search, Trash2, WandSparkles, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -263,10 +261,18 @@ function TeamMemberPicker({
 }) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const pathname = usePathname();
-  const workspaceMatch = pathname.match(/^\/w\/([^/]+)/);
-  const peopleHref = workspaceMatch ? `/w/${workspaceMatch[1]}/people` : "/people";
+  const rootRef = useRef<HTMLDivElement>(null);
   const availableMembers = filterTeamMembers(members, search, personIds);
+
+  // Close the list when the pointer goes down anywhere outside this field.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [isOpen]);
 
   const selectMember = (personId: string) => {
     onChange(addTeamMember(personIds, personId));
@@ -275,13 +281,9 @@ function TeamMemberPicker({
   };
 
   return (
-    <div className="mt-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-[var(--text-secondary)]">Team members</span>
-        <Link href={peopleHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage people</Link>
-      </div>
+    <div ref={rootRef} className="mt-3">
       {personIds.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {personIds.map((personId) => {
             const member = members.find((candidate) => candidate.id === personId);
             return (
@@ -299,19 +301,30 @@ function TeamMemberPicker({
           })}
         </div>
       ) : null}
-      <div className="relative mt-2">
+      <div className={`relative ${personIds.length > 0 ? "mt-2" : ""}`}>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         <input
-          type="search"
+          type="text"
           value={search}
           onChange={(event) => { setSearch(event.target.value); setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search people…"
+          placeholder="Name"
           disabled={disabled}
-          aria-label="Search people"
-          className="h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] disabled:opacity-60"
+          aria-label="Search people by name"
+          className="ui-raised-field h-11 w-full pl-10 pr-11 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] disabled:opacity-60"
         />
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          disabled={disabled}
+          className="absolute right-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-panel-alt)] disabled:opacity-60"
+          aria-label={isOpen ? "Hide people" : "Show people"}
+          aria-expanded={isOpen}
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
         {isOpen ? (
-          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] py-1 shadow-lg">
+          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-panel-elevated)] py-1 shadow-[var(--elevation-modal)]">
             {availableMembers.length ? availableMembers.map((member) => (
               <button
                 key={member.id}
@@ -904,7 +917,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--action-primary-bg)]"
                 aria-label="Refresh services"
               >
-                <RefreshCcw className={isRefreshingServices ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                <RefreshCw className={isRefreshingServices ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
               </button>
 
               {selectedServiceIds.length > 0 ? (

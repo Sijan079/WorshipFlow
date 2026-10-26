@@ -48,7 +48,7 @@ function DateField({
         value={iso === null || iso === "incomplete" ? "" : iso}
         onValueChange={(value) => onChange(isoToDateParts(value || null))}
         allowClear
-        jumpToMonthAndYear
+        minYear={1900}
         showToday={false}
         maxValue={formatCalendarDate(new Date())}
         placeholder="Choose a date"

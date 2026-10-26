@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "radix-ui";
 import {
@@ -34,6 +34,8 @@ type ProductionDatePickerProps = {
   maxValue?: string;
   /** Oldest year offered in the year menu. */
   minYear?: number;
+  /** Newest year offered when there is no latest date. Defaults to five years ahead. */
+  maxYear?: number;
   /** Shows the "Today" shortcut. Turn off for dates that are never today, such as birthdays. */
   showToday?: boolean;
   placeholder?: string;
@@ -48,23 +50,39 @@ export function ProductionDatePicker({
   labelClassName,
   triggerClassName,
   allowClear = false,
-  jumpToMonthAndYear = false,
+  jumpToMonthAndYear = true,
   maxValue,
-  minYear = 1900,
+  minYear = new Date().getFullYear() - 10,
+  maxYear,
   showToday = true,
   placeholder = "Select date",
 }: ProductionDatePickerProps) {
   const labelId = useId();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const selectedDate = parseCalendarDate(value);
   const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ?? new Date());
   const calendarDays = useMemo(() => getCalendarDays(visibleMonth), [visibleMonth]);
   const maxDate = maxValue ? parseCalendarDate(maxValue) : null;
   const yearOptions = useMemo(
-    () => calendarYearOptions(maxDate?.getFullYear() ?? new Date().getFullYear(), minYear),
-    [maxDate, minYear],
+    () => calendarYearOptions(maxDate?.getFullYear() ?? maxYear ?? new Date().getFullYear() + 5, minYear),
+    [maxDate, maxYear, minYear],
   );
   const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+
+  // A dialog locks page scrolling and ignores anything outside its own content. When the screen is
+  // short enough that the calendar scrolls, stop wheel and touch at the calendar so it still can.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!open || !content) return;
+    const keepScrollHere = (event: Event) => event.stopPropagation();
+    content.addEventListener("wheel", keepScrollHere, { passive: true });
+    content.addEventListener("touchmove", keepScrollHere, { passive: true });
+    return () => {
+      content.removeEventListener("wheel", keepScrollHere);
+      content.removeEventListener("touchmove", keepScrollHere);
+    };
+  }, [open]);
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -99,10 +117,12 @@ export function ProductionDatePicker({
 
         <Popover.Portal>
           <Popover.Content
+            ref={contentRef}
             side="bottom"
             align="start"
             sideOffset={8}
-            className="workspace-content-light z-[70] w-[21rem] rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-0 text-[var(--text-primary)] shadow-[var(--elevation-raised)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+            collisionPadding={12}
+            className="workspace-content-light z-[70] max-h-[var(--radix-popover-content-available-height)] w-[21rem] overflow-y-auto rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-0 text-[var(--text-primary)] shadow-[var(--elevation-raised)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
           >
           <div className="border-b border-[var(--rule-default)] px-4 py-3">
             <p className="text-sm font-semibold text-[var(--text-primary)]">Choose date</p>

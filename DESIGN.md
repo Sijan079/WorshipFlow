@@ -196,6 +196,18 @@ Target: nothing here is built yet.
 - The template is designed when the Site module is built (Roadmap step 8), as
   working pages in the app, and this section is then expanded.
 
+## Calendar, refresh icon, and person field
+
+- The calendar is one component everywhere (`ProductionDatePicker`): month and year menus on top,
+  previous and next arrows, a "Today" shortcut unless a field turns it off (birthdays do). Years
+  run from ten years back to five ahead unless a field sets its own range. Its height follows the
+  space the browser has and it scrolls when the screen is short, so it is never cut off.
+- A refresh button that spins uses the clockwise icon (`RefreshCw`); the counter-clockwise icon
+  spun clockwise looks like it runs backwards.
+- A person field on a service is a raised box (`.ui-raised-field`, a soft shadow rather than an
+  inset one): search icon and "Name" on the left, a dropdown arrow on the right, still searchable.
+  It has no "Manage people" link.
+
 ## Automated checks
 
 `npm test` fails when any `.tsx` file adds a text size under 12px

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MoreHorizontal, Pencil, Plus, RefreshCcw, UsersRound, X, Archive, RotateCcw } from "lucide-react";
+import { Loader2, MoreHorizontal, Pencil, Plus, RefreshCw, UsersRound, X, Archive, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionSelect } from "@/components/ui/production-select";
@@ -169,7 +169,7 @@ export default function MinistriesPageClient() {
             <div className="flex items-center gap-3">
               <p className="text-sm leading-6 text-[var(--text-secondary)] md:text-base">{items.length} {items.length === 1 ? "ministry" : "ministries"}</p>
               <button type="button" onClick={() => void query.refetch()} className="pressable inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-accent)]" aria-label="Refresh ministries">
-                <RefreshCcw className={`h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
               </button>
             </div>
           </div>

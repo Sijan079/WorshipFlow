@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MoreHorizontal, Pencil, Plus, RefreshCcw, RotateCcw, Search, Trash2, UsersRound, X, Archive } from "lucide-react";
+import { Loader2, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Search, Trash2, UsersRound, X, Archive } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionSelect } from "@/components/ui/production-select";
@@ -214,7 +214,7 @@ export default function PeoplePageClient() {
                 className="pressable inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-accent)]"
                 aria-label="Refresh people"
               >
-                <RefreshCcw className={`h-4 w-4 ${peopleQuery.isFetching ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 ${peopleQuery.isFetching ? "animate-spin" : ""}`} />
               </button>
               {selectedIds.length > 0 && permissions.canEdit ? (
                 <>
