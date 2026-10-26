@@ -12,7 +12,10 @@ intent and the decisions behind schema changes.
 - `firstName` and `lastName`, both required, so people with the same first name can
   be told apart. Shown as "First Last", sorted by last name then first name. A
   two-word first name ("Angel Evee") stays in `firstName`.
-- `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR).
+- `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR). Visitor
+  is a guest; Regular attends often but has not formally joined; Member has
+  formally joined; Inactive no longer attends; Archived has moved away. The person
+  form shows this meaning under the Status menu.
 - `gender`: optional (MALE, FEMALE), carried over from the old servant roster.
 - `birthdate`: optional full date.
 - `baptismStatus`: BAPTIZED, NOT_BAPTIZED, UNKNOWN.
@@ -37,8 +40,10 @@ intent and the decisions behind schema changes.
   Optional leader per ministry.
 - Seeded per workspace: Church Leaders, Pastors, Men's, Ladies', Youth, Tech,
   Music, Mixed. The old service code LEADERS and the roster code CHURCH_LEADERS
-  are the same ministry. Mixed has no members; it exists so the services that
-  use it keep their label. Built in step 1 (see `src/lib/ministries.ts`).
+  are the same ministry. Mixed is flagged `serviceOnly`: it is how a 5th Sunday
+  service is run by a mixed team, not a group people belong to. It is hidden from
+  People and Ministries and offered only in a service's ministry choice. Built in
+  step 1 (see `src/lib/ministries.ts`).
 - Per-service roles (who does what in one service) stay as assignments on the
   service.
 
