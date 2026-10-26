@@ -28,6 +28,7 @@ import {
   Captions,
   ChevronDown,
   CircleUserRound,
+  Layers,
   ListMusic,
   LogOut,
   Menu,
@@ -36,6 +37,7 @@ import {
   MonitorPlay,
   Palette,
   Users,
+  UsersRound,
   X,
 } from "lucide-react";
 import { canViewDesignSystem } from "@/lib/design-system-access";
@@ -59,7 +61,11 @@ const WORKSPACE_NAV_ITEMS = [
 
 const NAV_GROUPS = [
   { label: "Prepare", items: SERVICE_NAV_ITEMS },
-  { label: "People", items: [{ href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users }] as const },
+  { label: "People", items: [
+    { href: "/people", label: "People", shortLabel: "People", icon: UsersRound },
+    { href: "/ministries", label: "Ministries", shortLabel: "Ministries", icon: Layers },
+    { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users },
+  ] as const },
   { label: "Tools", items: PRODUCTION_NAV_ITEMS },
   { label: "Workspace", items: WORKSPACE_NAV_ITEMS },
 ] as const;

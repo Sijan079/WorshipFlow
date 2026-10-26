@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { datePartsToIso, emptyPersonForm, formToPayload, isoToDateParts, personToForm, validatePersonForm } from "./person-form.ts";
 import { formatBaptism, formatLongDate, formatStatusLabel, personInitials } from "./people-format.ts";
 import type { PersonRecord } from "./person-types.ts";
@@ -73,4 +75,11 @@ export function runPeopleUiTests() {
   assert.equal(formatBaptism({ ...record, baptismStatus: "UNKNOWN", baptismDate: null }), "—");
   assert.equal(formatStatusLabel("INACTIVE"), "Inactive");
   assert.equal(personInitials("Angel Evee", "Hipolito"), "AH");
+
+  // The screens are reachable: nav entries exist and the page gate checks PEOPLE access.
+  const shell = readFileSync(join(process.cwd(), "src", "components", "workspace-shell.tsx"), "utf8");
+  assert.match(shell, /href: "\/people"/);
+  assert.match(shell, /href: "\/ministries"/);
+  const page = readFileSync(join(process.cwd(), "src", "app", "w", "[workspaceSlug]", "[[...path]]", "page.tsx"), "utf8");
+  assert.match(page, /case "people":\s*case "ministries": \{[\s\S]*?hasModuleAction\(context, "PEOPLE", "VIEW"\)[\s\S]*?notFound\(\)/);
 }

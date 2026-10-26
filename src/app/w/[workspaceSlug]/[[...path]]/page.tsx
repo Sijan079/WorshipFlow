@@ -14,6 +14,8 @@ import DesignSystemGalleryClient from "@/components/design-system-gallery-client
 import { canViewDesignSystem } from "@/lib/design-system-access";
 import EventsPageClient from "@/features/events/events-page-client";
 import SermonCaptionsPage from "@/features/sermon-captions/sermon-captions-page";
+import PeoplePageClient from "@/features/people/people-page-client";
+import MinistriesPageClient from "@/features/ministries/ministries-page-client";
 
 type PageProps = {
   params: Promise<{ workspaceSlug: string; path?: string[] }>;
@@ -55,6 +57,12 @@ export default async function WorkspacePathPage({ params }: PageProps) {
     }
     case "notifications":
       return <ErrorNotificationsPage />;
+    case "people":
+    case "ministries": {
+      const context = await requireWorkspaceContext(workspaceSlug);
+      if (!(await hasModuleAction(context, "PEOPLE", "VIEW"))) notFound();
+      return route === "people" ? <PeoplePageClient /> : <MinistriesPageClient />;
+    }
     case "captions": {
       const context = await requireWorkspaceContext(workspaceSlug);
       if (!(await hasModuleAction(context, "CAPTIONS", "VIEW"))) notFound();
