@@ -76,10 +76,14 @@ most it is a pasted link.
 
 - Vercel Hobby cron: up to 100 jobs per project, each at most once per day,
   with timing precision of +/- 59 minutes.
-- **Keep-alive**: a daily Vercel Cron call to a protected internal route that
-  makes one small database write (same secret pattern as
-  `src/app/api/internal/formatter-cleanup/route.ts`). A write is used because a
-  bare read may not count as activity. The repo has no `vercel.json` yet.
+- **Keep-alive** (built, step 4): `vercel.json` schedules `GET /api/internal/keep-alive` daily at
+  `0 3 * * *` (03:00 to 03:59 UTC on Hobby). Vercel sends the project's `CRON_SECRET` as a bearer
+  token; the route (`src/lib/cron-auth.ts`) refuses a missing, wrong, or too-short (under 32
+  characters) secret and compares in constant time. It stamps one row (`KeepAlive`, no church
+  data) with the current time. A write is used because a bare read may not count as activity. The
+  write is idempotent because Vercel never retries a missed run, may deliver a run twice, and does
+  not follow redirects, so the route is reachable without login (`proxy-paths.ts`) and guards
+  itself. Cron does not run under `next dev`; call the route directly to test it.
 - Vercel Hobby is non-commercial personal use only. "Commercial" includes any
   site used for the financial gain of anyone involved in producing it, including
   a paid employee or consultant writing the code, or receiving payment to host

@@ -239,6 +239,11 @@ Optional:
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase Auth SSR configuration
 - `SUPABASE_SECRET_KEY`: server-only Supabase admin key for invitations
 - `OPENAI_API_KEY`: AI-assisted lyric cleanup and image generation
+- `CRON_SECRET`: server-only secret (at least 32 random characters) that protects
+  `/api/internal/keep-alive`. Vercel Cron calls that route once a day (`vercel.json`) and sends the
+  secret as a bearer token; the route makes one small database write so a Supabase Free project is
+  not paused for inactivity. Set it in the Vercel project's Production environment. Without it the
+  route answers 503 and does nothing.
 - `GITHUB_TOKEN`: server-only token with Issues write access for sending user
   reports to `Sijan079/WorshipFlow`; create the `issue` and `feedback` labels
   in that repository before enabling submissions

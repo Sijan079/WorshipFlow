@@ -48,9 +48,12 @@ write the failing check first, build, verify, document.
    After this step, write a thin project design skill in `.claude/skills/` that
    holds the UI build and review procedure and points at `DESIGN.md` for the
    rules, using what the first People screens taught us.
-4. **Keep-alive job** (daily Vercel Cron, protected route, one small write).
-   Check: route rejects calls without the secret; a write is recorded; confirm
-   in the Supabase dashboard that the project stays active.
+4. **Keep-alive job** (built 2026-10-26; daily Vercel Cron, protected route, one small
+   write). Checked locally: the route refuses a missing or wrong secret, a right-secret call
+   writes exactly one row, and a repeat run is harmless. **Not yet live:** it needs
+   `CRON_SECRET` set in the Vercel project's Production environment and the code merged to
+   `main`; then confirm in Vercel's Cron Jobs settings that it runs, and watch that the Supabase
+   project stays active for a week.
 5. **Design contract** (done 2026-10-26): `DESIGN.md` records the hand-built
    approach as the contract for new screens. The public-site template is designed
    in step 8.

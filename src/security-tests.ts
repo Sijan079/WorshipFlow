@@ -43,6 +43,7 @@ import { runMinistryTests } from "./features/ministries/ministry-validation.test
 import { runServicePeopleMinistryTests } from "./lib/service-people-ministry.test.ts";
 import { runTeamsRetiredTests } from "./lib/teams-retired.test.ts";
 import { runUiTweaksTests } from "./lib/ui-tweaks.test.ts";
+import { runCronAuthTests } from "./lib/cron-auth.test.ts";
 import "./lib/module-access.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
@@ -111,6 +112,7 @@ runMinistryTests();
 runServicePeopleMinistryTests();
 runTeamsRetiredTests();
 runUiTweaksTests();
+runCronAuthTests();
 runWorkspaceShellTests();
 runFeedbackTests();
 runWorkspaceRouteTests();

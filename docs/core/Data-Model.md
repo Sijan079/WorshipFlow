@@ -91,8 +91,8 @@ intent and the decisions behind schema changes.
   plain text fields for Facebook and Instagram copy.
 - `WorkspaceModule` enum: add PEOPLE, SITE (plus MINISTRIES if given its own
   grants). Site actions add PUBLISH to the existing action list.
-- A keep-alive record (for example a single-row heartbeat table) that the daily
-  cron writes to. It holds no church data.
+- `KeepAlive` (built, step 4): a single-row table (`id` "singleton", `lastRunAt`) that the daily
+  cron stamps. It holds no church data and has row-level security.
 
 ## Unchanged
 

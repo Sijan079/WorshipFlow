@@ -1028,3 +1028,10 @@ model WorkspaceRoleActionDefault {
   @@unique([workspaceId, role, module, action])
   @@index([workspaceId, role])
 }
+
+// One row stamped by a daily job so a Supabase Free project sees regular activity and is not paused.
+// It holds no church data.
+model KeepAlive {
+  id        String   @id
+  lastRunAt DateTime
+}
