@@ -1,6 +1,6 @@
 import "dotenv/config";
 import prisma from "../src/lib/prisma.ts";
-import { seedChecklistPresets, seedMinistryPresets, seedServiceTemplatePresets, seedServantGroupPresets } from "../src/lib/settings-server.ts";
+import { seedChecklistPresets, seedMinistries, seedMinistryPresets, seedServiceTemplatePresets, seedServantGroupPresets } from "../src/lib/settings-server.ts";
 
 const TARGET_NAME = "Angeles City Bible Church";
 const TARGET_SLUG = "angeles-city-bible-church";
@@ -44,6 +44,7 @@ async function main() {
     });
 
     await seedMinistryPresets(tx, migrated.id);
+    await seedMinistries(tx, migrated.id);
     await seedServantGroupPresets(tx, migrated.id);
     await seedChecklistPresets(tx, migrated.id);
     await seedServiceTemplatePresets(tx, migrated.id);

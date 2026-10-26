@@ -33,6 +33,8 @@ import { runLocalWorkspaceImportTests } from "./lib/local-workspace-import.test.
 import { runMembershipSectionUiTests } from "./components/membership-section-ui.test.ts";
 import { runSourceEncodingTests } from "./lib/source-encoding.test.ts";
 import { runDesignRuleTests } from "./lib/design-rules.test.ts";
+import { runMinistriesTests } from "./lib/ministries.test.ts";
+import { runPeopleSchemaTests } from "./lib/people-schema.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";
@@ -90,6 +92,8 @@ runLocalWorkspaceImportTests();
 runMembershipSectionUiTests();
 runSourceEncodingTests();
 runDesignRuleTests();
+runMinistriesTests();
+runPeopleSchemaTests();
 runWorkspaceShellTests();
 runFeedbackTests();
 runWorkspaceRouteTests();

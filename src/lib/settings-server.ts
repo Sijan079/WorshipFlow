@@ -7,10 +7,11 @@ import {
   DEFAULT_MINISTRY_PRESETS,
   DEFAULT_SERVANT_GROUP_PRESETS,
 } from "./settings-presets";
+import { DEFAULT_MINISTRIES } from "./ministries";
 
 type SettingsClient = Pick<
   PrismaClient,
-  "workspace" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset" | "programBlockType" | "programBlockTypeVersion" | "serviceTemplateBlock"
+  "workspace" | "ministry" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset" | "programBlockType" | "programBlockTypeVersion" | "serviceTemplateBlock"
 > | Prisma.TransactionClient;
 
 async function seedDefaults<T extends { workspaceId: string }>(
@@ -32,6 +33,13 @@ async function seedDefaults<T extends { workspaceId: string }>(
 
 export async function seedMinistryPresets(client: SettingsClient, workspaceId: string) {
   await seedDefaults(client.ministryPreset, workspaceId, DEFAULT_MINISTRY_PRESETS);
+}
+
+export async function seedMinistries(client: SettingsClient, workspaceId: string) {
+  await client.ministry.createMany({
+    data: DEFAULT_MINISTRIES.map((ministry) => ({ ...ministry, workspaceId })),
+    skipDuplicates: true,
+  });
 }
 
 export async function seedServantGroupPresets(client: SettingsClient, workspaceId: string) {

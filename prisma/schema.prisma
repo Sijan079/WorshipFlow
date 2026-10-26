@@ -212,6 +212,20 @@ enum ServantGender {
   FEMALE
 }
 
+enum PersonStatus {
+  VISITOR
+  REGULAR
+  MEMBER
+  INACTIVE
+  ARCHIVED
+}
+
+enum BaptismStatus {
+  BAPTIZED
+  NOT_BAPTIZED
+  UNKNOWN
+}
+
 enum ServantGroup {
   PASTORS
   CHURCH_LEADERS
@@ -256,6 +270,8 @@ model Workspace {
   captionUsageDays CaptionUsageDay[]
   captionUsageBaselines CaptionUsageBaseline[]
   servants  Servant[]
+  people    Person[]
+  ministries Ministry[]
   errorNotifications ErrorNotification[]
   formatterConversions FormatterConversion[]
   churchEvents ChurchEvent[]
@@ -477,10 +493,12 @@ model BlockPerson {
 
   personName  String
   personTitle String?
+  personId    String?
 
   order       Int @default(0)
 
   block       WorshipServiceBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  person      Person?             @relation(fields: [personId], references: [id], onDelete: SetNull)
 }
 
 model Song {
@@ -730,8 +748,10 @@ model ServiceServantAssignment {
   serviceId  String
   role       ServiceServantRole
   personName String
+  personId   String?
 
   service    WorshipService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  person     Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   @@unique([serviceId, role])
   @@index([serviceId])
@@ -805,6 +825,58 @@ model GeneratedOutput {
 
     @@index([workspaceId, createdAt])
   }
+
+model Person {
+  id              String        @id @default(uuid())
+  workspaceId     String
+  name            String
+  status          PersonStatus  @default(REGULAR)
+  gender          ServantGender?
+  birthdate       DateTime?     @db.Date
+  baptismStatus   BaptismStatus @default(UNKNOWN)
+  baptismDate     DateTime?     @db.Date
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ministries      PersonMinistry[]
+  ledMinistries   Ministry[]    @relation("MinistryLeader")
+  serviceAssignments ServiceServantAssignment[]
+  blockPeople     BlockPerson[]
+
+  @@index([workspaceId, status, name])
+}
+
+model Ministry {
+  id          String   @id @default(uuid())
+  workspaceId String
+  code        String
+  label       String
+  active      Boolean  @default(true)
+  leaderId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leader      Person?   @relation("MinistryLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  members     PersonMinistry[]
+
+  @@unique([workspaceId, code])
+}
+
+model PersonMinistry {
+  personId   String
+  ministryId String
+  createdAt  DateTime @default(now())
+
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  ministry   Ministry @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+
+  @@id([personId, ministryId])
+  @@index([ministryId])
+}
 
 model Servant {
   id          String        @id @default(uuid())

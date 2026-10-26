@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { reportRouteFailure } from "@/lib/observability";
 import { requireAuthenticatedUser } from "@/lib/security-context";
-import { seedChecklistPresets, seedMinistryPresets, seedServiceTemplatePresets, seedServantGroupPresets } from "@/lib/settings-server";
+import { seedChecklistPresets, seedMinistries, seedMinistryPresets, seedServiceTemplatePresets, seedServantGroupPresets } from "@/lib/settings-server";
 import { createWorkspaceSlug, WORKSPACE_NAME_MAX_LENGTH, WORKSPACE_NAME_MIN_LENGTH } from "@/lib/workspace-slug";
 
 const CreateWorkspaceSchema = z.object({
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       });
 
       await seedMinistryPresets(tx, created.id);
+      await seedMinistries(tx, created.id);
       await seedServantGroupPresets(tx, created.id);
       await seedChecklistPresets(tx, created.id);
       await seedServiceTemplatePresets(tx, created.id);
