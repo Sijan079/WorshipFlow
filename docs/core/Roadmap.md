@@ -13,13 +13,20 @@ write the failing check first, build, verify, document.
 
 ## Order
 
-1. **Person and Ministry schema, and Servant migration.**
-   Check: migration dry-run counts match the real roster; service assignments
-   still resolve after the migration.
+1. **Person and Ministry schema** (done 2026-10-26). Additive only: `Person`,
+   `Ministry`, `PersonMinistry`, optional `personId` on the two assignment tables,
+   default Ministries seeded per workspace. No behavior change; Teams and the
+   service pickers still use `Servant`. No data migration; the roster is entered
+   fresh in step 3.
+   Check: `npm test` (schema and migration shape, default Ministries); hosted DB
+   shows 0 people, the Ministries seeded, and the Servant table untouched.
 2. **PEOPLE permission module.**
    Check: a Member with no grant is refused the directory; a Member with a grant
    can read it.
-3. **People and Ministries screens.**
+3. **People and Ministries screens.** Enter the roster fresh, switch the service
+   pickers and service "assigned ministry" to `Person` and `Ministry`, then retire
+   the Teams page, the servants API, and the Ministries and Servant Groups
+   sections in Settings.
    Check: create, edit, archive, restore; hard delete is Owner/Admin only;
    baptism date is rejected unless status is BAPTIZED.
    After this step, write a thin project design skill in `.claude/skills/` that

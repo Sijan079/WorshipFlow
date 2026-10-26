@@ -9,7 +9,8 @@ intent and the decisions behind schema changes.
 
 ### Person (workspace-scoped)
 
-- `name`, `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED).
+- `name`, `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR).
+- `gender`: optional (MALE, FEMALE), carried over from the old servant roster.
 - `birthdate`: optional full date.
 - `baptismStatus`: BAPTIZED, NOT_BAPTIZED, UNKNOWN.
 - `baptismDate`: allowed only when `baptismStatus` is BAPTIZED; null otherwise.
@@ -27,8 +28,14 @@ intent and the decisions behind schema changes.
 - One list that replaces both `MinistryPreset`/`AssignedMinistry` (which ministry
   runs a service) and `ServantGroupPreset`/`ServantGroup` (roster grouping,
   including Tech, Music, Pastors).
-- A person can belong to many ministries. A service's "assigned ministry" points
-  at this same list. Optional leader per ministry.
+- A person can belong to many ministries (a link table, `PersonMinistry`). The
+  People form shows ministries as a checklist, and the ledger lists the chosen
+  ones. A service's "assigned ministry" points at this same list at step 3.
+  Optional leader per ministry.
+- Seeded per workspace: Church Leaders, Pastors, Men's, Ladies', Youth, Tech,
+  Music, Mixed. The old service code LEADERS and the roster code CHURCH_LEADERS
+  are the same ministry. Mixed has no members; it exists so the services that
+  use it keep their label. Built in step 1 (see `src/lib/ministries.ts`).
 - Per-service roles (who does what in one service) stay as assignments on the
   service.
 
@@ -47,9 +54,14 @@ intent and the decisions behind schema changes.
 
 ## Changed models
 
-- `Servant` migrates to `Person` plus Ministry membership. Migration is
-  reversible and has a dry-run that prints counts before applying. Service
-  assignments are repointed to the migrated person.
+- `Servant` is replaced by `Person` plus Ministry membership, **without a data
+  migration**: the roster is entered fresh on the People screens at step 3. Until
+  then Teams and the service pickers keep using `Servant`. The old table stays
+  until step 8.
+- `ServiceServantAssignment` and `BlockPerson` store `personName` text, not a
+  link to a servant. Step 1 adds an optional `personId` to both and keeps
+  `personName` as the record of who served. Linking happens at step 3, if wanted,
+  by exact name match once the roster exists.
 - `ChurchEvent`: remove `recurrence` (`EventRecurrenceKind`) and the `weekly*`
   fields. Replace with a repeat rule: NONE, DAILY, or WEEKLY with selected
   weekdays, plus an end (a date, or never). Add `isPublic`.
