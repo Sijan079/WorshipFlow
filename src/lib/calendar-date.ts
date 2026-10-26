@@ -54,3 +54,20 @@ export function monthIsAfter(month: Date, maxValue?: string) {
   if (!max) return false;
   return month.getFullYear() * 12 + month.getMonth() > max.getFullYear() * 12 + max.getMonth();
 }
+
+const MENU_PAGE_SIZE = 5;
+
+// Where the highlight goes when a key is pressed in a month or year menu. Stays inside the list.
+export function moveMenuIndex(index: number, key: string, length: number) {
+  const last = length - 1;
+  const clamp = (value: number) => Math.min(last, Math.max(0, value));
+  switch (key) {
+    case "ArrowDown": return clamp(index + 1);
+    case "ArrowUp": return clamp(index - 1);
+    case "PageDown": return clamp(index + MENU_PAGE_SIZE);
+    case "PageUp": return clamp(index - MENU_PAGE_SIZE);
+    case "Home": return 0;
+    case "End": return last;
+    default: return clamp(index);
+  }
+}

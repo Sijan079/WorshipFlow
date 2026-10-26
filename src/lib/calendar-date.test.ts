@@ -5,6 +5,7 @@ import {
   getCalendarDays,
   isCalendarDayDisabled,
   monthIsAfter,
+  moveMenuIndex,
   parseCalendarDate,
 } from "./calendar-date.ts";
 
@@ -30,6 +31,19 @@ export function runCalendarDateTests() {
   assert.equal(isCalendarDayDisabled("2026-10-27", "2026-10-26"), true);
   assert.equal(isCalendarDayDisabled("2026-10-26", "2026-10-26"), false);
   assert.equal(isCalendarDayDisabled("2099-01-01"), false);
+
+  // Keyboard movement in the month and year menus: stays inside the list.
+  assert.equal(moveMenuIndex(2, "ArrowDown", 12), 3);
+  assert.equal(moveMenuIndex(11, "ArrowDown", 12), 11);
+  assert.equal(moveMenuIndex(0, "ArrowUp", 12), 0);
+  assert.equal(moveMenuIndex(5, "Home", 12), 0);
+  assert.equal(moveMenuIndex(5, "End", 12), 11);
+  assert.equal(moveMenuIndex(3, "PageDown", 127), 8);
+  assert.equal(moveMenuIndex(120, "PageDown", 127), 125);
+  assert.equal(moveMenuIndex(124, "PageDown", 127), 126);
+  assert.equal(moveMenuIndex(3, "PageUp", 127), 0);
+  assert.equal(moveMenuIndex(4, "x", 12), 4);
+  assert.equal(moveMenuIndex(-1, "ArrowDown", 12), 0);
 
   // The next-month button stops at the month of the latest allowed date.
   assert.equal(monthIsAfter(new Date(2026, 10, 1), "2026-10-26"), true);

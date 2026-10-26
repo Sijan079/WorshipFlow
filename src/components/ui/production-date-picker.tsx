@@ -12,6 +12,7 @@ import {
   parseCalendarDate,
 } from "@/lib/calendar-date";
 import { cn } from "@/lib/utils";
+import { CalendarMenu } from "@/components/ui/calendar-menu";
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -64,7 +65,6 @@ export function ProductionDatePicker({
     [maxDate, minYear],
   );
   const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
-  const selectClass = "min-h-10 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]";
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -120,22 +120,18 @@ export function ProductionDatePicker({
               </button>
               {jumpToMonthAndYear ? (
                 <div className="flex items-center gap-2">
-                  <select
-                    aria-label="Month"
+                  <CalendarMenu
+                    label="Month"
                     value={visibleMonth.getMonth()}
-                    onChange={(event) => setVisibleMonth(new Date(visibleMonth.getFullYear(), Number(event.target.value), 1))}
-                    className={selectClass}
-                  >
-                    {MONTH_NAMES.map((name, month) => <option key={name} value={month}>{name}</option>)}
-                  </select>
-                  <select
-                    aria-label="Year"
+                    options={MONTH_NAMES.map((name, month) => ({ value: month, label: name }))}
+                    onChange={(month) => setVisibleMonth(new Date(visibleMonth.getFullYear(), month, 1))}
+                  />
+                  <CalendarMenu
+                    label="Year"
                     value={visibleMonth.getFullYear()}
-                    onChange={(event) => setVisibleMonth(new Date(Number(event.target.value), visibleMonth.getMonth(), 1))}
-                    className={selectClass}
-                  >
-                    {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                  </select>
+                    options={yearOptions.map((year) => ({ value: year, label: String(year) }))}
+                    onChange={(year) => setVisibleMonth(new Date(year, visibleMonth.getMonth(), 1))}
+                  />
                 </div>
               ) : (
                 <p className="font-medium text-[var(--text-primary)]">{MONTH_FORMATTER.format(visibleMonth)}</p>
