@@ -96,12 +96,15 @@ semantic tokens, never one-off colors, shadows, or radii.
 - Buttons: `ui-btn-primary` (purple, 44px), `ui-btn-secondary`, `ui-btn-cancel`
   (outline, red on hover) are Built. `ui-btn-danger` visibly red at rest is
   Target; Services and Teams use a button that turns red only on hover.
-- Text fields in forms follow the Services form (Built there, and in the People and
-  Ministries dialogs via `src/features/people/field-styles.ts`): a white
-  `--surface-panel` field, 1px `--border-default`, `rounded-md`, `px-3 py-2`, with a
-  visible focus ring and the label above it in sentence case, `text-sm`, regular
-  weight, secondary color. Toolbar search keeps `ui-field`. Selects:
-  `ProductionSelect`. Checkboxes: `ui-checkbox`.
+- Text fields in forms follow the Services text boxes (`.ui-text-field` in
+  `globals.css`, used by the People and Ministries dialogs through
+  `src/features/people/field-styles.ts`): a plain rounded 1px `--border-default`
+  border on a transparent field, never sunken, and the border turns purple
+  (`--border-focus`) when the field is selected, with no outline ring. The label sits
+  above in sentence case, `text-sm`, regular weight, secondary color. Every input gets a
+  global grey fill and inset shadow, which only a `globals.css` rule can switch off, so
+  do not try to restyle a field with Tailwind utilities alone. Toolbar search keeps
+  `ui-field`. Selects: `ProductionSelect`. Checkboxes: `ui-checkbox`.
 - Open question: `ProductionSelect` and the date picker default to small uppercase
   mono labels (as in the Services create dialog), while text fields use plain
   sentence-case labels. One style per form is the goal; not yet decided.

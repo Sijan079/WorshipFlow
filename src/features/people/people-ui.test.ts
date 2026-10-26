@@ -77,11 +77,20 @@ export function runPeopleUiTests() {
   assert.equal(formatStatusLabel("INACTIVE"), "Inactive");
   assert.equal(personInitials("Angel Evee", "Hipolito"), "AH");
 
-  // Text fields match Services: a white field with a thin border, and a plain sentence-case
-  // label above it in regular weight (not the engraved grey `ui-field` style).
-  assert.match(TEXT_FIELD_CLASS, /bg-\[var\(--surface-panel\)\]/);
-  assert.match(TEXT_FIELD_CLASS, /border border-\[var\(--border-default\)\]/);
-  assert.match(TEXT_FIELD_CLASS, /focus-visible:outline/);
+  // Text fields match the Services text boxes: a plain rounded border on a transparent field,
+  // never sunken (every input gets a global inset shadow, so it must be switched off), and the
+  // border turns purple when the field is selected, with no outline ring.
+  // The look lives in one `globals.css` rule, because every input gets global grey-fill and
+  // inset-shadow styles that Tailwind utilities cannot override.
+  assert.match(TEXT_FIELD_CLASS, /\bui-text-field\b/);
+  const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+  const rule = globals.slice(globals.indexOf(".ui-text-field {"), globals.indexOf("}", globals.indexOf(".ui-text-field {")));
+  assert.match(rule, /background-color: transparent/);
+  assert.match(rule, /box-shadow: none/);
+  assert.match(rule, /border: 1px solid var\(--border-default\)/);
+  const focusRule = globals.slice(globals.indexOf(".ui-text-field:focus-visible {"), globals.indexOf("}", globals.indexOf(".ui-text-field:focus-visible {")));
+  assert.match(focusRule, /border-color: var\(--border-focus\)/);
+  assert.match(focusRule, /outline: none/);
   assert.doesNotMatch(FIELD_LABEL_CLASS, /font-(medium|semibold|bold)/);
   const personDialog = readFileSync(join(process.cwd(), "src", "features", "people", "person-dialog.tsx"), "utf8");
   const ministriesDialogPage = readFileSync(join(process.cwd(), "src", "features", "ministries", "ministries-page-client.tsx"), "utf8");

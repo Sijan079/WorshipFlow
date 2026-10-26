@@ -172,6 +172,21 @@ textarea:focus-visible {
   outline: none;
 }
 
+/* Plain text fields in forms, matching the Services text boxes: a rounded border on a
+   transparent field, never sunken, and the border turns purple when the field is selected.
+   Every input gets a global grey fill and inset shadow above, so this has to be a rule here. */
+.ui-text-field {
+  background-color: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+
+.ui-text-field:focus-visible {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
 ::selection {
   background: color-mix(in oklab, var(--action-primary-bg) 52%, transparent);
   color: var(--text-primary);
