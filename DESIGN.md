@@ -96,7 +96,15 @@ semantic tokens, never one-off colors, shadows, or radii.
 - Buttons: `ui-btn-primary` (purple, 44px), `ui-btn-secondary`, `ui-btn-cancel`
   (outline, red on hover) are Built. `ui-btn-danger` visibly red at rest is
   Target; Services and Teams use a button that turns red only on hover.
-- Inputs: `ui-field`. Selects: `ProductionSelect`. Checkboxes: `ui-checkbox`.
+- Text fields in forms follow the Services form (Built there, and in the People and
+  Ministries dialogs via `src/features/people/field-styles.ts`): a white
+  `--surface-panel` field, 1px `--border-default`, `rounded-md`, `px-3 py-2`, with a
+  visible focus ring and the label above it in sentence case, `text-sm`, regular
+  weight, secondary color. Toolbar search keeps `ui-field`. Selects:
+  `ProductionSelect`. Checkboxes: `ui-checkbox`.
+- Open question: `ProductionSelect` and the date picker default to small uppercase
+  mono labels (as in the Services create dialog), while text fields use plain
+  sentence-case labels. One style per form is the goal; not yet decided.
 - Dialogs: the shared Radix `Dialog`, one surface (Built); `ui-modal-close` and
   an explicit Cancel in every dialog (Target); actions right-aligned. Destructive confirmations state what
   will be removed.

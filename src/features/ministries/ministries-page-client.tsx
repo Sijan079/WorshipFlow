@@ -8,10 +8,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ProductionSelect } from "@/components/ui/production-select";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import { MINISTRIES_QUERY_KEY, PEOPLE_QUERY_KEY, createMinistry, fetchMinistries, fetchPeople, updateMinistry } from "@/features/people/people-api";
+import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import type { MinistryRecord } from "./ministry-types";
 
 const GRID = "grid-cols-[minmax(0,1fr)_44px] min-[1200px]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(90px,.5fr)_minmax(100px,.5fr)_44px]";
-const LABEL_CLASS = "mb-1 block text-sm font-medium text-[var(--text-secondary)]";
 
 function MinistryDialog({
   ministry,
@@ -59,22 +59,22 @@ function MinistryDialog({
           }}
         >
           <label className="block">
-            <span className={LABEL_CLASS}>Name</span>
-            <input type="text" value={label} onChange={(event) => setLabel(event.target.value)} className="ui-field ui-field-inactive w-full px-3 py-2 outline-none" autoFocus disabled={!canEdit} />
+            <span className={FIELD_LABEL_CLASS}>Name</span>
+            <input type="text" value={label} onChange={(event) => setLabel(event.target.value)} className={TEXT_FIELD_CLASS} autoFocus disabled={!canEdit} />
             {error ? <p className="mt-1 text-sm text-[var(--state-danger)]" role="alert">{error}</p> : null}
           </label>
           {ministry ? (
             <>
               <ProductionSelect
                 label="Leader"
-                labelClassName={LABEL_CLASS}
+                labelClassName={FIELD_LABEL_CLASS}
                 value={leaderId}
                 onValueChange={setLeaderId}
                 disabled={!canEdit}
                 options={[{ value: "", label: membersQuery.isLoading ? "Loading…" : members.length === 0 ? "No members yet" : "No leader" }, ...members.map((member) => ({ value: member.id, label: `${member.firstName} ${member.lastName}` }))]}
               />
               <div>
-                <p className={LABEL_CLASS}>Members ({members.length})</p>
+                <p className={FIELD_LABEL_CLASS}>Members ({members.length})</p>
                 {membersQuery.isLoading ? (
                   <p className="text-sm text-[var(--text-secondary)]">Loading members…</p>
                 ) : members.length === 0 ? (

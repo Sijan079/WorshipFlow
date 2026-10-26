@@ -144,9 +144,6 @@ export default function PeoplePageClient() {
         <div className="max-w-2xl">
           <h1 className="ui-page-title">People</h1>
           <p className="ui-page-description">Everyone connected to your church: members, regular attendees, and visitors.</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            Birthdays and baptism details are kept so the church can care for its people. Only people you give access to can see them.
-          </p>
         </div>
         {permissions.canCreate ? (
           <button

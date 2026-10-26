@@ -62,7 +62,9 @@ First-cut minimum:
 
 - Record who created, edited, or deleted a person, and when.
 - Owner/Admin can export a person's data and permanently delete it.
-- A short "why we collect this" note appears on the People screen.
+- No on-screen "why we collect this" note (removed at the owner's request on
+  2026-10-26). Access control, the edit record, and admin-only delete carry the
+  baseline; revisit before onboarding other churches.
 - Viewing is not logged yet.
 - Member records are never visible across workspaces.
 

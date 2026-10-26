@@ -7,6 +7,7 @@ import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
 import { formatCalendarDate } from "@/lib/calendar-date";
 import type { MinistryRecord } from "@/features/ministries/ministry-types";
+import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "./field-styles";
 import { formatStatusLabel } from "./people-format";
 import {
   datePartsToIso,
@@ -21,7 +22,6 @@ import {
 import type { PersonRecord } from "./person-types";
 import { BAPTISM_STATUSES, PERSON_STATUSES, type BaptismStatus } from "./person-validation";
 
-const LABEL_CLASS = "mb-1 block text-sm font-medium text-[var(--text-secondary)]";
 const BAPTISM_LABELS: Record<BaptismStatus, string> = {
   BAPTIZED: "Baptized",
   NOT_BAPTIZED: "Not baptized",
@@ -44,7 +44,7 @@ function DateField({
     <div className="min-w-0">
       <ProductionDatePicker
         label={legend}
-        labelClassName={LABEL_CLASS}
+        labelClassName={FIELD_LABEL_CLASS}
         value={iso === null || iso === "incomplete" ? "" : iso}
         onValueChange={(value) => onChange(isoToDateParts(value || null))}
         allowClear
@@ -90,8 +90,6 @@ export function PersonDialog({
     if (!found) onSave(form);
   }
 
-  const inputClass = "ui-field ui-field-inactive mt-0 w-full px-3 py-2 outline-none";
-
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -116,13 +114,13 @@ export function PersonDialog({
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className={LABEL_CLASS}>First name</span>
-              <input type="text" value={form.firstName} onChange={(event) => patch({ firstName: event.target.value })} className={inputClass} autoFocus />
+              <span className={FIELD_LABEL_CLASS}>First name</span>
+              <input type="text" value={form.firstName} onChange={(event) => patch({ firstName: event.target.value })} className={TEXT_FIELD_CLASS} autoFocus />
               {errors.firstName ? <p className="mt-1 text-sm text-[var(--state-danger)]" role="alert">{errors.firstName}</p> : null}
             </label>
             <label className="block">
-              <span className={LABEL_CLASS}>Last name</span>
-              <input type="text" value={form.lastName} onChange={(event) => patch({ lastName: event.target.value })} className={inputClass} />
+              <span className={FIELD_LABEL_CLASS}>Last name</span>
+              <input type="text" value={form.lastName} onChange={(event) => patch({ lastName: event.target.value })} className={TEXT_FIELD_CLASS} />
               {errors.lastName ? <p className="mt-1 text-sm text-[var(--state-danger)]" role="alert">{errors.lastName}</p> : null}
             </label>
           </div>
@@ -130,14 +128,14 @@ export function PersonDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <ProductionSelect
               label="Status"
-              labelClassName={LABEL_CLASS}
+              labelClassName={FIELD_LABEL_CLASS}
               value={form.status}
               onValueChange={(value) => patch({ status: value })}
               options={PERSON_STATUSES.map((status) => ({ value: status, label: formatStatusLabel(status) }))}
             />
             <ProductionSelect
               label="Gender"
-              labelClassName={LABEL_CLASS}
+              labelClassName={FIELD_LABEL_CLASS}
               value={form.gender}
               onValueChange={(value) => patch({ gender: value })}
               options={[{ value: "", label: "Not set" }, { value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }]}
@@ -152,7 +150,7 @@ export function PersonDialog({
           />
 
           <fieldset>
-            <legend className={LABEL_CLASS}>Ministries</legend>
+            <legend className={FIELD_LABEL_CLASS}>Ministries</legend>
             {choices.length === 0 ? (
               <p className="text-sm text-[var(--text-secondary)]">No ministries yet. Add some on the Ministries page.</p>
             ) : (
@@ -179,7 +177,7 @@ export function PersonDialog({
           <div className="space-y-3">
             <ProductionSelect
               label="Baptism"
-              labelClassName={LABEL_CLASS}
+              labelClassName={FIELD_LABEL_CLASS}
               value={form.baptismStatus}
               onValueChange={(value) => patch({ baptismStatus: value })}
               options={BAPTISM_STATUSES.map((status) => ({ value: status, label: BAPTISM_LABELS[status] }))}
