@@ -44,6 +44,14 @@ team enters and edits all People data; congregants only see the public site.
   scripting. Rich text is a restricted subset.
 - Public endpoints are rate limited and cached.
 
+## Names for service pickers
+
+`/api/people/names` returns only an id and a display name ("Bro.", "Sis." or "Ptr." by gender
+and the Pastors ministry, then first and last name) for people who are not Archived or
+Inactive. Any member of the workspace can read it, because building a service must not need
+access to the People directory. It never returns birthdates, baptism details, or anything else
+from the directory, and it never appears on the public site.
+
 ## Hiding the admin app is not security
 
 The app at `/w/{slug}` is not protected by its path being unknown. Every request

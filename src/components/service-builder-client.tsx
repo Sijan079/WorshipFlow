@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useServerDraft } from "@/features/song-formatter/use-server-draft";
 import { formatLastTouchedAge } from "@/features/song-formatter/recent-conversion";
+import { fetchPeopleNames } from "@/features/people/people-api";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -224,13 +225,13 @@ function ProgrammableBlockFields({
     block.fieldValues && typeof block.fieldValues === "object" && !Array.isArray(block.fieldValues) ? block.fieldValues as Record<string, unknown> : {},
   );
   const servantsQuery = useQuery({
-    queryKey: ["servants", "block-picker"],
-    queryFn: () => apiFetch<Array<{ id: string; name: string }>>("/api/servants"),
+    queryKey: ["people", "names"],
+    queryFn: fetchPeopleNames,
     enabled: block.kind === "PERSON",
   });
   const pathname = usePathname();
   const workspaceMatch = pathname.match(/^\/w\/([^/]+)/);
-  const teamsHref = workspaceMatch ? `/w/${workspaceMatch[1]}/teams` : "/teams";
+  const peopleHref = workspaceMatch ? `/w/${workspaceMatch[1]}/people` : "/people";
   const saveText = (text: string) => onSave({ text });
   const personIds = Array.isArray(values.personIds) ? values.personIds.filter((value): value is string => typeof value === "string") : [];
   if (block.kind === "TEXT") {
@@ -247,7 +248,7 @@ function ProgrammableBlockFields({
     const savePeople = (next: string[]) => { setValues({ personIds: next }); onSave({ personIds: next }); };
     return (
       <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
-        <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={teamsHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage Teams</Link></div>
+        <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-[var(--text-primary)]">Assigned team</h4><Link href={peopleHref} className="text-xs font-semibold text-[var(--text-accent)] underline-offset-2 hover:underline">Manage people</Link></div>
         <div className="mt-3 flex flex-wrap gap-2">{personIds.map((id) => <button key={id} type="button" onClick={() => savePeople(personIds.filter((personId) => personId !== id))} className="rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-2 py-1 text-xs text-[var(--text-primary)]">{people.find((person) => person.id === id)?.name ?? "Unavailable person"} Ã—</button>)}</div>
         <ProductionSelect value="" onValueChange={(id) => { if (id && !personIds.includes(id)) savePeople([...personIds, id]); }} options={[{ value: "", label: "Add a Team member…" }, ...people.filter((person) => !personIds.includes(person.id)).map((person) => ({ value: person.id, label: person.name }))]} disabled={servantsQuery.isLoading || saving} className="mt-3" ariaLabel="Add a Team member" triggerClassName="min-h-11" />
       </div>

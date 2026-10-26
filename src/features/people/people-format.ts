@@ -1,5 +1,5 @@
 import type { PersonRecord } from "./person-types.ts";
-import type { PersonStatus } from "./person-validation.ts";
+import type { PersonGender, PersonStatus } from "./person-validation.ts";
 
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -35,4 +35,19 @@ export function formatBaptism(person: Pick<PersonRecord, "baptismStatus" | "bapt
 
 export function personInitials(firstName: string, lastName: string) {
   return `${firstName.trim().charAt(0)}${lastName.trim().charAt(0)}`.toUpperCase();
+}
+
+// How a person's name reads in a service: Ptr. for pastors, otherwise Bro. or Sis. by gender.
+// Matches the convention the old servant roster used.
+export function formatPersonDisplayName(person: {
+  firstName: string;
+  lastName: string;
+  gender: PersonGender | null;
+  ministryCodes: readonly string[];
+}) {
+  const name = `${person.firstName} ${person.lastName}`.trim();
+  if (person.ministryCodes.includes("PASTORS")) return `Ptr. ${name}`;
+  if (person.gender === "MALE") return `Bro. ${name}`;
+  if (person.gender === "FEMALE") return `Sis. ${name}`;
+  return name;
 }

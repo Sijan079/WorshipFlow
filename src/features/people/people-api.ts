@@ -5,6 +5,8 @@ import type { PersonPayload } from "./person-form";
 
 export type PeopleFilters = { search: string; status: string; ministryId: string };
 
+export type PersonNameRecord = { id: string; name: string };
+
 export const PEOPLE_QUERY_KEY = ["people"] as const;
 export const MINISTRIES_QUERY_KEY = ["ministries"] as const;
 
@@ -43,4 +45,9 @@ export function createMinistry(label: string) {
 
 export function updateMinistry(id: string, patch: { label?: string; active?: boolean; leaderId?: string | null }) {
   return apiFetch<MinistryRecord>(`/api/ministries/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+// Names only, for choosing someone on a service. Open to any member of the workspace.
+export function fetchPeopleNames() {
+  return apiFetch<PersonNameRecord[]>("/api/people/names");
 }

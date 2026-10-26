@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { datePartsToIso, emptyPersonForm, formToPayload, isoToDateParts, personToForm, validatePersonForm } from "./person-form.ts";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "./field-styles.ts";
-import { formatBaptism, formatLongDate, formatStatusLabel, personInitials } from "./people-format.ts";
+import { formatPersonDisplayName, formatBaptism, formatLongDate, formatStatusLabel, personInitials } from "./people-format.ts";
 import type { PersonRecord } from "./person-types.ts";
 
 const record: PersonRecord = {
@@ -103,6 +103,32 @@ export function runPeopleUiTests() {
   // The People page carries no privacy blurb under its heading.
   const peoplePageSource = readFileSync(join(process.cwd(), "src", "features", "people", "people-page-client.tsx"), "utf8");
   assert.doesNotMatch(peoplePageSource, /Birthdays and baptism details/);
+
+  // Names in service pickers keep the church's convention: Ptr. for pastors, else Bro. or Sis.
+  assert.equal(formatPersonDisplayName({ firstName: "John", lastName: "Cruz", gender: "MALE", ministryCodes: ["TECH"] }), "Bro. John Cruz");
+  assert.equal(formatPersonDisplayName({ firstName: "Maria", lastName: "Santos", gender: "FEMALE", ministryCodes: [] }), "Sis. Maria Santos");
+  assert.equal(formatPersonDisplayName({ firstName: "Joel", lastName: "Reyes", gender: "MALE", ministryCodes: ["PASTORS", "CHURCH_LEADERS"] }), "Ptr. Joel Reyes");
+  assert.equal(formatPersonDisplayName({ firstName: "Ramon", lastName: "Cruz", gender: null, ministryCodes: [] }), "Ramon Cruz");
+
+  // Pickers read names only, through an endpoint any workspace member can use (no birthdates,
+  // baptism, or other directory details), scoped to the caller's workspace.
+  const names = readFileSync(join(process.cwd(), "src", "app", "api", "people", "names", "route.ts"), "utf8");
+  assert.match(names, /requireExplicitWorkspaceRole\("MEMBER"\)/);
+  assert.match(names, /workspaceId: context\.workspaceId/);
+  assert.match(names, /status: \{ notIn: \["ARCHIVED", "INACTIVE"\] \}/);
+  assert.doesNotMatch(names, /birthdate|baptism/);
+
+  // The service screens read People, not the old servant roster, and the dead fixed-role form
+  // and its "add to roster" prompt are gone.
+  const servicesPage = readFileSync(join(process.cwd(), "src", "components", "services-page-client.tsx"), "utf8");
+  const serviceBuilder = readFileSync(join(process.cwd(), "src", "components", "service-builder-client.tsx"), "utf8");
+  for (const source of [servicesPage, serviceBuilder]) {
+    assert.doesNotMatch(source, /\/api\/servants/);
+    assert.doesNotMatch(source, /formatServantDisplayName/);
+  }
+  assert.match(servicesPage, /fetchPeopleNames/);
+  assert.match(serviceBuilder, /fetchPeopleNames/);
+  assert.doesNotMatch(servicesPage, /function ServiceFormFields|collectUnlistedServantNames|Unlisted servants found|createMissingServantsMutation/);
 
   // The Status menu stands on its own: no explanatory line is shown under it.
   const dialog = readFileSync(join(process.cwd(), "src", "features", "people", "person-dialog.tsx"), "utf8");

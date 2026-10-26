@@ -117,7 +117,7 @@ export function runServiceTemplateRenderingTests() {
   assert.match(page, /serviceDate: new Date\(serviceDate\)\.toISOString\(\)/);
   assert.match(page, /const service = await apiFetch<ServiceRecord>\(/);
   assert.match(page, /<ProductionDatePicker/);
-  assert.equal((page.match(/<ProductionDatePicker/g) ?? []).length, 4);
+  assert.equal((page.match(/<ProductionDatePicker/g) ?? []).length, 3);
   assert.match(page, /<ProductionDatePicker\s+label="Service date"\s+value=\{editServiceDate\}/);
   assert.match(page, /<ProductionSelect\s+label="Assigned ministry"\s+value=\{editMinistryPresetCode\}/);
   assert.match(page, /labelClassName="mb-1 block text-sm font-semibold text-\[var\(--text-primary\)\]"/);
@@ -138,7 +138,7 @@ export function runServiceTemplateRenderingTests() {
   assert.match(page, /Mark ready/);
   assert.doesNotMatch(readOnlyDetails, /<dl/);
   assert.match(readOnlyDetails, /text-right/);
-  assert.match(readOnlyDetails, /formatServantDisplayName/);
+  assert.match(readOnlyDetails, /servantNameById/);
   assert.doesNotMatch(readOnlyDetails, /text-\[var\(--text-accent\)\]/);
   assert.doesNotMatch(page, /<ServiceFormFields/);
   assert.doesNotMatch(page, /<h4[^>]*>Bible verses<\/h4>/);
