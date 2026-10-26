@@ -14,8 +14,8 @@ intent and the decisions behind schema changes.
   two-word first name ("Angel Evee") stays in `firstName`.
 - `status` (VISITOR, REGULAR, MEMBER, INACTIVE, ARCHIVED; default REGULAR). Visitor
   is a guest; Regular attends often but has not formally joined; Member has
-  formally joined; Inactive no longer attends; Archived has moved away. The person
-  form shows this meaning under the Status menu.
+  formally joined; Inactive no longer attends; Archived has moved away. The form
+  shows only the status names, with no explanatory text.
 - `gender`: optional (MALE, FEMALE), carried over from the old servant roster.
 - `birthdate`: optional full date.
 - `baptismStatus`: BAPTIZED, NOT_BAPTIZED, UNKNOWN.

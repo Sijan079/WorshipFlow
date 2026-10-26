@@ -7,7 +7,7 @@ import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
 import { formatCalendarDate } from "@/lib/calendar-date";
 import type { MinistryRecord } from "@/features/ministries/ministry-types";
-import { STATUS_DESCRIPTIONS, formatStatusLabel } from "./people-format";
+import { formatStatusLabel } from "./people-format";
 import {
   datePartsToIso,
   emptyPersonForm,
@@ -128,16 +128,13 @@ export function PersonDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <ProductionSelect
-                label="Status"
-                labelClassName={LABEL_CLASS}
-                value={form.status}
-                onValueChange={(value) => patch({ status: value })}
-                options={PERSON_STATUSES.map((status) => ({ value: status, label: formatStatusLabel(status) }))}
-              />
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">{STATUS_DESCRIPTIONS[form.status]}</p>
-            </div>
+            <ProductionSelect
+              label="Status"
+              labelClassName={LABEL_CLASS}
+              value={form.status}
+              onValueChange={(value) => patch({ status: value })}
+              options={PERSON_STATUSES.map((status) => ({ value: status, label: formatStatusLabel(status) }))}
+            />
             <ProductionSelect
               label="Gender"
               labelClassName={LABEL_CLASS}

@@ -14,15 +14,6 @@ const STATUS_LABELS: Record<PersonStatus, string> = {
   ARCHIVED: "Archived",
 };
 
-// One plain line per status, shown under the Status menu so nobody has to guess.
-export const STATUS_DESCRIPTIONS: Record<PersonStatus, string> = {
-  VISITOR: "A guest who is visiting.",
-  REGULAR: "Attends often but has not formally joined the church.",
-  MEMBER: "Has formally joined the church.",
-  INACTIVE: "Used to attend but is no longer active.",
-  ARCHIVED: "Moved away or no longer part of the church. Hidden from the main list.",
-};
-
 export function formatStatusLabel(status: PersonStatus) {
   return STATUS_LABELS[status];
 }
