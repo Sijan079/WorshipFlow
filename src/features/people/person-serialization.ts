@@ -1,5 +1,5 @@
-import type { PersonMinistrySummary, PersonRecord } from "./person-types";
-import type { BaptismStatus, PersonGender, PersonStatus } from "./person-validation";
+import type { PersonMinistrySummary, PersonRecord } from "./person-types.ts";
+import type { BaptismStatus, PersonGender, PersonStatus } from "./person-validation.ts";
 
 type PersonRow = {
   id: string;

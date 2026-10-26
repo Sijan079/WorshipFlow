@@ -1,4 +1,4 @@
-import type { BaptismStatus, PersonGender, PersonStatus } from "./person-validation";
+import type { BaptismStatus, PersonGender, PersonStatus } from "./person-validation.ts";
 
 export type PersonMinistrySummary = { id: string; label: string };
 
