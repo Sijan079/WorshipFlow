@@ -35,6 +35,12 @@ write the failing check first, build, verify, document.
    `/api/servants`, and the two Settings preset sections, and put People and
    Ministries in the nav. The roster is entered fresh by hand (no bulk add).
    Applying `prisma/deploy-queue/` (drops `Servant` data) happens at deploy time.
+   **Progress (2026-10-26):** done and verified in the browser: schema, People API,
+   People screen, Ministries API and screen, nav entries. Remaining: switch the
+   service pickers, text parser and "add to roster" flow to People; switch the
+   service ministry to `Ministry`; remove Teams, `/api/servants` and the two
+   Settings preset sections. These wait until the roster has been entered, since
+   the pickers would otherwise be empty.
    Check: create, edit, archive, restore; hard delete is Owner/Admin only;
    baptism date is rejected unless status is BAPTIZED.
    After this step, write a thin project design skill in `.claude/skills/` that
