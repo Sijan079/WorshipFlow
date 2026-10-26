@@ -167,6 +167,7 @@ enum WorkspaceModule {
   EVENTS
   ANNOUNCEMENTS
   CAPTIONS
+  PEOPLE
 }
 
 enum WorkspaceAction {

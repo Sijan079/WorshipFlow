@@ -19,6 +19,16 @@ test("module navigation follows resolved view permission", () => {
   assert.equal(canShowModuleNavigation("/services", false, false), true);
 });
 
+test("people access is configurable for view, create, and edit but never delete", () => {
+  assert.equal(isConfigurableModuleAction("PEOPLE", "VIEW"), true);
+  assert.equal(isConfigurableModuleAction("PEOPLE", "CREATE"), true);
+  assert.equal(isConfigurableModuleAction("PEOPLE", "EDIT"), true);
+  assert.equal(isConfigurableModuleAction("PEOPLE", "DELETE"), false);
+  assert.equal(canShowModuleNavigation("/people", true, true, false), false);
+  assert.equal(canShowModuleNavigation("/people", false, false, true), true);
+  assert.equal(canShowModuleNavigation("/ministries", false, false, false), false);
+});
+
 test("only implemented actions can be assigned", () => {
   assert.equal(isConfigurableModuleAction("EVENTS", "VIEW"), true);
   assert.equal(isConfigurableModuleAction("EVENTS", "CREATE"), true);

@@ -7,6 +7,12 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
     { action: "VIEW", label: "View captions" },
     { action: "OPERATE", label: "Operate live captions" },
   ] },
+  // Hard delete is not listed: only Owner and Admin can permanently delete a person.
+  { module: "PEOPLE", label: "People and ministries", actions: [
+    { action: "VIEW", label: "View people" },
+    { action: "CREATE", label: "Add people" },
+    { action: "EDIT", label: "Edit and archive people" },
+  ] },
 ] as const;
 
 export function isConfigurableModuleAction(module: string, action: string) {
@@ -20,8 +26,9 @@ export function resolveModuleAction(role: string, defaultEnabled: boolean, perso
   return personalOverride ?? defaultEnabled;
 }
 
-export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false) {
+export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false, canViewPeople = false) {
   if (href === "/events") return canViewEvents;
   if (href === "/captions") return canViewCaptions;
+  if (href === "/people" || href === "/ministries") return canViewPeople;
   return true;
 }

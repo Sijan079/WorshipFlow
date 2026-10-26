@@ -8,7 +8,7 @@ import { reportRouteFailure } from "@/lib/observability";
 
 const PermissionChange = z.object({
   userId: z.string().uuid().optional(),
-  module: z.enum(["EVENTS", "ANNOUNCEMENTS", "CAPTIONS"]),
+  module: z.enum(["EVENTS", "ANNOUNCEMENTS", "CAPTIONS", "PEOPLE"]),
   action: z.enum(["VIEW", "CREATE", "EDIT", "DELETE", "OPERATE", "ATTENDANCE", "DRAFT", "PUBLISH"]),
   enabled: z.boolean(),
 });

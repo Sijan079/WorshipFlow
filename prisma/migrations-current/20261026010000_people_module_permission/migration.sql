@@ -1,0 +1,1 @@
+ALTER TYPE "WorkspaceModule" ADD VALUE IF NOT EXISTS 'PEOPLE';

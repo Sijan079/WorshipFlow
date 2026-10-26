@@ -100,7 +100,7 @@ function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate, canViewU
   });
 }
 
-type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null; canViewEvents?: boolean; canViewCaptions?: boolean } | null };
+type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null; canViewEvents?: boolean; canViewCaptions?: boolean; canViewPeople?: boolean } | null };
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
@@ -400,7 +400,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                 {group.label}
               </p>
               <div className="mt-1.5 flex flex-col gap-1">
-                {group.items.filter((item) => canShowModuleNavigation(item.href, sessionQuery.data?.user?.canViewEvents ?? false, sessionQuery.data?.user?.canViewCaptions ?? false)).map(({ href, label, icon: Icon }) => {
+                {group.items.filter((item) => canShowModuleNavigation(item.href, sessionQuery.data?.user?.canViewEvents ?? false, sessionQuery.data?.user?.canViewCaptions ?? false, sessionQuery.data?.user?.canViewPeople ?? false)).map(({ href, label, icon: Icon }) => {
                   const resolvedHref = toWorkspacePath(href);
                   const active =
                     href === "/services"
