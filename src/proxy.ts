@@ -17,6 +17,8 @@ const LEGACY_WORKSPACE_PATHS = [
   "/automation",
   "/captions",
   "/pap",
+  "/song-formatter",
+  "/notifications",
 ];
 
 export async function proxy(request: NextRequest) {

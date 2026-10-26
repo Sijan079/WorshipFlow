@@ -8,23 +8,14 @@ export function runWorkspaceModulesTests() {
   assert.equal(WORKSPACE_MODULES.includes("media-tools"), true);
   assert.equal(WORKSPACE_MODULES.includes("assets" as never), false);
 
-  const mediaToolsPages = [
-    "page.tsx",
-    "phone-transfer/page.tsx",
-    "qr-generator/page.tsx",
-    "background-generator/page.tsx",
-    "comment-card/page.tsx",
-    "resize-image/page.tsx",
-    "background-removal/page.tsx",
-  ];
-
-  for (const relativePath of mediaToolsPages) {
-    const source = readFileSync(
-      join(process.cwd(), "src", "app", "(workspace)", "media-tools", relativePath),
-      "utf8",
-    );
-    assert.doesNotMatch(source, /module="assets"/);
+  const workspacePage = readFileSync(
+    join(process.cwd(), "src", "app", "w", "[workspaceSlug]", "[[...path]]", "page.tsx"),
+    "utf8",
+  );
+  for (const tool of ["phone-transfer", "qr-generator", "background-generator", "comment-card", "resize-image", "background-removal"]) {
+    assert.match(workspacePage, new RegExp(`case "media-tools/${tool}":`));
   }
+  assert.doesNotMatch(workspacePage, /module="assets"/);
 
   const serviceBuilder = readFileSync(
     join(process.cwd(), "src", "components", "service-builder-client.tsx"),
@@ -34,22 +25,4 @@ export function runWorkspaceModulesTests() {
   assert.match(serviceBuilder, /import CommentCardTool from "@\/components\/comment-card-tool"/);
   assert.match(serviceBuilder, /mediaTool === "resize-image"[\s\S]*?<ResizeImageTool showToast=\{showToast\}/);
   assert.match(serviceBuilder, /mediaTool === "comment-card"[\s\S]*?<CommentCardTool showToast=\{showToast\}/);
-
-  const assetsCompatibilityPages = [
-    ["page.tsx", 'redirect("/media-tools")'],
-    ["converter/page.tsx", 'redirect("/media-tools")'],
-    ["phone-transfer/page.tsx", 'redirect("/media-tools/phone-transfer")'],
-    ["qr-generator/page.tsx", 'redirect("/media-tools/qr-generator")'],
-    ["background-generator/page.tsx", 'redirect("/media-tools/background-generator")'],
-  ] as const;
-
-  for (const [relativePath, expectedRedirect] of assetsCompatibilityPages) {
-    const source = readFileSync(
-      join(process.cwd(), "src", "app", "(workspace)", "assets", relativePath),
-      "utf8",
-    );
-    assert.match(source, /import \{ redirect \} from "next\/navigation";/);
-    assert.match(source, new RegExp(expectedRedirect.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-    assert.doesNotMatch(source, /module="assets"/);
-  }
 }

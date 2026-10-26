@@ -73,11 +73,11 @@ export function runServantDirectoryTests() {
     assert.equal(nameOnly.data.group, undefined);
   }
 
-  const teamsPagePath = join(process.cwd(), "src", "app", "(workspace)", "teams", "page.tsx");
-  assert.equal(existsSync(teamsPagePath), true);
+  const workspacePagePath = join(process.cwd(), "src", "app", "w", "[workspaceSlug]", "[[...path]]", "page.tsx");
+  assert.equal(existsSync(workspacePagePath), true);
 
-  const teamsPageSource = readFileSync(teamsPagePath, "utf8");
-  assert.match(teamsPageSource, /TeamsPageClient/);
+  const workspacePageSource = readFileSync(workspacePagePath, "utf8");
+  assert.match(workspacePageSource, /case "teams":\s*return <TeamsPageClient \/>/);
 
   const teamsClientSource = readFileSync(join(process.cwd(), "src", "components", "teams-page-client.tsx"), "utf8");
   const globalsSource = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
