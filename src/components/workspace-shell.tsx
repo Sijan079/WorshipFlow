@@ -36,7 +36,6 @@ import {
   Settings2,
   MonitorPlay,
   Palette,
-  Users,
   UsersRound,
   X,
 } from "lucide-react";
@@ -64,7 +63,6 @@ const NAV_GROUPS = [
   { label: "People", items: [
     { href: "/people", label: "People", shortLabel: "People", icon: UsersRound },
     { href: "/ministries", label: "Ministries", shortLabel: "Ministries", icon: Layers },
-    { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users },
   ] as const },
   { label: "Tools", items: PRODUCTION_NAV_ITEMS },
   { label: "Workspace", items: WORKSPACE_NAV_ITEMS },

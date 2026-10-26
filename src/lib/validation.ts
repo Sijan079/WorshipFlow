@@ -8,7 +8,6 @@ import {
   SERVICE_SERVANT_ROLES,
   SERVICE_TEMPLATE_OPTIONS,
 } from "@/lib/service-records";
-import { ServantSchema, UpdateServantSchema } from "@/lib/servants";
 import { PresetCodeSchema } from "@/lib/settings-presets";
 import { BlockTypeValues } from "@/lib/service-constants";
 
@@ -166,4 +165,3 @@ export const UpdateSongTagPresetSchema = SongTagPresetSchema.partial().refine(
   "At least one field is required"
 );
 
-export { ServantSchema, UpdateServantSchema };

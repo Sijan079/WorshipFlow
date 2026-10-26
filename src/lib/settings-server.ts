@@ -4,46 +4,19 @@ import type { Prisma } from "@prisma/client";
 import {
   DEFAULT_CHECKLIST_ITEMS,
   DEFAULT_CHECKLIST_NAME,
-  DEFAULT_MINISTRY_PRESETS,
-  DEFAULT_SERVANT_GROUP_PRESETS,
 } from "./settings-presets";
 import { DEFAULT_MINISTRIES } from "./ministries";
 
 type SettingsClient = Pick<
   PrismaClient,
-  "workspace" | "ministry" | "ministryPreset" | "servantGroupPreset" | "checklistPreset" | "serviceTemplatePreset" | "programBlockType" | "programBlockTypeVersion" | "serviceTemplateBlock"
+  "workspace" | "ministry" | "checklistPreset" | "serviceTemplatePreset" | "programBlockType" | "programBlockTypeVersion" | "serviceTemplateBlock"
 > | Prisma.TransactionClient;
-
-async function seedDefaults<T extends { workspaceId: string }>(
-  delegate: {
-    count(args: { where: { workspaceId: string } }): Promise<number>;
-    createMany(args: { data: T[]; skipDuplicates: true }): Promise<unknown>;
-  },
-  workspaceId: string,
-  defaults: Omit<T, "workspaceId">[],
-) {
-  if (await delegate.count({ where: { workspaceId } })) return false;
-
-  await delegate.createMany({
-    data: defaults.map((preset) => ({ ...preset, workspaceId } as T)),
-    skipDuplicates: true,
-  });
-  return true;
-}
-
-export async function seedMinistryPresets(client: SettingsClient, workspaceId: string) {
-  await seedDefaults(client.ministryPreset, workspaceId, DEFAULT_MINISTRY_PRESETS);
-}
 
 export async function seedMinistries(client: SettingsClient, workspaceId: string) {
   await client.ministry.createMany({
     data: DEFAULT_MINISTRIES.map((ministry) => ({ ...ministry, workspaceId })),
     skipDuplicates: true,
   });
-}
-
-export async function seedServantGroupPresets(client: SettingsClient, workspaceId: string) {
-  await seedDefaults(client.servantGroupPreset, workspaceId, DEFAULT_SERVANT_GROUP_PRESETS);
 }
 
 export async function seedChecklistPresets(client: SettingsClient, workspaceId: string) {

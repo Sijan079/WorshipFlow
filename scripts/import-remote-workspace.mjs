@@ -6,7 +6,7 @@ const APP_TABLES_TO_CLEAR = [
   "ErrorNotification", "FeedbackRateLimit", "GeneratedOutput", "AutomationJob", "ServiceAsset", "PAPInboxScreenshot",
   "SongFile", "WorshipServiceSong", "WorshipServiceDetail", "ServiceBibleVerse", "ServiceServantAssignment", "ServiceHymnal",
   "BlockPerson", "WorshipServiceBlock", "WorshipService", "ServiceTemplateBlock", "ProgramBlockTypeVersion", "ProgramBlockType",
-  "ServiceTemplatePreset", "ChecklistItemPreset", "ChecklistPreset", "Song", "SongTagPreset", "Servant", "ServantGroupPreset",
+  "ServiceTemplatePreset", "ChecklistItemPreset", "ChecklistPreset", "Song", "SongTagPreset",
   "MinistryPreset", "WorkspaceIntegration", "WorkspaceInvitation", "WorkspaceMembership", "User", "Workspace",
 ];
 
@@ -85,13 +85,11 @@ async function buildImportData(remote, email) {
   data.set("Workspace", await selectByIds(remote, "Workspace", "id", workspaceIds));
   data.set("SongTagPreset", await selectByIds(remote, "SongTagPreset", "workspaceId", workspaceIds));
   data.set("MinistryPreset", await selectByIds(remote, "MinistryPreset", "workspaceId", workspaceIds));
-  data.set("ServantGroupPreset", await selectByIds(remote, "ServantGroupPreset", "workspaceId", workspaceIds));
   data.set("ChecklistPreset", await selectByIds(remote, "ChecklistPreset", "workspaceId", workspaceIds));
   data.set("ServiceTemplatePreset", await selectByIds(remote, "ServiceTemplatePreset", "workspaceId", workspaceIds));
   data.set("ProgramBlockType", await selectByIds(remote, "ProgramBlockType", "workspaceId", workspaceIds));
   data.set("WorshipService", await selectByIds(remote, "WorshipService", "workspaceId", workspaceIds));
   data.set("Song", await selectByIds(remote, "Song", "workspaceId", workspaceIds));
-  data.set("Servant", await selectByIds(remote, "Servant", "workspaceId", workspaceIds));
 
   const checklistIds = data.get("ChecklistPreset").map((row) => row.id);
   const templateIds = data.get("ServiceTemplatePreset").map((row) => row.id);

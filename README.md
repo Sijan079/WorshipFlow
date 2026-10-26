@@ -14,9 +14,9 @@ worship-service preparation tool; that work is now the Worship module.
 
 **What exists today** is described under Current Workflows below: Worship
 (services, songs, media tools, sermon captions), a calendar-first Events
-foundation, a Teams roster, and workspace settings and access. **Planned, not
-built yet:** People, Ministries, Announcements, the public Site and page
-builder, and a summary Dashboard.
+foundation, People and Ministries (the roster, with a PEOPLE permission), and
+workspace settings and access. **Planned, not built yet:** Announcements, the
+public Page Builder site, and a summary Dashboard.
 
 Server failures use structured logs and OpenTelemetry trace annotations. Run
 `npm run test:observability` to verify failure metrics and trace correlation.
@@ -97,9 +97,10 @@ deployed app; the media converter remains disabled for web deployment.
 
 ### Workspace Setup
 
-- Review servants in a responsive roster with initials, search, group filters,
-  selection, and bulk assignment
-- Configure ministries, service templates, song tags, and checklists
+- Keep the church roster on the People page (search, status and ministry filters,
+  archive and restore, bulk add to a ministry) and manage ministries on the
+  Ministries page
+- Configure service templates, song tags, and checklists
 - Use the Production Grade Interface across desktop and mobile layouts
 
 ## Domain Rules
@@ -361,7 +362,6 @@ surfaces. Many users are elderly: favor plain wording and large targets.
 
 ## Near-Term Direction
 
-Follow [docs/core/Roadmap.md](docs/core/Roadmap.md): Person and Ministry schema
-with the Servant migration, then PEOPLE permissions and screens, a daily
-database keep-alive, Events repeat and headcounts, Announcements, and the public
-Site.
+Follow [docs/core/Roadmap.md](docs/core/Roadmap.md): finish deploying People and
+Ministries (applying the queued Servant drop), then a daily database keep-alive,
+Events repeat and headcounts, Announcements, and the public Page Builder site.

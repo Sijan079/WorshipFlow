@@ -13,7 +13,6 @@ import type {
   ServiceServantRole,
   ServiceTemplateType,
 } from "@/lib/service-records";
-import type { NullableServantGender, NullableServantGroup, ServantGender, ServantGroup } from "@/lib/servants";
 
 export type { LyricsExtractorEditableResponse } from "@/lib/extractor-types";
 
@@ -247,25 +246,6 @@ export type SongTagPresetRecord = {
   updatedAt: string;
 };
 
-export type ServantRecord = {
-  id: string;
-  workspaceId: string;
-  name: string;
-  gender: NullableServantGender;
-  group: NullableServantGroup;
-  groupCode: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type CreateServantPayload = {
-  name: string;
-  gender?: ServantGender | null;
-  group?: ServantGroup | null;
-  groupCode?: string | null;
-};
-
-export type UpdateServantPayload = Partial<CreateServantPayload>;
 
 export type CreateSongTagPresetPayload = {
   label: string;

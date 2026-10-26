@@ -8,8 +8,6 @@ export function runWorkspaceShellTests() {
   const services = readFileSync(join(process.cwd(), "src", "components", "services-page-client.tsx"), "utf8");
   const settingsAdmin = readFileSync(join(process.cwd(), "src", "components", "settings-admin-sections.tsx"), "utf8");
   const settingsRoutes = readFileSync(join(process.cwd(), "src", "lib", "settings-routes.ts"), "utf8");
-  const ministriesRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "ministries", "[id]", "route.ts"), "utf8");
-  const servantGroupsRoute = readFileSync(join(process.cwd(), "src", "app", "api", "settings", "servant-groups", "[id]", "route.ts"), "utf8");
   const session = readFileSync(join(process.cwd(), "src", "app", "api", "auth", "session", "route.ts"), "utf8");
   const notificationsRoute = readFileSync(join(process.cwd(), "src", "app", "api", "error-notifications", "route.ts"), "utf8");
   const schema = readFileSync(join(process.cwd(), "prisma", "schema.prisma"), "utf8");
@@ -129,9 +127,6 @@ export function runWorkspaceShellTests() {
   assert.doesNotMatch(settings, /TemplateBlockFieldEditor/);
   assert.match(settingsAdmin, /type=\"file\"/);
   assert.match(settingsAdmin, /logoDataUrl/);
-  assert.match(settings, /editingId/);
   assert.match(settingsRoutes, /allowDefaultDelete\?: boolean/);
   assert.match(settingsRoutes, /record\.isDefault && !config\.allowDefaultDelete/);
-  assert.match(ministriesRoute, /allowDefaultDelete: true/);
-  assert.match(servantGroupsRoute, /allowDefaultDelete: true/);
 }

@@ -54,13 +54,6 @@ assert.match(
   "shared workspace toast messages must use the semantic foreground token",
 );
 
-const teamsSource = read("src/components/teams-page-client.tsx");
-assert.doesNotMatch(
-  teamsSource,
-  /var\(--color-(?:brand-ink|text-secondary)\)/,
-  "teams must use the scoped semantic light-theme tokens",
-);
-
 const formatterSource = read("src/components/service-builder-client.tsx");
 const formatterUploadSource = formatterSource.slice(
   formatterSource.indexOf('activeSongStep === "upload"'),

@@ -227,16 +227,6 @@ enum BaptismStatus {
   UNKNOWN
 }
 
-enum ServantGroup {
-  PASTORS
-  CHURCH_LEADERS
-  MENS
-  LADIES
-  YOUTH
-  TECH
-  MUSIC
-}
-
 model Workspace {
   id        String   @id @default(uuid())
   slug      String   @unique
@@ -257,7 +247,6 @@ model Workspace {
   songs     Song[]
   tagPresets SongTagPreset[]
   ministryPresets MinistryPreset[]
-  servantGroupPresets ServantGroupPreset[]
   checklistPresets ChecklistPreset[] @relation("WorkspaceChecklistPresets")
   activeChecklist ChecklistPreset? @relation("ActiveChecklist", fields: [activeChecklistId], references: [id], onDelete: SetNull)
   commentCardNameTemplates CommentCardNameTemplate[] @relation("WorkspaceCommentCardNameTemplates")
@@ -270,7 +259,6 @@ model Workspace {
   captionSessions CaptionSession[]
   captionUsageDays CaptionUsageDay[]
   captionUsageBaselines CaptionUsageBaseline[]
-  servants  Servant[]
   people    Person[]
   ministries Ministry[]
   errorNotifications ErrorNotification[]
@@ -553,22 +541,6 @@ model SongTagPreset {
 }
 
 model MinistryPreset {
-  id          String   @id @default(uuid())
-  workspaceId String
-  label       String
-  code        String
-  active      Boolean  @default(true)
-  isDefault   Boolean  @default(false)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, code])
-}
-
-model ServantGroupPreset {
   id          String   @id @default(uuid())
   workspaceId String
   label       String
@@ -882,22 +854,6 @@ model PersonMinistry {
 
   @@id([personId, ministryId])
   @@index([ministryId])
-}
-
-model Servant {
-  id          String        @id @default(uuid())
-  workspaceId String
-  name        String
-  gender      ServantGender?
-  group       ServantGroup?
-  groupCode   String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, name])
-  @@index([workspaceId, group, name])
 }
 
 model CaptionSession {

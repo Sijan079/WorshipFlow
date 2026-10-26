@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import ServiceBuilderClient from "@/components/service-builder-client";
 import ServicesPageClient from "@/components/services-page-client";
 import SettingsPageClient from "@/components/settings-page-client";
-import TeamsPageClient from "@/components/teams-page-client";
 import WorshipServicePlannerClient from "@/components/worship-service-planner-client";
 import PAPDesktopClient from "@/features/pap/components/pap-desktop-client";
 import ErrorNotificationsPage from "@/components/error-notifications-page";
@@ -34,7 +33,7 @@ export default async function WorkspacePathPage({ params }: PageProps) {
     case "events":
       return <EventsPageClient initialDate={new Date().toISOString().slice(0, 10)} />;
     case "teams":
-      return <TeamsPageClient />;
+      redirect(`/w/${encodeURIComponent(workspaceSlug)}/people`);
     case "song-formatter/upload":
     case "song-formatter/format":
       return <ServiceBuilderClient module="songs" />;

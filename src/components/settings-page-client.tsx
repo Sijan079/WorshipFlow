@@ -3,10 +3,9 @@
 import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { KeyboardEvent, ReactNode } from "react";
-import { Camera, ChevronDown, Cloud, Eye, EyeOff, Globe2, GripVertical, LayoutTemplate, Link2, Loader2, MoreHorizontal, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, UsersRound, Video, X } from "lucide-react";
+import { Camera, ChevronDown, Cloud, Eye, EyeOff, Globe2, GripVertical, LayoutTemplate, Link2, Loader2, Pencil, Plus, Redo2, Save, Trash2, Undo2, Upload, Video, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionSelect } from "@/components/ui/production-select";
 import {
   apiFetch,
@@ -14,15 +13,12 @@ import {
   type ChecklistPresetRecord,
   type CommentCardNameTemplateRecord,
   type CreateChecklistPresetPayload,
-  type CreateEditableSettingsPresetPayload,
   type CreateServiceTemplatePresetPayload,
   type CreateSongTagPresetPayload,
-  type EditableSettingsPresetRecord,
   type ServiceTemplatePresetRecord,
   type ProgramBlockTypeRecord,
   type SongTagPresetRecord,
   type UpdateChecklistPresetPayload,
-  type UpdateEditableSettingsPresetPayload,
   type UpdateServiceTemplatePresetPayload,
   type UpdateSongTagPresetPayload,
 } from "@/lib/api-client";
@@ -30,19 +26,6 @@ import { moveTemplateBlock, normalizePresetCode } from "@/lib/settings-presets";
 import type { EnvironmentReport } from "@/lib/server-env";
 import { MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
 import CaptionUsageSection from "@/features/sermon-captions/caption-usage-section";
-
-type EditableEndpoint = "ministries" | "servant-groups";
-
-const EDITABLE_SECTION_DESCRIPTIONS: Record<EditableEndpoint, string> = {
-  ministries: "Ministries organize the worship contexts available when preparing services.",
-  "servant-groups": "Servant groups organize the teams that serve during worship services.",
-};
-
-type EditableForm = {
-  label: string;
-  code: string;
-  active: boolean;
-};
 
 type ChecklistItemForm = {
   id?: string;
@@ -125,7 +108,6 @@ const PROGRAM_FIELD_OPTIONS = [
   ["single_select", "Single select"],
 ] as const;
 
-const EMPTY_EDITABLE_FORM: EditableForm = { label: "", code: "", active: true };
 const EMPTY_TEMPLATE_FORM: TemplateForm = {
   label: "",
   code: "",
@@ -305,105 +287,6 @@ function CollectionState({
   }
 
   return children;
-}
-
-function EditablePresetSection({
-  endpoint,
-  records,
-  title,
-}: {
-  endpoint: EditableEndpoint;
-  records: EditableSettingsPresetRecord[];
-  title: string;
-}) {
-  const queryClient = useQueryClient();
-  const [drafts, setDrafts] = useState<Record<string, EditableForm>>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newRecord, setNewRecord] = useState<EditableForm>(EMPTY_EDITABLE_FORM);
-  const [newRecordOpen, setNewRecordOpen] = useState(false);
-  const [deleteCandidate, setDeleteCandidate] = useState<EditableSettingsPresetRecord | null>(null);
-
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateEditableSettingsPresetPayload) =>
-      apiFetch<EditableSettingsPresetRecord>(`/api/settings/${endpoint}`, { method: "POST", body: JSON.stringify(payload) }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["settings", endpoint] });
-      setNewRecord(EMPTY_EDITABLE_FORM);
-      setNewRecordOpen(false);
-    },
-  });
-  const updateMutation = useMutation({
-    mutationFn: (entries: Array<[string, UpdateEditableSettingsPresetPayload]>) => Promise.all(entries.map(([id, payload]) =>
-      apiFetch<EditableSettingsPresetRecord>(`/api/settings/${endpoint}/${id}`, { method: "PUT", body: JSON.stringify(payload) })
-    )),
-    onSuccess: async () => {
-      setDrafts({});
-      setEditingId(null);
-      await queryClient.invalidateQueries({ queryKey: ["settings", endpoint] });
-    },
-  });
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiFetch<{ success: boolean }>(`/api/settings/${endpoint}/${id}`, { method: "DELETE" }),
-    onSuccess: async () => {
-      setDeleteCandidate(null);
-      await queryClient.invalidateQueries({ queryKey: ["settings", endpoint] });
-    },
-  });
-  return (
-    <>
-    <SectionShell
-      title={title}
-      description={EDITABLE_SECTION_DESCRIPTIONS[endpoint]}
-      flat
-      pending={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
-      action={<div className="flex items-center gap-2">
-        <SettingsAddButton controls={`${endpoint}-new-record`} expanded={newRecordOpen} label={endpoint === "ministries" ? "Add ministry" : "Add servant group"} onClick={() => { if (newRecordOpen) setNewRecord(EMPTY_EDITABLE_FORM); setNewRecordOpen((open) => !open); }} disabled={createMutation.isPending} />
-      </div>}
-    >
-      <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-      {newRecordOpen ? <div id={`${endpoint}-new-record`} className="grid gap-3 border-b border-[var(--border-default)] px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
-        <input value={newRecord.label} onChange={(event) => setNewRecord({ ...newRecord, label: event.target.value, code: newRecord.code || normalizePresetCode(event.target.value) })} className="rounded-md border border-[var(--border-default)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]" placeholder="Label" autoFocus />
-        <button type="button" onClick={() => createMutation.mutate(newRecord)} disabled={createMutation.isPending || !newRecord.label.trim() || !newRecord.code.trim()} className="ui-btn-primary pressable h-10 px-3 text-sm font-semibold disabled:opacity-40">{createMutation.isPending ? "Adding..." : "Add"}</button>
-      </div> : null}
-      <div className="min-w-0 divide-y divide-[var(--border-default)]">
-          {records.length === 0 ? <SettingsEmptyState>No saved records yet. Use the add action above.</SettingsEmptyState> : null}
-          {records.map((record) => {
-            const draft = drafts[record.id] ?? record;
-            return (
-              <div key={record.id} className="group grid min-h-16 w-full grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-3 px-4 py-2 transition-colors hover:bg-[var(--surface-panel-alt)] focus-within:bg-[var(--surface-panel-alt)] sm:px-6">
-                {editingId === record.id ? <div className="flex min-w-0 items-center gap-2"><input autoFocus value={draft.label} onChange={(event) => setDrafts({ ...drafts, [record.id]: { ...draft, label: event.target.value } })} className="min-w-0 flex-1 border-0 border-b border-[var(--border-focus)] bg-transparent px-0 py-1 text-sm font-medium text-[var(--text-primary)] shadow-none outline-none" aria-label={`${record.label} label`} /><button type="button" onClick={() => updateMutation.mutate([[record.id, draft]])} disabled={updateMutation.isPending || !draft.label.trim()} className="ui-btn-primary inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Save ${record.label}`}><Save className="h-3.5 w-3.5" />Save</button><button type="button" onClick={() => { setDrafts((current) => { const next = { ...current }; delete next[record.id]; return next; }); setEditingId(null); }} disabled={updateMutation.isPending} className="ui-btn-cancel pressable inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold" aria-label={`Cancel editing ${record.label}`}><X className="h-3.5 w-3.5" />Cancel</button></div> : <div className="flex min-w-0 items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-muted)]"><UsersRound className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{draft.label}</span></div>}
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" className="pressable inline-flex min-h-11 w-11 items-center justify-center rounded-md bg-transparent text-[var(--text-muted)] hover:bg-[var(--action-ghost-hover)] hover:text-[var(--text-primary)]" aria-label={`Actions for ${record.label}`} title={`Actions for ${record.label}`}>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="left" sideOffset={8} className="workspace-content-light w-40 border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1 text-[var(--text-primary)] shadow-[var(--elevation-raised)]">
-                    <DropdownMenuItem onSelect={() => setEditingId(record.id)} className="min-h-9 gap-2 px-2 text-[var(--text-secondary)] focus:bg-[var(--action-ghost-hover)] focus:text-[var(--text-primary)]">
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleteCandidate(record)} className="min-h-9 gap-2 px-2 !text-[var(--text-danger)] [&_svg]:!text-[var(--text-danger)] focus:bg-[var(--state-danger-soft)] focus:!text-[var(--text-danger)]">
-                      <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            );
-          })}
-      </div>
-      </div>
-    </SectionShell>
-    {deleteCandidate ? (
-      <DeleteConfirmDialog
-        label={deleteCandidate.label}
-        description={`${deleteCandidate.label} will be permanently removed from ${title.toLowerCase()}.`}
-        pending={deleteMutation.isPending}
-        onCancel={() => setDeleteCandidate(null)}
-        onConfirm={() => deleteMutation.mutate(deleteCandidate.id)}
-      />
-    ) : null}
-    </>
-  );
 }
 
 function CommentCardNameTemplateSection({ records }: { records: CommentCardNameTemplateRecord[] }) {
@@ -1762,16 +1645,6 @@ export default function SettingsPageClient({ environment, canViewUsage }: { envi
   const availableTabs = SETTINGS_TABS.filter((candidate) => candidate.id !== "usage" || canViewUsage);
   const activeTab: SettingsTab = availableTabs.some((candidate) => candidate.id === requestedTab) ? requestedTab as SettingsTab : "general";
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const ministriesQuery = useQuery({
-    queryKey: ["settings", "ministries"],
-    queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/ministries"),
-    enabled: activeTab === "general",
-  });
-  const servantGroupsQuery = useQuery({
-    queryKey: ["settings", "servant-groups"],
-    queryFn: () => apiFetch<EditableSettingsPresetRecord[]>("/api/settings/servant-groups"),
-    enabled: activeTab === "general",
-  });
   const checklistQuery = useQuery({
     queryKey: ["settings", "checklists"],
     queryFn: () => apiFetch<ChecklistPresetRecord[]>("/api/settings/checklists"),
@@ -1858,12 +1731,6 @@ export default function SettingsPageClient({ environment, canViewUsage }: { envi
       <div id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" tabIndex={0} hidden={activeTab !== "general"} className="space-y-5">
         <div data-settings-section-stack className="space-y-8">
           {activeTab === "general" ? <WorkspaceSection /> : null}
-          <CollectionState label="Ministries" isLoading={ministriesQuery.isLoading} error={ministriesQuery.error} onRetry={() => void ministriesQuery.refetch()}>
-            <EditablePresetSection endpoint="ministries" title="Ministries" records={ministriesQuery.data ?? []} />
-          </CollectionState>
-          <CollectionState label="Servant groups" isLoading={servantGroupsQuery.isLoading} error={servantGroupsQuery.error} onRetry={() => void servantGroupsQuery.refetch()}>
-            <EditablePresetSection endpoint="servant-groups" title="Servant Groups" records={servantGroupsQuery.data ?? []} />
-          </CollectionState>
         </div>
       </div>
 

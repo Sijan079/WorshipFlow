@@ -5,9 +5,7 @@ import {
   ActivateChecklistPresetSchema,
   CreateChecklistPresetSchema,
   DEFAULT_CHECKLIST_ITEMS,
-  DEFAULT_MINISTRY_PRESETS,
   DEFAULT_SERVICE_TEMPLATE_PRESETS,
-  DEFAULT_SERVANT_GROUP_PRESETS,
   moveTemplateBlock,
   normalizePresetCode,
   sortSettingsByLabel,
@@ -19,14 +17,6 @@ export function runSettingsPresetTests() {
   assert.equal(normalizePresetCode("Ladies Ministry"), "LADIES_MINISTRY");
   assert.equal(normalizePresetCode("  Tech / Booth  "), "TECH_BOOTH");
 
-  assert.deepEqual(
-    DEFAULT_MINISTRY_PRESETS.map((preset) => preset.code),
-    ["LEADERS", "YOUTH", "MENS", "LADIES", "MIXED"],
-  );
-  assert.deepEqual(
-    DEFAULT_SERVANT_GROUP_PRESETS.map((preset) => preset.code),
-    ["PASTORS", "CHURCH_LEADERS", "MENS", "LADIES", "YOUTH", "TECH", "MUSIC"],
-  );
   assert.deepEqual(
     DEFAULT_SERVICE_TEMPLATE_PRESETS.map((preset) => preset.code),
     ["REGULAR", "FIRST_SUNDAY"],

@@ -1,8 +1,6 @@
 import { z } from "zod";
 import type { BlockType, ServiceTemplateType } from "@prisma/client";
 import { TemplateBlockKindSchema, type TemplateBlockKind } from "./template-block-kinds.ts";
-import { ASSIGNED_MINISTRY_OPTIONS } from "./service-records.ts";
-import { SERVANT_GROUP_OPTIONS } from "./servants.ts";
 import { BLOCK_LABELS, EXTENDED_BLOCK_ORDER, STANDARD_BLOCK_ORDER } from "./service-display.ts";
 
 export const APPROVED_TEMPLATE_OPTIONAL_BLOCKS = ["AWIT_NG_HIMNO", "TIPAN_PAHAYAG"] as const satisfies BlockType[];
@@ -16,20 +14,6 @@ export type TemplateBlockPreset = {
   typeVersionId?: string;
   fieldDefaults?: Record<string, unknown>;
 };
-
-export const DEFAULT_MINISTRY_PRESETS = ASSIGNED_MINISTRY_OPTIONS.map((option) => ({
-  label: option.label,
-  code: option.value,
-  active: true,
-  isDefault: true,
-}));
-
-export const DEFAULT_SERVANT_GROUP_PRESETS = SERVANT_GROUP_OPTIONS.map((option) => ({
-  label: option.label,
-  code: option.value,
-  active: true,
-  isDefault: true,
-}));
 
 function createDefaultTemplateBlocks(blockTypes: readonly BlockType[]) {
   return blockTypes.map((blockType, order) => ({
