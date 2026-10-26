@@ -83,5 +83,7 @@ First-cut minimum:
 ## Other rules kept
 
 - Event conflict warnings never block an organizer's decision to proceed.
-- Captions keep their own VIEW and OPERATE permissions.
+- Captions keep their own VIEW and OPERATE permissions, plus SHARE ("Share captions link", needs VIEW, off for Members
+  by default, set in Settings → Membership). Regenerating the viewer link is Owner and Admin only. The public viewer
+  returns caption text only.
 - Secrets (provider keys, OAuth client secrets, DB dumps) are never committed.

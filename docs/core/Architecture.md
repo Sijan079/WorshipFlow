@@ -36,7 +36,9 @@ Prisma with PostgreSQL, Supabase Auth, Supabase Storage.
   has its own simple layout, separate from the app shell.
 - Legacy bare paths (`/dashboard`, `/services`, ...) are redirected to
   `/workspaces` by `src/proxy.ts` (`LEGACY_WORKSPACE_PATHS`).
-- Public routes: login, auth callback, `/captions/live/{id}`, and `/c/{slug}`.
+- Public routes: login, auth callback, `/captions/live/{token}`, and `/c/{slug}`. The captions token is one
+  random string per church (`CaptionSettings`); the viewer and its feed `/api/captions/live/{token}` find the
+  church's live session by it. The feed has no in-app rate limiter yet.
 
 ## Public site rendering
 

@@ -74,7 +74,8 @@ Worship; they are not standalone modules.
   "add to library" action once cost and provider are decided.
 - Phone transfer, comment card, QR generator: kept, refined first.
 - Song formatter, resize image, background removal: kept, no new investment now.
-- Captions: optional module behind its own permission and flag.
+- Captions: optional module behind its own permissions and flag. One stable link per church (shared as a QR code)
+  serves the congregation; Start and Stop only control whether captions are live.
 
 ## Behaviors that define the product
 

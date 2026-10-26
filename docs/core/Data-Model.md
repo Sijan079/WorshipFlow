@@ -91,6 +91,9 @@ intent and the decisions behind schema changes.
   plain text fields for Facebook and Instagram copy.
 - `WorkspaceModule` enum: add PEOPLE, SITE (plus MINISTRIES if given its own
   grants). Site actions add PUBLISH to the existing action list.
+- `CaptionSettings` (stable captions link): one row per workspace with a unique `viewerToken` and `rotatedAt`,
+  created when Share is first opened. `SHARE` is added to `WorkspaceAction` for the "Share captions link"
+  permission.
 - `KeepAlive` (built, step 4): a single-row table (`id` "singleton", `lastRunAt`) that the daily
   cron stamps. It holds no church data and has row-level security.
 
