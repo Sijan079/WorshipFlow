@@ -49,13 +49,29 @@ export async function requestDeepgramToken(apiKey: string, fetcher: Fetcher = fe
   return token;
 }
 
-export async function translateCaption(source: string, apiKey: string, region: string | undefined, fetcher: Fetcher = fetch): Promise<{ english: string; meteredCharacters: number | null }> {
+const GLOBAL_TRANSLATOR = "https://api.cognitive.microsofttranslator.com";
+
+// An optional geography endpoint (for example https://api-apc.cognitive.microsofttranslator.com) keeps requests
+// in one part of the world. Only https hosts under microsofttranslator.com are accepted, because the key is sent there.
+export function translatorBaseUrl(configured: string | undefined) {
+  if (!configured?.trim()) return GLOBAL_TRANSLATOR;
+  try {
+    const url = new URL(configured.trim());
+    const host = url.hostname.toLowerCase();
+    if (url.protocol === "https:" && !url.username && !url.password && (host === "api.cognitive.microsofttranslator.com" || /^api-[a-z]+\.cognitive\.microsofttranslator\.com$/.test(host))) return `https://${host}`;
+  } catch {
+    // Not a URL: use the global endpoint.
+  }
+  return GLOBAL_TRANSLATOR;
+}
+
+export async function translateCaption(source: string, apiKey: string, region: string | undefined, fetcher: Fetcher = fetch, endpoint?: string): Promise<{ english: string; meteredCharacters: number | null }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json; charset=UTF-8",
     "Ocp-Apim-Subscription-Key": apiKey,
   };
   if (region) headers["Ocp-Apim-Subscription-Region"] = region;
-  const response = await fetcher("https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=fil&to=en", {
+  const response = await fetcher(`${translatorBaseUrl(endpoint)}/translate?api-version=3.0&from=fil&to=en`, {
     method: "POST",
     headers,
     body: JSON.stringify([{ Text: source }]),

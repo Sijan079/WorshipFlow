@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (existing?.final) return finish({ line: existing }, false);
     if (!process.env.AZURE_TRANSLATOR_KEY) return NextResponse.json({ error: "Azure Translator is not configured." }, { status: 503 });
-    const translated = existing?.source === source ? null : await translateCaption(source, process.env.AZURE_TRANSLATOR_KEY, process.env.AZURE_TRANSLATOR_REGION);
+    const translated = existing?.source === source ? null : await translateCaption(source, process.env.AZURE_TRANSLATOR_KEY, process.env.AZURE_TRANSLATOR_REGION, fetch, process.env.AZURE_TRANSLATOR_ENDPOINT);
     timer.mark("translate");
     const english = translated?.english ?? existing!.english;
     const day = usageUtcDay(new Date());

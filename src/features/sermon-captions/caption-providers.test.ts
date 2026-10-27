@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CaptionProviderQuotaError, getDeepgramBalances, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
+import { CaptionProviderQuotaError, translatorBaseUrl, getDeepgramBalances, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
 
 test("Deepgram grant returns only a temporary token to the caller", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -29,6 +29,23 @@ test("Azure translates Filipino to English using server-only credentials", async
   assert.deepEqual(await translateCaption("Kumusta ka na?", "azure-key", "eastus", fetcher), { english: "How are you?", meteredCharacters: 15 });
   assert.match(request!.url, /from=fil&to=en/);
   assert.equal((request!.init!.headers as Record<string, string>)["Ocp-Apim-Subscription-Region"], "eastus");
+});
+
+test("Azure uses the global endpoint unless a Microsoft translator endpoint is configured", async () => {
+  assert.equal(translatorBaseUrl(undefined), "https://api.cognitive.microsofttranslator.com");
+  assert.equal(translatorBaseUrl(""), "https://api.cognitive.microsofttranslator.com");
+  assert.equal(translatorBaseUrl("https://api-apc.cognitive.microsofttranslator.com/"), "https://api-apc.cognitive.microsofttranslator.com");
+  // Anything else is ignored, so a mistyped or hostile value can never send the key to another host.
+  assert.equal(translatorBaseUrl("https://evil.example.com"), "https://api.cognitive.microsofttranslator.com");
+  assert.equal(translatorBaseUrl("http://api-apc.cognitive.microsofttranslator.com"), "https://api.cognitive.microsofttranslator.com");
+  assert.equal(translatorBaseUrl("https://api-apc.cognitive.microsofttranslator.com.evil.example"), "https://api.cognitive.microsofttranslator.com");
+  let url = "";
+  const fetcher = async (input: string | URL | Request) => {
+    url = String(input);
+    return Response.json([{ translations: [{ text: "Hi" }] }]);
+  };
+  await translateCaption("Kamusta", "key", "southeastasia", fetcher, "https://api-apc.cognitive.microsofttranslator.com");
+  assert.ok(url.startsWith("https://api-apc.cognitive.microsofttranslator.com/translate?"), url);
 });
 
 test("Azure reports unknown usage when the metered header is missing or invalid", async () => {
