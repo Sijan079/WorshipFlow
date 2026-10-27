@@ -28,7 +28,8 @@ const TROUBLESHOOTING: Array<{ problem: string; fix: string }> = [
   { problem: "The status says Needs attention", fix: "The caption stream closed because of an audio or access error. Press Stop captions, then Start captions. If it happens again, check the input and the keys." },
   { problem: "Translation interrupted", fix: "Azure Translator did not answer. Captions return when it does. If it keeps happening, ask an Admin to check the Azure key and region." },
   { problem: "A caption session is already running", fix: "Press Stop current session. If the booth crashed, you can also press Start captions after two minutes of silence: a session that has gone quiet is ended for you." },
-  { problem: "The page was closed or refreshed during the service", fix: "Open it again and press Start captions. Listeners keep the same link and follow along." },
+  { problem: "Captions stopped when I switched tabs or windows", fix: "They should keep running: the page holds the connection and keeps the screen awake while captions are live, and you can move around the app. If they stopped, the browser may have put the tab to sleep. In Opera GX, turn off tab sleeping and the RAM limiter for this site, or keep the captions page in its own window. Closing the tab, shutting down or putting the computer to sleep always stops captions." },
+  { problem: "The page was reloaded or closed during the service", fix: "After a reload, captions reconnect to the same session and link by themselves, using the same input. If the browser asks for the microphone again, or the page was closed, press Stop current session, then Start captions. Listeners keep the same link and follow along." },
 ];
 
 const TRIGGER = "flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] [&[data-state=open]>svg]:rotate-180";

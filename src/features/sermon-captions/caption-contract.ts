@@ -88,6 +88,12 @@ export class CaptionAssembler {
   private parts: string[] = [];
   private line = 0;
 
+  // After a reload, numbering continues after the last stored line: the server ignores a line number
+  // that is already final, so starting again at 1 would drop every resumed caption.
+  constructor(startAfterLine = 0) {
+    this.line = startAfterLine;
+  }
+
   accept(result: DeepgramResult): CaptionUpdate[] {
     const updates: CaptionUpdate[] = [];
     const transcript = result.channel?.alternatives?.[0]?.transcript?.trim();

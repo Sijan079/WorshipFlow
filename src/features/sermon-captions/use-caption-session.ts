@@ -5,12 +5,14 @@ import { ApiError } from "@/lib/api-client";
 import { CaptionAssembler, latestCaptionLines, type CaptionUpdate } from "./caption-contract";
 import { CaptionStreamConnection } from "./caption-connection";
 import { createTicker } from "./heartbeat-ticker";
+import { canResumeSession } from "./caption-resume";
+import { claimStreamLock } from "./stream-lock";
 import type { CaptionRunState } from "./caption-ui";
 import {
   fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
   stopSessionOnLeave, type CaptionLine, type CaptionSession, type PresenceStatus,
 } from "./caption-session-api";
-import { clearOperatorToken, loadOperatorToken, saveOperatorToken } from "./operator-token-store";
+import { clearOperatorToken, loadOperatorInput, loadOperatorToken, saveOperatorInput, saveOperatorToken } from "./operator-token-store";
 
 type Notify = (message: string, tone: "success" | "error") => void;
 
@@ -27,7 +29,9 @@ function openDeepgramSocket(token: string) {
 // Owns one captions session from start to stop: the audio stream, the provider connection, the
 // queue that publishes each line, the heartbeat, and the expiry. It renders nothing, and it must
 // stay mounted for the whole visit because leaving the page ends the session.
-export function useCaptionSession({ inputId, notify, enabled }: { inputId: string; notify: Notify; enabled: boolean }) {
+type InputChoice = { id: string; label: string };
+
+export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInputRestored }: { inputId: string; inputLabel: string; notify: Notify; enabled: boolean; onInputRestored: (input: InputChoice) => void }) {
   const [session, setSession] = useState<CaptionSession | null>(null);
   const [operatorToken, setOperatorToken] = useState("");
   const [canOperate, setCanOperate] = useState(false);
@@ -48,6 +52,8 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
   const presenceTickerRef = useRef<{ stop: () => void } | null>(null);
   const presenceSequenceRef = useRef(0);
   const quotaNotifiedRef = useRef(false);
+  const streamLockRef = useRef<{ release: () => void } | null>(null);
+  const resumeRef = useRef<((current: CaptionSession, token: string, saved: InputChoice) => Promise<void>) | null>(null);
   const connectionStatusRef = useRef<PresenceStatus>("CONNECTING");
 
   const releaseAudio = useCallback(() => {
@@ -55,6 +61,8 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
     expiryTimerRef.current = null;
     presenceTickerRef.current?.stop();
     presenceTickerRef.current = null;
+    streamLockRef.current?.release();
+    streamLockRef.current = null;
     connectionRef.current?.stop();
     connectionRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -97,6 +105,12 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
       setSession(current);
       const savedToken = loadOperatorToken(current.id);
       setOperatorToken(savedToken);
+      // The booth page was reloaded while its session was live: reconnect to the same session and link.
+      const savedInput = loadOperatorInput(current.id);
+      if (canResumeSession({ allowed, token: savedToken, inputId: savedInput.id })) {
+        void resumeRef.current?.(current, savedToken, savedInput);
+        return;
+      }
       setMessage(allowed && (savedToken || current.canManage) ? "A session is active. Start a new one after stopping it." : "Another operator is running captions.");
     }).catch((error) => { if (mounted) setMessage(errorMessage(error)); });
     return () => { mounted = false; };
@@ -156,6 +170,64 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
     }
   }
 
+  // Wires one session to the audio stream and the caption provider. Start uses it for a new session, and
+  // resuming after a reload uses it for the same one (with `startAfterLine` so numbering continues).
+  function beginStreaming(current: CaptionSession, token: string, deepgramToken: string, stream: MediaStream, mimeType: string, input: InputChoice, startAfterLine: number) {
+    activeRef.current = { id: current.id, token };
+    expiryTimerRef.current = window.setTimeout(() => void stop(), Math.max(0, new Date(current.expiresAt).getTime() - Date.now()));
+    saveOperatorToken(current.id, token);
+    saveOperatorInput(current.id, input);
+    setSession(current);
+    setOperatorToken(token);
+    setLines([]);
+    assemblerRef.current = new CaptionAssembler(startAfterLine);
+    queueRef.current = Promise.resolve();
+    stoppingRef.current = false;
+    presenceSequenceRef.current = 0;
+    quotaNotifiedRef.current = false;
+    connectionStatusRef.current = "CONNECTING";
+    presenceTickerRef.current = createTicker(5_000, () => heartbeat(connectionStatusRef.current));
+
+    const connection = new CaptionStreamConnection({
+      initialToken: deepgramToken,
+      getToken: () => fetchDeepgramToken(current.id, token),
+      createSocket: openDeepgramSocket,
+      createRecorder: () => new MediaRecorder(stream, mimeType ? { mimeType } : undefined),
+      onMessage: (data) => {
+        try {
+          const result = JSON.parse(String(data));
+          for (const update of assemblerRef.current.accept(result)) publish(update);
+        } catch { /* Ignore non-transcript provider events. */ }
+      },
+      onState: (connectionState, attempts) => {
+        if (!mountedRef.current || stoppingRef.current) return;
+        setState(connectionState === "connecting" ? "starting" : connectionState);
+        const nextStatus: PresenceStatus = connectionState === "live" ? "STREAMING"
+          : connectionState === "reconnecting" ? "INTERRUPTED"
+            : connectionState === "error" ? "ERROR" : "CONNECTING";
+        if (connectionStatusRef.current !== nextStatus) {
+          connectionStatusRef.current = nextStatus;
+          heartbeat(nextStatus);
+        }
+        if (connectionState === "live" && attempts === 0) notify("Captions are live.", "success");
+        setMessage(connectionState === "reconnecting"
+          ? "Connection interrupted. Reconnecting automatically; keep this page open."
+          : connectionState === "error"
+            ? "Caption stream closed with an audio or access error. The booth team needs to check it."
+            : connectionState === "live" && attempts > 0
+              ? "Captions resumed on the same viewer link. Audio during the interruption may be missing."
+              : connectionState === "connecting"
+                ? "Connecting to Deepgram with the selected PC input."
+                : "Listening to the selected PC input and publishing English captions.");
+      },
+      onDisconnect: () => { for (const update of assemblerRef.current.flush()) publish(update); },
+      isFatalTokenError: (error) => error instanceof ApiError && [401, 403, 404, 409].includes(error.status),
+    });
+    connectionRef.current = connection;
+    connection.start();
+    stream.getAudioTracks()[0]?.addEventListener("ended", () => { void stop(); }, { once: true });
+  }
+
   async function start() {
     if (!canOperate || !inputId || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setMessage("Choose an audio input with the options button and use a browser with microphone support.");
@@ -176,58 +248,9 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
         return;
       }
       const { session: current, operatorToken: token, deepgramToken } = created;
-      activeRef.current = { id: current.id, token };
-      expiryTimerRef.current = window.setTimeout(() => void stop(), Math.max(0, new Date(current.expiresAt).getTime() - Date.now()));
-      saveOperatorToken(current.id, token);
-      setSession(current);
-      setOperatorToken(token);
-      setLines([]);
-      assemblerRef.current = new CaptionAssembler();
-      queueRef.current = Promise.resolve();
-      stoppingRef.current = false;
-      presenceSequenceRef.current = 0;
-      quotaNotifiedRef.current = false;
-      connectionStatusRef.current = "CONNECTING";
-      presenceTickerRef.current = createTicker(5_000, () => heartbeat(connectionStatusRef.current));
-
-      const connection = new CaptionStreamConnection({
-        initialToken: deepgramToken,
-        getToken: () => fetchDeepgramToken(current.id, token),
-        createSocket: openDeepgramSocket,
-        createRecorder: () => new MediaRecorder(stream, mimeType ? { mimeType } : undefined),
-        onMessage: (data) => {
-          try {
-            const result = JSON.parse(String(data));
-            for (const update of assemblerRef.current.accept(result)) publish(update);
-          } catch { /* Ignore non-transcript provider events. */ }
-        },
-        onState: (connectionState, attempts) => {
-          if (!mountedRef.current || stoppingRef.current) return;
-          setState(connectionState === "connecting" ? "starting" : connectionState);
-          const nextStatus: PresenceStatus = connectionState === "live" ? "STREAMING"
-            : connectionState === "reconnecting" ? "INTERRUPTED"
-              : connectionState === "error" ? "ERROR" : "CONNECTING";
-          if (connectionStatusRef.current !== nextStatus) {
-            connectionStatusRef.current = nextStatus;
-            heartbeat(nextStatus);
-          }
-          if (connectionState === "live" && attempts === 0) notify("Captions are live.", "success");
-          setMessage(connectionState === "reconnecting"
-            ? "Connection interrupted. Reconnecting automatically; keep this page open."
-            : connectionState === "error"
-              ? "Caption stream closed with an audio or access error. The booth team needs to check it."
-              : connectionState === "live" && attempts > 0
-                ? "Captions resumed on the same viewer link. Audio during the interruption may be missing."
-                : connectionState === "connecting"
-                  ? "Connecting to Deepgram with the selected PC input."
-                  : "Listening to the selected PC input and publishing English captions.");
-        },
-        onDisconnect: () => { for (const update of assemblerRef.current.flush()) publish(update); },
-        isFatalTokenError: (error) => error instanceof ApiError && [401, 403, 404, 409].includes(error.status),
-      });
-      connectionRef.current = connection;
-      connection.start();
-      stream.getAudioTracks()[0]?.addEventListener("ended", () => { void stop(); }, { once: true });
+      // A new session: nobody else can hold its stream. The lock keeps a duplicated tab from resuming it.
+      streamLockRef.current = await claimStreamLock(current.id);
+      beginStreaming(current, token, deepgramToken, stream, mimeType, { id: inputId, label: inputLabel }, 0);
     } catch (error) {
       stoppingRef.current = true;
       activeRef.current = null;
@@ -246,6 +269,39 @@ export function useCaptionSession({ inputId, notify, enabled }: { inputId: strin
       notify(`Could not start captions: ${errorMessage(error)}`, "error");
     }
   }
+
+  // After a reload of the booth page: reconnect to the session that was running, with the same input.
+  // If this tab cannot (another tab holds the stream, or the browser wants the microphone permission
+  // again), it says what to do instead.
+  async function resumeStreaming(current: CaptionSession, token: string, saved: InputChoice) {
+    const lock = await claimStreamLock(current.id);
+    if (!lock) {
+      setMessage("Captions are already running in another tab of this browser.");
+      return;
+    }
+    streamLockRef.current = lock;
+    setState("starting");
+    setMessage("Reconnecting to the session that was running before the page reloaded…");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: saved.id } } });
+      if (!mountedRef.current) { stream.getTracks().forEach((track) => track.stop()); lock.release(); streamLockRef.current = null; return; }
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const deepgramToken = await fetchDeepgramToken(current.id, token);
+      onInputRestored(saved);
+      stoppingRef.current = false;
+      beginStreaming(current, token, deepgramToken, stream, mimeType, saved, current.lastLine ?? 0);
+      setMessage("Captions resumed after the page reloaded. Audio during the gap may be missing.");
+      notify("Captions resumed.", "success");
+    } catch {
+      releaseAudio();
+      setState("idle");
+      setMessage("Captions were running before this page reloaded, and this browser did not allow the input again. Press Stop current session, then Start captions.");
+    }
+  }
+
+  // Keeps the latest resume function reachable from the first-look effect without making it re-run.
+  useEffect(() => { resumeRef.current = resumeStreaming; });
 
   // Stops a session this page did not start (found on load, or left from an earlier visit).
   async function stopExisting() {

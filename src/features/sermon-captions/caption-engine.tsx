@@ -54,7 +54,7 @@ export default function CaptionEngineProvider({ workspaceSlug, children }: { wor
   const [stopOpen, setStopOpen] = useState(false);
   const [liveDatabaseOpen, setLiveDatabaseOpen] = useState(false);
   const { dismissToast, showToast, toasts } = usePAPToasts();
-  const captions = useCaptionSession({ inputId: input.id, notify: showToast, enabled });
+  const captions = useCaptionSession({ inputId: input.id, inputLabel: input.label, notify: showToast, enabled, onInputRestored: setInput });
   const running = captionIsRunning(captions.state);
   useLiveGuards(running);
 

@@ -137,7 +137,7 @@ export async function runCaptionEngineTests() {
   // reported to error notifications), and shares the shell's own session query.
   assert.match(engine, /queryKey: \["auth", "session", workspaceSlug\]/);
   assert.match(engine, /canViewCaptions/);
-  assert.match(engine, /useCaptionSession\(\{ inputId: input\.id, notify: showToast, enabled \}\)/);
+  assert.match(engine, /useCaptionSession\(\{ inputId: input\.id, inputLabel: input\.label, notify: showToast, enabled, onInputRestored: setInput \}\)/);
   // One toast viewport, one stop question, one live-database question, one button: all owned here.
   assert.equal((engine.match(/<PAPToastViewport/g) ?? []).length, 1);
   assert.match(engine, /<StopConfirmDialog/);

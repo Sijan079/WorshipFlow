@@ -3,7 +3,7 @@ import type { CaptionUpdate } from "./caption-contract";
 
 // Every call the captions screen makes to our own server. No React in here.
 
-export type CaptionSession = { id: string; operatorUserId?: string; createdAt: string; expiresAt: string; canManage?: boolean };
+export type CaptionSession = { id: string; operatorUserId?: string; createdAt: string; expiresAt: string; canManage?: boolean; lastLine?: number };
 export type CaptionLine = { line: number; english: string; final: boolean };
 export type StartedSession = { session: CaptionSession; operatorToken: string; deepgramToken: string };
 export type PresenceStatus = "CONNECTING" | "STREAMING" | "INTERRUPTED" | "ERROR";

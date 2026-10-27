@@ -15,13 +15,17 @@ export async function GET(request: Request) {
       where: { workspaceId: context.workspaceId, status: "LIVE", expiresAt: { gt: new Date() } },
       select: { id: true, operatorUserId: true, createdAt: true, expiresAt: true },
     });
+    // The highest line stored so far, so a reloaded booth can number new lines after it.
+    const lastLine = session
+      ? (await prisma.captionLine.aggregate({ where: { sessionId: session.id }, _max: { line: true } }))._max.line ?? 0
+      : 0;
     const [canOperate, shareGrant] = await Promise.all([
       hasModuleAction(context, "CAPTIONS", "OPERATE"),
       hasModuleAction(context, "CAPTIONS", "SHARE"),
     ]);
     const canShare = canShareCaptionLink(context.role, { VIEW: true, SHARE: shareGrant });
     return NextResponse.json({
-      session: session ? { ...session, canManage: context.role !== "MEMBER" } : null,
+      session: session ? { ...session, canManage: context.role !== "MEMBER", lastLine } : null,
       canOperate,
       canShare,
       canRegenerate: canRegenerateCaptionLink(context.role),
