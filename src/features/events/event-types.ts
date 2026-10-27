@@ -8,6 +8,7 @@ export type EventOccurrenceSummary = {
   isPublic: boolean;
   repeats: boolean;
   edited: boolean;
+  changeNote: string | null;
   localDate: string;
   startsAt: string;
   endsAt: string;
@@ -23,4 +24,5 @@ export type EventOccurrenceSummary = {
 export type EventListResponse = {
   items: EventOccurrenceSummary[];
   canCreate: boolean;
+  canEdit: boolean;
 };

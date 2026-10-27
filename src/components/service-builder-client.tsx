@@ -98,6 +98,8 @@ const updateServiceFormSchema = z.object({
   ministryName: z.string().min(1, "Ministry name is required"),
   theme: z.string().optional(),
   status: z.enum(ServiceStatusValues),
+  // How many attended. Kept as text in the form; empty clears it.
+  headcount: z.string().optional().refine((value) => !value?.trim() || /^[0-9]{1,6}$/.test(value.trim()), "Enter a whole number, like 120."),
 });
 
 type CreateServiceFormValues = z.infer<typeof createServiceFormSchema>;
@@ -402,6 +404,7 @@ export default function ServiceBuilderClient({
       ministryName: "",
       theme: "",
       status: ServiceStatus.DRAFT,
+      headcount: "",
     },
   });
 
@@ -933,6 +936,7 @@ export default function ServiceBuilderClient({
       ministryName: selectedService.ministryName,
       theme: selectedService.theme ?? "",
       status: selectedService.status,
+      headcount: selectedService.headcount === null || selectedService.headcount === undefined ? "" : String(selectedService.headcount),
     });
   }, [selectedService, serviceHeaderForm]);
 
@@ -1226,6 +1230,7 @@ export default function ServiceBuilderClient({
                             ministryName: values.ministryName,
                             theme: values.theme || null,
                             status: values.status,
+                            headcount: values.headcount?.trim() ? Number(values.headcount.trim()) : null,
                           },
                         });
                       })}
@@ -1256,6 +1261,16 @@ export default function ServiceBuilderClient({
                           className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
                           {...serviceHeaderForm.register("theme")}
                         />
+                      </label>
+                      <label className="text-sm text-[var(--color-text-secondary)]">
+                        How many attended <span className="text-[var(--color-text-muted)]">optional</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
+                          {...serviceHeaderForm.register("headcount")}
+                        />
+                        {serviceHeaderForm.formState.errors.headcount ? <span role="alert" className="mt-1 block text-sm text-[var(--state-danger)]">{serviceHeaderForm.formState.errors.headcount.message}</span> : null}
                       </label>
                       <Controller
                         control={serviceHeaderForm.control}
@@ -1312,6 +1327,7 @@ export default function ServiceBuilderClient({
                               ministryName: draft.ministryName ?? selectedService.ministryName,
                               theme: draft.theme ?? selectedService.theme ?? "",
                               status: draft.status,
+                              headcount: serviceHeaderForm.getValues("headcount"),
                             });
                           }
                           showToast("Text analyzed. Review before applying.", "success");

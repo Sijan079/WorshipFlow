@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
-import { requireEventAction } from "@/lib/event-access";
+import { hasModuleAction, requireEventAction } from "@/lib/event-access";
 import { CreateEventSchema, EventRangeSchema } from "@/features/events/event-validation";
 import type { EventOccurrenceSummary } from "@/features/events/event-types";
 import { initialOccurrences, seriesShapeFromTimes } from "@/features/events/event-series";
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const range = EventRangeSchema.safeParse({ from: url.searchParams.get("from"), to: url.searchParams.get("to") });
     if (!range.success) return NextResponse.json({ error: "Select a valid date range of up to 93 days." }, { status: 400 });
 
-    const [occurrences, createGrant, createDefault] = await Promise.all([
+    const [occurrences, createGrant, createDefault, canEdit] = await Promise.all([
       prisma.churchEventOccurrence.findMany({
         where: {
           localDate: { gte: range.data.from, lte: range.data.to },
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
             select: { id: true },
           })
         : Promise.resolve(null),
+      hasModuleAction(context, "EVENTS", "EDIT"),
     ]);
 
     const items: EventOccurrenceSummary[] = occurrences.map((occurrence) => ({
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
       isPublic: occurrence.event.isPublic,
       repeats: occurrence.event.repeatKind !== "NONE",
       edited: occurrence.edited,
+      changeNote: occurrence.changeNote,
       localDate: occurrence.localDate,
       startsAt: occurrence.startsAt.toISOString(),
       endsAt: occurrence.endsAt.toISOString(),
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
       conflict: occurrences.some((other) => other.id !== occurrence.id && other.status === "SCHEDULED" && occurrence.status === "SCHEDULED" && other.startsAt < occurrence.endsAt && other.endsAt > occurrence.startsAt),
     }));
 
-    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null) });
+    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit });
   } catch (error: unknown) {
     return errorResponse(error, "Failed to load events.");
   }

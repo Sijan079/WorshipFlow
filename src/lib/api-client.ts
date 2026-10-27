@@ -285,7 +285,7 @@ export type CreateServicePayload = {
   }>;
 };
 
-export type UpdateServicePayload = Partial<CreateServicePayload>;
+export type UpdateServicePayload = Partial<CreateServicePayload> & { headcount?: number | null };
 
 export type ServiceBlockMutationPayload = {
   id?: string;
