@@ -82,11 +82,15 @@ export async function requireAuthenticatedUser() {
   }
 
   const email = data.user.email.trim().toLowerCase();
+  const displayName = data.user.user_metadata?.display_name || data.user.user_metadata?.full_name || null;
+  // A known user whose details have not changed needs no write, which saves a database round trip per request.
+  const known = await prisma.user.findUnique({ where: { authProviderId: data.user.id } });
+  if (known && known.email === email && known.displayName === displayName) return known;
   const user = await prisma.user.upsert({
     where: { authProviderId: data.user.id },
     update: {
       email,
-      displayName: data.user.user_metadata?.display_name || data.user.user_metadata?.full_name || null,
+      displayName,
     },
     create: {
       authProviderId: data.user.id,
@@ -100,24 +104,20 @@ export async function requireAuthenticatedUser() {
 
 export async function requireWorkspaceContext(workspaceSlug: string): Promise<WorkspaceContext> {
   const user = await requireAuthenticatedUser();
-  const workspace = await prisma.workspace.findUnique({ where: { slug: workspaceSlug } });
-
-  if (!workspace) {
-    throw new WorkspaceAuthorizationError(404, "Workspace not found.");
-  }
-
-  const membership = await prisma.workspaceMembership.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId: workspace.id,
-        userId: user.id,
-      },
-    },
+  // One query finds the workspace and this user's membership in it.
+  const membership = await prisma.workspaceMembership.findFirst({
+    where: { userId: user.id, workspace: { slug: workspaceSlug } },
+    include: { workspace: true },
   });
 
-  if (!membership || membership.status !== "ACTIVE") {
+  if (!membership) {
+    const exists = await prisma.workspace.findUnique({ where: { slug: workspaceSlug }, select: { id: true } });
+    throw new WorkspaceAuthorizationError(exists ? 403 : 404, exists ? "You do not have access to this workspace." : "Workspace not found.");
+  }
+  if (membership.status !== "ACTIVE") {
     throw new WorkspaceAuthorizationError(403, "You do not have access to this workspace.");
   }
+  const workspace = membership.workspace;
 
   return {
     userId: user.id,

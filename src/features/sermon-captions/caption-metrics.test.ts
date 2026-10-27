@@ -37,7 +37,7 @@ export function runCaptionMetricsTests() {
   // The server logs one line per published caption, with every stage, and sends the same as Server-Timing.
   const route = read("src", "app", "api", "caption-sessions", "[id]", "lines", "route.ts");
   assert.match(route, /createStageTimer\(\)/);
-  for (const stage of ["access", "session", "existing", "translate", "usage", "write", "check", "trim"]) {
+  for (const stage of ["access", "lookup", "translate", "save", "verify"]) {
     assert.match(route, new RegExp(`mark\\("${stage}"\\)`), `stage ${stage}`);
   }
   assert.match(route, /event: "captions\.publish"/);
@@ -46,6 +46,16 @@ export function runCaptionMetricsTests() {
   assert.match(route, /timing: z\.object\(/);
   assert.match(route, /recognitionMs/);
   assert.match(route, /previousRoundTripMs/);
+  // Speed: independent database calls run together instead of one after another.
+  assert.match(route, /Promise\.all\(\[\s*prisma\.captionSession\.findFirst[\s\S]*?prisma\.captionLine\.findUnique/, "session and existing line are fetched together");
+  assert.match(route, /Promise\.all\(\[[\s\S]*?captionUsageDay\.upsert[\s\S]*?captionLine\.upsert/, "usage and write run together");
+  assert.match(route, /Promise\.all\(\[[\s\S]*?captionSession\.findUnique[\s\S]*?captionLine\.deleteMany/, "check and trim run together");
+  // The login check no longer writes to the database on every request, and finds the membership in one query.
+  const security = read("src", "lib", "security-context.ts");
+  assert.match(security, /authProviderId: data\.user\.id \} \}\);\s*if \(known/, "known users are read, not upserted");
+  assert.match(security, /workspaceMembership\.findFirst\(\{\s*where: \{ userId: user\.id, workspace: \{ slug: workspaceSlug \} \}/, "workspace and membership in one query");
+  // The function runs next to the database (Seoul).
+  assert.match(read("vercel.json"), /"regions": \["icn1"\]/);
   // The log never carries caption text or any token: only numbers, the session and line.
   const logStart = route.indexOf('event: "captions.publish"');
   const logBlock = route.slice(logStart, route.indexOf("}))", logStart));

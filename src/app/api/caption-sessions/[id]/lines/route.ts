@@ -29,8 +29,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: "Invalid caption session." }, { status: 400 });
     const parsed = LineInput.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "Invalid caption line." }, { status: 400 });
-    const session = await prisma.captionSession.findFirst({ where: { id, workspaceId: context.workspaceId } });
-    timer.mark("session");
+    // The database is a round trip away, so calls that do not depend on each other go out together.
+    const [session, existing] = await Promise.all([
+      prisma.captionSession.findFirst({ where: { id, workspaceId: context.workspaceId } }),
+      prisma.captionLine.findUnique({ where: { sessionId_line: { sessionId: id, line: parsed.data.line } } }),
+    ]);
+    timer.mark("lookup");
     if (!session || !canReadCaptionSession(session)) return NextResponse.json({ error: "Caption session is not active." }, { status: 409 });
     if (session.operatorUserId !== context.userId || !validOperatorToken(request.headers.get("x-caption-operator-token"), session.operatorTokenHash)) {
       return NextResponse.json({ error: "Only this session's operator can publish captions." }, { status: 403 });
@@ -56,37 +60,39 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json(body, { headers: { "Cache-Control": "no-store", "Server-Timing": serverTimingHeader(ms) } });
     }
 
-    const existing = await prisma.captionLine.findUnique({ where: { sessionId_line: { sessionId: id, line: parsed.data.line } } });
-    timer.mark("existing");
     if (existing?.final) return finish({ line: existing }, false);
     if (!process.env.AZURE_TRANSLATOR_KEY) return NextResponse.json({ error: "Azure Translator is not configured." }, { status: 503 });
     const translated = existing?.source === source ? null : await translateCaption(source, process.env.AZURE_TRANSLATOR_KEY, process.env.AZURE_TRANSLATOR_REGION);
     timer.mark("translate");
-    if (translated) {
-      const day = usageUtcDay(new Date());
-      const delta = meteredUsageDelta(translated.meteredCharacters);
-      await prisma.captionUsageDay.upsert({
-        where: { workspaceId_day: { workspaceId: context.workspaceId, day } },
-        update: { meteredCharacters: { increment: delta.meteredCharacters }, unmeteredRequests: { increment: delta.unmeteredRequests } },
-        create: { workspaceId: context.workspaceId, day, ...delta },
-      });
-    }
-    timer.mark("usage");
     const english = translated?.english ?? existing!.english;
-    const line = await prisma.captionLine.upsert({
-      where: { sessionId_line: { sessionId: id, line: parsed.data.line } },
-      update: { source, english, final: parsed.data.final },
-      create: { sessionId: id, line: parsed.data.line, source, english, final: parsed.data.final },
-    });
-    timer.mark("write");
-    const current = await prisma.captionSession.findUnique({ where: { id }, select: { status: true, expiresAt: true } });
-    timer.mark("check");
+    const day = usageUtcDay(new Date());
+    const [, line] = await Promise.all([
+      translated
+        ? (() => {
+            const delta = meteredUsageDelta(translated.meteredCharacters);
+            return prisma.captionUsageDay.upsert({
+              where: { workspaceId_day: { workspaceId: context.workspaceId, day } },
+              update: { meteredCharacters: { increment: delta.meteredCharacters }, unmeteredRequests: { increment: delta.unmeteredRequests } },
+              create: { workspaceId: context.workspaceId, day, ...delta },
+            });
+          })()
+        : Promise.resolve(null),
+      prisma.captionLine.upsert({
+        where: { sessionId_line: { sessionId: id, line: parsed.data.line } },
+        update: { source, english, final: parsed.data.final },
+        create: { sessionId: id, line: parsed.data.line, source, english, final: parsed.data.final },
+      }),
+    ]);
+    timer.mark("save");
+    const [current] = await Promise.all([
+      prisma.captionSession.findUnique({ where: { id }, select: { status: true, expiresAt: true } }),
+      prisma.captionLine.deleteMany({ where: { sessionId: id, line: { lte: parsed.data.line - 10 } } }),
+    ]);
+    timer.mark("verify");
     if (!current || !canReadCaptionSession(current)) {
       await prisma.captionLine.deleteMany({ where: { sessionId: id } });
       return NextResponse.json({ error: "Caption session has ended." }, { status: 409 });
     }
-    await prisma.captionLine.deleteMany({ where: { sessionId: id, line: { lte: parsed.data.line - 10 } } });
-    timer.mark("trim");
     return finish({ line }, Boolean(translated));
   } catch (error) {
     return captionErrorResponse(error, request, "/api/caption-sessions/[id]/lines", "POST");

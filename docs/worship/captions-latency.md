@@ -26,13 +26,10 @@ speaker  ->  booth recognises the words  ->  booth sends them to our server  -> 
 | `booth.recognitionMs` | the booth, from Deepgram's timestamps | how long after the words ended the recogniser returned them |
 | `booth.previousRoundTripMs` | the booth | how long the booth waited for our server to answer the previous caption |
 | `ms.access` | server | login check, membership and permission |
-| `ms.session` | server | finding the live session |
-| `ms.existing` | server | looking for the line already stored |
+| `ms.lookup` | server | finding the live session and the line already stored (together) |
 | `ms.translate` | server | Azure Translator |
-| `ms.usage` | server | counting translated characters |
-| `ms.write` | server | storing the caption |
-| `ms.check` | server | confirming the session is still live |
-| `ms.trim` | server | deleting old lines |
+| `ms.save` | server | storing the caption and counting translated characters (together) |
+| `ms.verify` | server | confirming the session is still live and deleting old lines (together) |
 | `ms.total` | server | everything above |
 | listener `lag` | the script | from the server storing a caption to the script receiving it: waiting for the next check, plus the edge cache |
 
@@ -60,4 +57,4 @@ Record what we measured, and what we changed, here:
 
 | Date | Median lag | Slowest stage | Change |
 |---|---|---|---|
-| | | | |
+| 2026-10-27 | not measured yet | `ms.access` about 500 ms; six database calls of about 70 ms each (Hong Kong to Seoul); server total about 1,050 ms | Function moved to Seoul (`icn1`); independent calls run together; known users are no longer written on every request. Re-measure to confirm. |
