@@ -67,12 +67,18 @@ write the failing check first, build, verify, document.
    Check: a test proves public routes cannot read People, Ministry, or
    attendance data; unlisted sends `noindex`; only items marked public appear.
 9. **Dashboard** with four summary cards.
-10. **Worship sub-navigation regrouping** (Services, Songs, Media Tools,
+10. **Design unification pass.** Bring the older pages in line with `DESIGN.md` one page at a time (Services,
+    Settings, People, Media Tools, the Song Formatter, and the rest) using its checklist: no cards inside
+    cards, quiet icon controls, Title Case dialog titles, Cancel and Done, "Yes, I am sure" on serious
+    confirmations, things that move glide instead of jump, and the older Delete buttons. If the secondary
+    accent trial (sky blue) is kept, roll it out and remove the trial note; if not, point the tokens back
+    at purple. A page needs its own grilling session only if it needs a new `DESIGN.md` rule.
+11. **Worship sub-navigation regrouping** (Services, Songs, Media Tools,
     Captions).
-11. **Tool refinements**, starting with the background library (images and 1080p
+12. **Tool refinements**, starting with the background library (images and 1080p
     loops up to 50 MB, per-workspace storage meter). Then phone transfer,
     comment card, QR generator.
-12. **Rewrite `AGENTS.md` and `README.md`** to point at these docs.
+13. **Rewrite `AGENTS.md` and `README.md`** to point at these docs.
 
 ## Design direction
 

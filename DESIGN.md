@@ -60,6 +60,17 @@ containers. Avoid ornamental gradients and glow, filler metrics, badge spam,
 repeated eyebrow labels, and equal card grids with no real hierarchy. Use
 semantic tokens, never one-off colors, shadows, or radii.
 
+**Never nest cards.** A surface (the page card, a dialog) does not contain another bordered,
+filled, or rounded box. Inside a surface, give a section its own weight as a **panel**: a
+full-width band that extends vertically, separated from its neighbours by a hairline rule
+(`--rule-default`), with no border, radius, or shadow of its own. A panel may carry a subtle fill
+(`--surface-panel-alt`) when it needs to stand apart, such as a preview area. Collapsible
+sections take the same shape: a full-width row with a chevron, stacked, hairline between rows,
+indented one step per level instead of boxed one inside another. Exempt: form fields, buttons,
+an image that needs its own quiet zone (a QR code), and floating layers (popovers, menus,
+tooltips) that sit above a surface. Built in Sermon Captions; Target in the older pages, which
+are brought in line when a change touches them.
+
 ## Page contract
 
 1. **Header** (Built; `ui-page-header`, `ui-page-title`, `ui-page-description`): the
@@ -90,12 +101,15 @@ semantic tokens, never one-off colors, shadows, or radii.
 7. **Settings sections** (Built): Add sits beside the section heading, Save appears only
    when the section has unsaved changes, rows show their own dirty or failed
    state, and editing is inline instead of in modals.
+8. **Pages that are not lists** (Sermon Captions, the Song Formatter) are one surface, or none, divided
+   into vertical panels, with the next action in the header.
 
 ## Controls
 
 - Buttons: `ui-btn-primary` (purple, 44px), `ui-btn-secondary`, `ui-btn-cancel`
-  (outline, red on hover) are Built. `ui-btn-danger` visibly red at rest is
-  Target; Services and Teams use a button that turns red only on hover.
+  (outline, red on hover) are Built. `ui-btn-danger-solid` (solid red with white text) is Built, for
+  an action that ends something live, such as Stop captions. `ui-btn-danger` visibly red at rest is
+  Target for Delete buttons; today they, and Services and Teams, turn red only on hover.
 - Text fields in forms follow the Services text boxes (`.ui-text-field` in
   `globals.css`, used by the People and Ministries dialogs through
   `src/features/people/field-styles.ts`): a plain rounded 1px `--border-default`
@@ -108,11 +122,16 @@ semantic tokens, never one-off colors, shadows, or radii.
 - Open question: `ProductionSelect` and the date picker default to small uppercase
   mono labels (as in the Services create dialog), while text fields use plain
   sentence-case labels. One style per form is the goal; not yet decided.
-- Dialogs: the shared Radix `Dialog`, one surface (Built); `ui-modal-close` and
-  an explicit Cancel in every dialog (Target); actions right-aligned. Destructive confirmations state what
-  will be removed.
+- Dialogs: the shared Radix `Dialog`, one surface (Built), with `ui-modal-close` always present. A dialog
+  that asks a question or holds unsaved changes has an explicit Cancel; one whose choices apply the moment
+  they are made ends with Done. Actions are right-aligned.
 - Feedback (Target): every mutation shows a success toast and an error toast.
   No silent failures. Today only Services and the Formatter use toasts.
+- Icon-only secondary controls have no border and no fill: muted at rest, accent on hover, 44px, with an
+  accessible label and a tooltip (see "Feel and reasoning").
+- A confirmation of a serious action (stop, end, regenerate, delete) says what will happen, defaults to
+  Cancel, and its positive button reads **Yes, I am sure**. Built in Sermon Captions; the older delete
+  dialogs are brought in line in the design unification pass.
 - Press-and-hold row selection may supplement the visible checkbox but is never
   the only way to select.
 - Touch targets are at least 44px for primary controls and row triggers.
@@ -126,18 +145,25 @@ semantic tokens, never one-off colors, shadows, or radii.
   subtle fields `#f8fafc`, inactive controls `#f1f5f9`, text `#111827`
   `#475569` `#64748b`, rules `#e2e8f0` `#cbd5e1`, action and focus `#7c3aed`
   (hover `#8754ee`), danger `#b91c1c`, success `#047857`, warning `#b45309`.
-- Purple is a signal: primary actions, focus rings, selection, the active tab,
-  and accent text on hover. It is never a status color and never a ledger
-  background.
+- Purple is a signal: primary actions, focus rings, selection, and the active tab. It is never a
+  status color and never a ledger background.
+- **Trial (2026-10-27):** sky blue `#0369a1` is the secondary accent for accent text, links, and the
+  hover and active states of secondary actions (5.9:1 on white; its light wash `#e0f2fe` marks a
+  highlighted row). It is one token, `--workspace-text-accent`, with `--action-secondary-accent-*` and
+  `--surface-highlight`; pointing them back at the purple tokens undoes the trial everywhere. The owner
+  decides after living with it whether it becomes Built (rolled out in the design unification pass) or
+  is dropped.
 - Status is a small dot plus a colored label, not a filled badge. Red means an
-  error only; "Draft" uses a neutral color.
+  error, or an action that is destructive or disruptive to an operation (Stop, Delete); "Draft" uses a
+  neutral color.
 - The dark navigation rail uses `--rail-*` tokens and stays.
 
 ## Typography
 
 - Inter for display and body. Geist Mono for technical text.
 - Page title 30px/600. Section title 16px/600. Body and row text 14px.
-- **No text under 12px** (Target: Settings and the rail use 10-11px labels today). Form labels and headings are sentence case.
+- **No text under 12px** (Target: Settings and the rail use 10-11px labels today). Form labels and headings inside a page are sentence case. Dialog titles are in Title Case, with small
+  words such as "a" and "or" in lower case (Audio Input, Invite a Member). A page title is the module's name.
 - Uppercase mono labels are reserved for small codes and metadata (counts,
   timestamps, numbering), never headings or form labels.
 
@@ -179,6 +205,16 @@ Motion explains state or spatial change, never decorates.
   `--ease-out`. Panels up to 220ms. No bounce.
 - Motion for React only for expand, reorder, and enter/leave.
 - Animate `transform` and `opacity`. Button scale stays between 0.97 and 1.01.
+- Two exceptions, on purpose: a panel that opens and closes animates its height, because panels have
+  little room and cannot slide smoothly any other way; and a status that must be noticed may pulse (the
+  Live dot), because the pulse carries meaning.
+- **Things travel from where they were to where they are, and never jump.** A panel slides open, a list
+  drops from its field, a moved item glides to its new place. Built for panels, dropdowns, and the
+  confirmation slide. Target where an item still vanishes at once (the Regenerate button when its
+  confirmation opens), to be done with Motion for React layout animation.
+- Panels that open and close use `.ui-collapsible-content` (180ms, height and opacity, from Radix
+  Collapsible). Dropdown lists use `.ui-select-content` (120ms fade and a 4px drop, from where they
+  open).
 - Never animate information users are urgently reading, and never delay saving
   or navigation.
 
@@ -207,6 +243,72 @@ Target: nothing here is built yet.
 - A person field on a service is a raised box (`.ui-raised-field`, a soft shadow rather than an
   inset one): search icon and "Name" on the left, a dropdown arrow on the right, still searchable.
   It has no "Manage people" link.
+
+## Feel and reasoning
+
+What the owner settled while designing Sermon Captions, as a short list. The reasoning behind each
+decision, where it is built, and its status (Built, Trial, Target) are in `docs/design/decisions.md`, a
+log by topic. A page gets its own notes only when it has reasoning no other page shares. This section is
+the author's summary of the owner's direction and can be rewritten in the owner's own words. Changing it
+goes through a grilling session (see `AGENTS.md`).
+
+### The feel
+
+Calm and quiet, with one obvious next thing. The screen shows what you need to run it right now. What
+you need once (setup, where the audio goes, the link) is one tap away, never in the way. Serious
+actions are slow on purpose and everything else is fast. Words are plain, because the person at the
+booth may be tired or new, and the people reading may be older. Nothing is specific to one church or
+one piece of equipment, because this is a multi-church product.
+
+### Decisions
+
+1. **One screen, no tabs.** Setup lives in a dialog opened by an options icon, and Start with no input
+   chosen opens it instead of being a dead button.
+2. **The next action sits at the top right.** Start and Stop go in the page header, never inside a card.
+   Start is the one purple button; Stop is solid red (`ui-btn-danger-solid`).
+3. **Quiet controls.** A secondary action that needs no words is an icon with no border and no fill,
+   with a label and a tooltip. If it needs words, the word sits beside the icon (Test).
+4. **A status is a signal.** A dot and a label in the same colour; Live pulses; red means an error or
+   something destructive or disruptive.
+5. **Information on request.** Facts needed now and then sit behind an information icon; the link is
+   copied, not printed. A disclosure is moved one tap away, never deleted.
+6. **Help is closed by default.** Setup and Troubleshooting open on their own, in plain steps, and name
+   no mixer and no church.
+7. **Never nest cards.** A surface holds panels that extend vertically, and its content fills it.
+8. **A deliberate action needs an aware yes.** Stop and Regenerate ask first, say what will happen,
+   default to Cancel, and the positive button reads **Yes, I am sure**. A blocked action explains itself
+   with a toast.
+9. **Things open and close smoothly.** Things travel from where they were to where they are, and never
+   jump.
+10. **Unity.** An element that does the same job looks and behaves the same everywhere in the app. Polish
+    comes from that consistency.
+11. **One link, one control.** The congregation gets one stable link and QR code; Start and Stop only
+    decide whether captions are live.
+12. **Words are plain and honest.** Messages say what was found and what to do.
+
+### Older pages
+
+The rules apply at once to anything a change touches. Roadmap step 10, the **Design unification pass**,
+brings the older pages in line one page at a time with the checklist below.
+
+### Checking a new screen
+
+Ask of any new screen:
+
+- Is there one screen for the job, with the next action at the top right?
+- Is exactly one thing a filled button, and are the rest quiet?
+- Can the state be read from colour and a dot alone?
+- Is anything shown that is only needed once? Move it behind an information icon or a closed help panel.
+- Is there a card inside a card? Turn it into a panel.
+- Does a serious action ask first, say what will happen, and default to Cancel?
+- Does every opening, closing, and move animate, and does reduced motion still work?
+- Does an element that does the same job look and behave the same as it does elsewhere in the app?
+- Is every word plain, and free of one church's or one device's name?
+
+### Open questions
+
+- The secondary accent trial (sky blue `#0369a1`): keep it and roll it out app-wide in the unification
+  pass, or drop it? The owner decides after living with it.
 
 ## Automated checks
 

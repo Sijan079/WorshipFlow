@@ -90,6 +90,12 @@ badge spam, repeated eyebrow labels, and equal card grids with no real
 hierarchy. Many users are elderly: favor plain wording, large targets, and few
 steps. Keep `DESIGN.md` and `tokens.css` aligned.
 
+Changing `DESIGN.md` goes through a grilling session with the owner first (use the `grilling`
+skill): bring the proposed change as numbered questions with a recommended answer each, wait for
+the owner's answers, then write it, tag each rule Built or Target, and record the from and to text
+in `docs/changes/YYYYMMDD.md`. Do not edit `DESIGN.md` as a side effect of other work. A typo or a
+Target that has become Built still gets a one-line check with the owner.
+
 ## Working rules
 
 - Start the development server with `npm run dev` for the configured hosted Supabase development project. Use `npm run dev:docker` when isolated local Supabase data is needed. Do not start Next directly unless the user explicitly asks to bypass the configured startup checks.
