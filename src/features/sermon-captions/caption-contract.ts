@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 export type CaptionUpdate = { line: number; source: string; final: boolean };
 export type CaptionDisplayLine = { line: number; english: string; final: boolean };
 export const CAPTION_RETENTION_MS = 60 * 60 * 1000;
@@ -15,7 +17,7 @@ export function isTakeoverStale(lastHeartbeatAt: Date, now = new Date()) {
 export type CaptionAvailability = { kind: "live" } | { kind: "retained"; until: Date } | { kind: "gone" };
 
 // What a listener may see of a session: the live feed, or its last lines for one hour after it ends.
-// A live session past its three-hour limit is retained from that limit, like one that was stopped.
+// A live session past its four-hour limit is retained from that limit, like one that was stopped.
 export function sessionAvailability(session: { status: string; expiresAt: Date }, now = new Date()): CaptionAvailability {
   if (session.status === "LIVE" && session.expiresAt.getTime() > now.getTime()) return { kind: "live" };
   const until = session.status === "LIVE" ? retainedCaptionExpiry(session.expiresAt) : session.expiresAt;
@@ -117,4 +119,24 @@ export class CaptionAssembler {
     this.parts = [];
     return [update];
   }
+}
+
+// How long the public feed may be cached at the edge. A second while captions flow keeps the delay
+// small; ten seconds while waiting or ended; thirty for a link that does not exist. There is no
+// stale-while-revalidate while waiting, because it would delay the moment "Live" appears.
+export function feedCacheControl(status: CaptionPublicStatus | "invalid") {
+  if (status === "invalid") return "public, s-maxage=30";
+  if (status === "waiting" || status === "ended") return "public, s-maxage=10";
+  return "public, s-maxage=1, stale-while-revalidate=1";
+}
+
+// The sessions whose lines the feed no longer serves: ended ones past their hour, and live ones past
+// their limit plus the hour. The daily job erases exactly these (see sessionAvailability).
+export function expiredCaptionSessionFilter(now = new Date()): Prisma.CaptionSessionWhereInput {
+  return {
+    OR: [
+      { status: "ENDED", expiresAt: { lte: now } },
+      { status: "LIVE", expiresAt: { lte: new Date(now.getTime() - CAPTION_RETENTION_MS) } },
+    ],
+  };
 }

@@ -129,7 +129,7 @@ export function runCaptionLinkTests() {
   assert.match(feed, /status: "waiting"/);
   assert.match(feed, /workspaceName|workspace: \{ select: \{ name: true/);
   assert.doesNotMatch(feed, /prisma\.(person|ministry|churchEvent|worshipService|user)\b/);
-  assert.match(feed, /Cache-Control": "no-store, private"/);
+  assert.match(feed, /feedCacheControl\(/);
   const page = read("src", "app", "captions", "live", "[token]", "page.tsx");
   assert.match(page, /robots: \{ index: false, follow: false \}/);
   assert.match(page, /<CaptionViewer token=\{token\}/);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
-import { canRegenerateCaptionLink, canShareCaptionLink } from "@/features/sermon-captions/caption-link";
+import { canRegenerateCaptionLink, canShareCaptionLink, viewerLinkUrl } from "@/features/sermon-captions/caption-link";
+import { canonicalOrigin } from "@/features/sermon-captions/caption-environment";
 import { captionErrorResponse, newViewerToken } from "@/features/sermon-captions/caption-server";
 import { hasModuleAction } from "@/lib/event-access";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
@@ -19,8 +20,11 @@ export async function GET(request: Request) {
       update: {},
       select: { viewerToken: true, rotatedAt: true },
     });
+    // The address comes from APP_URL in production, so a QR code made from a protected alias still works.
+    const origin = canonicalOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
+    const url = viewerLinkUrl(origin, settings.viewerToken);
     return NextResponse.json(
-      { token: settings.viewerToken, rotatedAt: settings.rotatedAt, canRegenerate: canRegenerateCaptionLink(context.role) },
+      { token: settings.viewerToken, url, rotatedAt: settings.rotatedAt, canRegenerate: canRegenerateCaptionLink(context.role) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

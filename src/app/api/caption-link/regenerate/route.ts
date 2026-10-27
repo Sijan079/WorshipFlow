@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { canRegenerateCaptionLink } from "@/features/sermon-captions/caption-link";
+import { canRegenerateCaptionLink, viewerLinkUrl } from "@/features/sermon-captions/caption-link";
+import { canonicalOrigin } from "@/features/sermon-captions/caption-environment";
 import { captionErrorResponse, newViewerToken } from "@/features/sermon-captions/caption-server";
 import { requireExplicitWorkspaceRole, WorkspaceAuthorizationError } from "@/lib/security-context";
 
@@ -27,7 +28,9 @@ export async function POST(request: Request) {
       update: { viewerToken: newViewerToken(), rotatedAt: new Date() },
       select: { viewerToken: true, rotatedAt: true },
     });
-    return NextResponse.json({ token: settings.viewerToken, rotatedAt: settings.rotatedAt, canRegenerate: true }, { headers });
+    const origin = canonicalOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
+    const url = viewerLinkUrl(origin, settings.viewerToken);
+    return NextResponse.json({ token: settings.viewerToken, url, rotatedAt: settings.rotatedAt, canRegenerate: true }, { headers });
   } catch (error) {
     return captionErrorResponse(error, request, "/api/caption-link/regenerate", "POST");
   }

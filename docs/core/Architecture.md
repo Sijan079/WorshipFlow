@@ -38,7 +38,7 @@ Prisma with PostgreSQL, Supabase Auth, Supabase Storage.
   `/workspaces` by `src/proxy.ts` (`LEGACY_WORKSPACE_PATHS`).
 - Public routes: login, auth callback, `/captions/live/{token}`, and `/c/{slug}`. The captions token is one
   random string per church (`CaptionSettings`); the viewer and its feed `/api/captions/live/{token}` find the
-  church's live session by it. The feed has no in-app rate limiter yet.
+  church's live session by it. The feed is cached at the edge (1 second while live, 10 while waiting, 30 for an unknown link) and the proxy skips it; there is no per-address rate limiter, because a church shares one address.
 
 ## Public site rendering
 

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
 import { hasModuleAction } from "@/lib/event-access";
 import { isTakeoverStale, retainedCaptionExpiry } from "@/features/sermon-captions/caption-contract";
+import { isLiveDatabaseInDev } from "@/features/sermon-captions/caption-environment";
 import { canRegenerateCaptionLink, canShareCaptionLink } from "@/features/sermon-captions/caption-link";
 import { requestDeepgramToken } from "@/features/sermon-captions/caption-providers";
 import { CAPTION_SESSION_MS, captionErrorResponse, hashOperatorToken, isUniqueConflict, newOperatorToken } from "@/features/sermon-captions/caption-server";
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
       canOperate,
       canShare,
       canRegenerate: canRegenerateCaptionLink(context.role),
+      devAgainstLiveDatabase: isLiveDatabaseInDev(process.env.DATABASE_URL, process.env.NODE_ENV),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return captionErrorResponse(error, request, "/api/caption-sessions", "GET");

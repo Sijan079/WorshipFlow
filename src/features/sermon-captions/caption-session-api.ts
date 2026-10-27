@@ -14,10 +14,10 @@ function operatorHeaders(token: string | undefined) {
   return token ? { [OPERATOR_TOKEN_HEADER]: token } : undefined;
 }
 
-export type CaptionLinkInfo = { token: string; rotatedAt: string | null; canRegenerate: boolean };
+export type CaptionLinkInfo = { token: string; url: string; rotatedAt: string | null; canRegenerate: boolean };
 
 export function fetchActiveSession() {
-  return apiFetch<{ session: CaptionSession | null; canOperate: boolean; canShare: boolean; canRegenerate: boolean }>("/api/caption-sessions");
+  return apiFetch<{ session: CaptionSession | null; canOperate: boolean; canShare: boolean; canRegenerate: boolean; devAgainstLiveDatabase: boolean }>("/api/caption-sessions");
 }
 
 // The church's one listener link. Needs View captions and the Share captions link grant.

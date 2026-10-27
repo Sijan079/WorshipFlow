@@ -72,5 +72,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // The public caption pages and their feed need nothing from the proxy (it only passes them through),
+  // so they are left out: a cached poll then costs no function call at all.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|captions/live|api/captions/live).*)"],
 };

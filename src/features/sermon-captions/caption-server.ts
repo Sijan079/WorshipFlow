@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { reportRouteFailure } from "@/lib/observability";
-import { CaptionProviderConfigurationError } from "./caption-providers";
+import { CaptionProviderConfigurationError, CaptionProviderQuotaError } from "./caption-providers";
 
-export const CAPTION_SESSION_MS = 3 * 60 * 60 * 1000;
+export const CAPTION_SESSION_MS = 4 * 60 * 60 * 1000;
 
 // The listener link. 24 random bytes is 32 base64url characters; see `isViewerToken`.
 export function newViewerToken() {
@@ -29,7 +29,7 @@ export function validOperatorToken(provided: string | null, expectedHash: string
 }
 
 export function captionErrorResponse(error: unknown, request: Request, route: string, method: string) {
-  const status = error instanceof WorkspaceAuthorizationError ? error.status : error instanceof CaptionProviderConfigurationError ? 503 : 500;
+  const status = error instanceof WorkspaceAuthorizationError ? error.status : error instanceof CaptionProviderConfigurationError ? 503 : error instanceof CaptionProviderQuotaError ? 429 : 500;
   if (status >= 500) reportRouteFailure(error, { route, method, status, request });
   return NextResponse.json({ error: status === 500 ? "Caption request failed." : (error as Error).message }, { status, headers: { "Cache-Control": "no-store" } });
 }

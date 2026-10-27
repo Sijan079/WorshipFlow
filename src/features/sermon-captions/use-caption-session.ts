@@ -45,6 +45,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   const expiryTimerRef = useRef<number | null>(null);
   const presenceTimerRef = useRef<number | null>(null);
   const presenceSequenceRef = useRef(0);
+  const quotaNotifiedRef = useRef(false);
   const connectionStatusRef = useRef<PresenceStatus>("CONNECTING");
 
   const releaseAudio = useCallback(() => {
@@ -104,7 +105,15 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
     queueRef.current = queueRef.current.then(async () => {
       const line = await publishLine(active.id, active.token, update);
       setLines((previous) => latestCaptionLines(previous, line));
-    }).catch((error) => { setMessage(`Translation interrupted: ${errorMessage(error)}`); });
+    }).catch((error) => {
+      // Azure's allowance is used up: say so plainly, once, instead of repeating "interrupted".
+      if (error instanceof ApiError && error.status === 429) {
+        setMessage(error.message);
+        if (!quotaNotifiedRef.current) { quotaNotifiedRef.current = true; notify(error.message, "error"); }
+        return;
+      }
+      setMessage(`Translation interrupted: ${errorMessage(error)}`);
+    });
   }
 
   async function stop() {
@@ -168,6 +177,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       queueRef.current = Promise.resolve();
       stoppingRef.current = false;
       presenceSequenceRef.current = 0;
+      quotaNotifiedRef.current = false;
       connectionStatusRef.current = "CONNECTING";
       presenceTimerRef.current = window.setInterval(() => heartbeat(connectionStatusRef.current), 5_000);
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getDeepgramBalances, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
+import { CaptionProviderQuotaError, getDeepgramBalances, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
 
 test("Deepgram grant returns only a temporary token to the caller", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -50,6 +50,34 @@ test("Azure rejects a successful response without translated text", async () => 
 test("Azure authentication failure identifies the key and region setup", async () => {
   await assert.rejects(
     () => translateCaption("Kumusta", "key", "eastus", async () => new Response(null, { status: 401 })),
+    /key and region/,
+  );
+});
+
+test("Azure over-quota is reported plainly, apart from key problems and plain throttling", async () => {
+  const body = (code: number | string, message: string) => JSON.stringify({ error: { code, message } });
+  const respond = (status: number, text: string) => async () => new Response(text, { status, headers: { "Content-Type": "application/json" } });
+  // The free-quota error comes back as 403 with code 403001, so it must be checked before the key-failure branch.
+  await assert.rejects(
+    () => translateCaption("Kumusta", "key", "eastus", respond(403, body(403001, "The subscription has exceeded its free quota."))),
+    (error: unknown) => error instanceof CaptionProviderQuotaError && /translation limit has been reached/i.test(error.message),
+  );
+  await assert.rejects(
+    () => translateCaption("Kumusta", "key", "eastus", respond(429, body(429001, "AppIdOverQuota: the client has exceeded request limits."))),
+    (error: unknown) => error instanceof CaptionProviderQuotaError,
+  );
+  // Plain throttling is a busy service, not an exhausted allowance.
+  await assert.rejects(
+    () => translateCaption("Kumusta", "key", "eastus", respond(429, body(429000, "Too many requests."))),
+    (error: unknown) => !(error instanceof CaptionProviderQuotaError) && /busy/i.test((error as Error).message),
+  );
+  // A real key problem still says so.
+  await assert.rejects(
+    () => translateCaption("Kumusta", "key", "eastus", respond(403, body(403000, "Forbidden."))),
+    /key and region/,
+  );
+  await assert.rejects(
+    () => translateCaption("Kumusta", "key", "eastus", respond(401, body(401000, "Unauthorized."))),
     /key and region/,
   );
 });

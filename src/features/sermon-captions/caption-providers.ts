@@ -2,6 +2,19 @@ type Fetcher = typeof fetch;
 
 export class CaptionProviderConfigurationError extends Error {}
 
+// Azure refused because the allowance is used up, not because of a bad key or a busy moment.
+export class CaptionProviderQuotaError extends Error {}
+
+async function azureErrorDetail(response: Response) {
+  try {
+    const data: unknown = await response.json();
+    const error = data && typeof data === "object" && "error" in data ? (data as { error?: { code?: unknown; message?: unknown } }).error : undefined;
+    return { code: String(error?.code ?? ""), message: String(error?.message ?? "") };
+  } catch {
+    return { code: "", message: "" };
+  }
+}
+
 export type DeepgramBalance = { amount: number; units: string };
 
 export async function getDeepgramBalances(projectId: string, apiKey: string, fetcher: Fetcher = fetch): Promise<DeepgramBalance[]> {
@@ -48,8 +61,16 @@ export async function translateCaption(source: string, apiKey: string, region: s
     body: JSON.stringify([{ Text: source }]),
     signal: AbortSignal.timeout(10_000),
   });
-  if (response.status === 401 || response.status === 403) throw new CaptionProviderConfigurationError("Azure Translator rejected the key and region configuration.");
-  if (!response.ok) throw new Error(`Azure Translator failed (${response.status}).`);
+  if (!response.ok) {
+    // The free-quota error is a 403 (code 403001), so it is read before the key-failure branch below.
+    const detail = await azureErrorDetail(response);
+    if (detail.code === "403001" || /quota/i.test(`${detail.code} ${detail.message}`)) {
+      throw new CaptionProviderQuotaError("The translation limit has been reached. Captions will return when it resets or the plan is upgraded.");
+    }
+    if (response.status === 401 || response.status === 403) throw new CaptionProviderConfigurationError("Azure Translator rejected the key and region configuration.");
+    if (response.status === 429) throw new Error("Azure Translator is busy (429). Captions will continue when it recovers.");
+    throw new Error(`Azure Translator failed (${response.status}).`);
+  }
   const data: unknown = await response.json();
   const first = Array.isArray(data) ? data[0] : null;
   const english = first?.translations?.[0]?.text;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchCaptionLink, regenerateCaptionLink, type CaptionLinkInfo } from "./caption-session-api";
-import { dataUrlToBytes, viewerLinkUrl } from "./caption-link";
+import { dataUrlToBytes } from "./caption-link";
 
 type Notify = (message: string, tone: "success" | "error") => void;
 type Link = { url: string; rotatedAt: string | null; canRegenerate: boolean };
@@ -12,7 +12,7 @@ function errorMessage(error: unknown) {
 }
 
 function toLink(info: CaptionLinkInfo): Link {
-  return { url: viewerLinkUrl(window.location.origin, info.token), rotatedAt: info.rotatedAt, canRegenerate: info.canRegenerate };
+  return { url: info.url, rotatedAt: info.rotatedAt, canRegenerate: info.canRegenerate };
 }
 
 // Loads the church's one listener link while the Share dialog is open, copies it, and replaces it.
