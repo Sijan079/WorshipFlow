@@ -67,11 +67,11 @@ export function runCaptionLinkTests() {
   assert.equal(selectViewerSession([], now), null);
 
   // The viewer checks quickly while captions flow and slowly while waiting, so people come back by themselves.
-  assert.equal(viewerPollMs(undefined), 2000);
-  assert.equal(viewerPollMs("live"), 2000);
-  assert.equal(viewerPollMs("connecting"), 2000);
-  assert.equal(viewerPollMs("interrupted"), 2000);
-  assert.equal(viewerPollMs("error"), 2000);
+  assert.equal(viewerPollMs(undefined), 1000);
+  assert.equal(viewerPollMs("live"), 1000);
+  assert.equal(viewerPollMs("connecting"), 1000);
+  assert.equal(viewerPollMs("interrupted"), 1000);
+  assert.equal(viewerPollMs("error"), 1000);
   assert.equal(viewerPollMs("waiting"), 15000);
   assert.equal(viewerPollMs("ended"), 15000);
 

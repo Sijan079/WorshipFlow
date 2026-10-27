@@ -58,3 +58,4 @@ Record what we measured, and what we changed, here:
 | Date | Median lag | Slowest stage | Change |
 |---|---|---|---|
 | 2026-10-27 | not measured yet | `ms.access` about 500 ms; six database calls of about 70 ms each (Hong Kong to Seoul); server total about 1,050 ms | Function moved to Seoul (`icn1`); independent calls run together; known users are no longer written on every request. Re-measure to confirm. |
+| 2026-10-27 (after Seoul) | listener 1,389 ms (765 to 1,545), 5 sentences | recognition about 1.5 to 2 s; translate 0.1 to 0.6 s; server total about 65 to 105 ms without translation | Asia Pacific Translator endpoint added (no clear gain); viewer polling changed from every 2 s to every 1 s. Deepgram `language=multi` is kept as is: changing it risks Tagalog being read as another language. |
