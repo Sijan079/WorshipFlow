@@ -1,42 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
-import type { AudioInputChoice } from "./audio-input-step";
 import AudioSettingsButton from "./audio-settings-button";
 import AudioSettingsDialog from "./audio-settings-dialog";
 import CaptionControls from "./caption-controls";
 import CaptionInfo from "./caption-info";
+import { useCaptionEngine } from "./caption-engine";
 import CaptionMessage from "./caption-message";
 import CaptionPreview from "./caption-preview";
 import CaptionStatus from "./caption-status";
-import { captionIsRunning } from "./caption-ui";
 import ShareButton from "./share-button";
 import ShareDialog from "./share-dialog";
-import StopConfirmDialog from "./stop-confirm-dialog";
 import { useCaptionLink } from "./use-caption-link";
-import { useCaptionSession } from "./use-caption-session";
 
-const NO_INPUT: AudioInputChoice = { id: "", label: "" };
-
-// The page only composes. The session hook owns what happens, and each piece below draws one
-// part of the screen from props. It stays mounted for the whole visit because leaving the page
-// ends the session.
+// The page displays the captions engine (caption-engine.tsx), which lives above every workspace page,
+// so leaving this page does not stop captions. The page keeps only its own dialogs.
 export default function SermonCaptionsPage() {
-  const [input, setInput] = useState<AudioInputChoice>(NO_INPUT);
+  const engine = useCaptionEngine();
   const [audioOpen, setAudioOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [stopOpen, setStopOpen] = useState(false);
-  const { dismissToast, showToast, toasts } = usePAPToasts();
-  const captions = useCaptionSession({ inputId: input.id, notify: showToast });
-  const running = captionIsRunning(captions.state);
-  const captionLink = useCaptionLink({ enabled: shareOpen, notify: showToast });
+  const captionLink = useCaptionLink({ enabled: shareOpen, notify: engine.showToast });
 
-  // With no input chosen, Start opens the audio settings instead of failing. It also clears a stop
-  // question left open by a session that ended on its own.
+  // With no input chosen, Start opens the audio settings instead of failing.
   function startCaptions() {
-    setStopOpen(false);
-    void (input.id ? captions.start() : setAudioOpen(true));
+    void (engine.input.id ? engine.requestStart() : setAudioOpen(true));
   }
 
   return (
@@ -47,56 +34,46 @@ export default function SermonCaptionsPage() {
           <p className="ui-page-description">Prepare the booth audio feed for live English captions.</p>
         </div>
         <div className="flex items-center gap-3">
-          {captions.canShare ? <ShareButton onClick={() => setShareOpen(true)} /> : null}
+          {engine.canShare ? <ShareButton onClick={() => setShareOpen(true)} /> : null}
           <AudioSettingsButton onClick={() => setAudioOpen(true)} />
           <CaptionControls
-            state={captions.state}
-            hasSession={Boolean(captions.session)}
-            canOperate={captions.canOperate}
-            canStopExisting={captions.canStopExisting}
+            state={engine.state}
+            hasSession={Boolean(engine.session)}
+            canOperate={engine.canOperate}
+            canStopExisting={engine.canStopExisting}
             onStart={startCaptions}
-            onStop={() => setStopOpen(true)}
-            onStopExisting={() => setStopOpen(true)}
+            onStop={engine.requestStop}
+            onStopExisting={engine.requestStop}
           />
         </div>
       </section>
 
       <section className="ui-surface-elevated flex flex-1 flex-col divide-y divide-[var(--rule-default)]" aria-label="Live captions">
         <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
-          <CaptionInfo inputLabel={input.label} running={running} />
-          <CaptionStatus state={captions.state} hasSession={Boolean(captions.session)} />
+          <CaptionInfo inputLabel={engine.input.label} running={engine.running} />
+          <CaptionStatus state={engine.state} hasSession={Boolean(engine.session)} />
         </div>
-        <CaptionPreview lines={captions.lines} />
+        <CaptionPreview lines={engine.lines} />
         <div className="px-4 py-3 sm:px-6">
-          <CaptionMessage message={captions.message} />
+          <CaptionMessage message={engine.message} />
         </div>
       </section>
 
-      {stopOpen && (running || captions.session) ? (
-        <StopConfirmDialog
-          onConfirm={() => {
-            setStopOpen(false);
-            void (running ? captions.stop() : captions.stopExisting());
-          }}
-          onCancel={() => setStopOpen(false)}
-        />
-      ) : null}
       {shareOpen ? (
         <ShareDialog
           link={captionLink.link}
           loading={captionLink.loading}
           error={captionLink.error}
-          running={running}
+          running={engine.running}
           regenerating={captionLink.regenerating}
           onCopyLink={() => void captionLink.copyLink()}
           onCopyQr={(qr) => void captionLink.copyQr(qr)}
           onRegenerate={() => void captionLink.regenerate()}
-          notify={showToast}
+          notify={engine.showToast}
           onClose={() => setShareOpen(false)}
         />
       ) : null}
-      {audioOpen ? <AudioSettingsDialog input={input} onInputChange={setInput} locked={running} onClose={() => setAudioOpen(false)} /> : null}
-      <PAPToastViewport dismissToast={dismissToast} toasts={toasts} />
+      {audioOpen ? <AudioSettingsDialog input={engine.input} onInputChange={engine.setInput} locked={engine.running} onClose={() => setAudioOpen(false)} /> : null}
     </div>
   );
 }

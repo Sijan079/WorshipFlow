@@ -27,3 +27,13 @@ export function captionStatus(state: CaptionRunState, hasSession: boolean): { la
 export function captionIsRunning(state: CaptionRunState) {
   return state !== "idle";
 }
+
+// The floating live button: purple while live (it is a button running something for you), amber while
+// starting or recovering, red when it needs attention.
+export type LiveButtonTone = "live" | "warning" | "danger";
+
+export function captionLiveButtonTone(state: CaptionRunState): LiveButtonTone {
+  if (state === "error") return "danger";
+  if (state === "starting" || state === "reconnecting" || state === "stopping") return "warning";
+  return "live";
+}

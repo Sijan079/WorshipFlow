@@ -1,4 +1,5 @@
 import WorkspaceShell from "@/components/workspace-shell";
+import CaptionEngineProvider from "@/features/sermon-captions/caption-engine";
 
 export default async function WorkspaceSlugLayout({
   children,
@@ -8,5 +9,9 @@ export default async function WorkspaceSlugLayout({
   params: Promise<{ workspaceSlug: string }>;
 }>) {
   const { workspaceSlug } = await params;
-  return <WorkspaceShell workspaceSlug={workspaceSlug}>{children}</WorkspaceShell>;
+  return (
+    <CaptionEngineProvider workspaceSlug={workspaceSlug}>
+      <WorkspaceShell workspaceSlug={workspaceSlug}>{children}</WorkspaceShell>
+    </CaptionEngineProvider>
+  );
 }

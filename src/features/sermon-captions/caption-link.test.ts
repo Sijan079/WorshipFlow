@@ -209,7 +209,7 @@ export function runCaptionLinkTests() {
   const pageClient = feature("sermon-captions-page.tsx");
   assert.match(pageClient, /<ShareButton/);
   assert.match(pageClient, /\{shareOpen \? \(\s*<ShareDialog/);
-  assert.match(pageClient, /captions\.canShare/);
+  assert.match(pageClient, /engine\.canShare/);
   assert.doesNotMatch(pageClient, /ViewerLink|viewerUrl/);
   assert.doesNotMatch(feature("use-caption-session.ts"), /viewerUrl|viewerUrlFor|copyViewerLink/);
   assert.match(feature("use-caption-link.ts"), /fetchCaptionLink\(/);

@@ -145,7 +145,8 @@ are brought in line when a change touches them.
   subtle fields `#f8fafc`, inactive controls `#f1f5f9`, text `#111827`
   `#475569` `#64748b`, rules `#e2e8f0` `#cbd5e1`, action and focus `#7c3aed`
   (hover `#8754ee`), danger `#b91c1c`, success `#047857`, warning `#b45309`.
-- Purple is a signal: primary actions, focus rings, selection, and the active tab. It is never a
+- Purple is a signal: primary actions, focus rings, selection, the active tab, and one floating button
+  that also marks something running live for you (the captions button, which pulses). It is never a
   status color and never a ledger background.
 - **Trial (2026-10-27):** sky blue `#0369a1` is the secondary accent for accent text, links, and the
   hover and active states of secondary actions (5.9:1 on white; its light wash `#e0f2fe` marks a
@@ -285,6 +286,9 @@ one piece of equipment, because this is a multi-church product.
 11. **One link, one control.** The congregation gets one stable link and QR code; Start and Stop only
     decide whether captions are live.
 12. **Words are plain and honest.** Messages say what was found and what to do.
+13. **One floating live button.** While captions run behind other pages, a purple pulsing microphone sits
+    at the bottom right; it opens a small panel to go back or stop. It is the only floating button in
+    the app.
 
 ### Older pages
 

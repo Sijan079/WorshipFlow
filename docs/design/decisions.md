@@ -32,6 +32,15 @@ its content fills the card in width and height. A panel has no border, radius, o
 older eyes.
 Built in: Sermon Captions. Status: Built there, Target elsewhere (19 older files still draw boxes).
 
+### Captions keep running in the background
+The captions session lives above every workspace page, so moving around the app does not stop it. Its
+heartbeat runs in a worker so a hidden tab does not make listeners see "interrupted", the screen is kept
+awake while live, and reloading, closing the tab or signing out asks first.
+**Why:** a booth operator should be able to use the rest of the app, or switch windows, during a service
+without the broadcast ending. Closing the tab or putting the computer to sleep still ends it; a browser
+cannot do otherwise.
+Built in: the workspace layout. Status: Built; behaviour in a real booth is still to be checked.
+
 ### Pages that are not lists
 A page that is not a list (Sermon Captions, the Song Formatter) is one surface, or none, divided into
 vertical panels, with the next action in the header.
@@ -80,6 +89,18 @@ A small dot and a label in the same colour, so the colour is the message. Live p
 from across the booth; Reconnecting and Starting are amber; red is an error; waiting is grey.
 **Why:** the state should be understood at a glance, without reading.
 Built in: Sermon Captions. Status: Built.
+
+### The floating live button
+While this browser is broadcasting captions and the Captions page is not open, one floating button sits at
+the bottom right: a purple microphone that pulses (amber while starting or recovering, red when it needs
+attention). Pressing it opens a small panel with the status, the input in use, Open Captions, and Stop
+captions (which asks first). It sits under dialogs and above the phone's safe area, is hidden on the
+Captions, login, and listener pages, and is the only floating button in the app, reserved for "something
+is running for you".
+**Why:** captions can keep running behind other pages, so people need to see that they still are, and to
+stop them from anywhere. The owner chose purple, the app's own signal, over the green status dot used on
+the page itself, and the purple rule was amended to allow it.
+Built in: the workspace layout (the captions engine). Status: Built.
 
 ## Information
 

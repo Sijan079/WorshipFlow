@@ -48,6 +48,7 @@ import { runCaptionUiTests } from "./features/sermon-captions/caption-ui.test.ts
 import { runCaptionLinkTests } from "./features/sermon-captions/caption-link.test.ts";
 import { runSecondaryAccentTests } from "./lib/secondary-accent.test.ts";
 import { runCaptionHardeningTests } from "./features/sermon-captions/caption-hardening.test.ts";
+import { runCaptionEngineTests } from "./features/sermon-captions/caption-engine.test.ts";
 import { runDialogTitleTests } from "./lib/dialog-titles.test.ts";
 import "./lib/module-access.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
@@ -122,6 +123,7 @@ runCaptionUiTests();
 runCaptionLinkTests();
 runSecondaryAccentTests();
 runCaptionHardeningTests();
+await runCaptionEngineTests();
 runDialogTitleTests();
 runWorkspaceShellTests();
 runFeedbackTests();

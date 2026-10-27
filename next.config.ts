@@ -68,7 +68,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/w/:workspaceSlug/captions",
+        // The microphone is allowed on every workspace page, because the policy comes from the page that first
+        // loaded: a booth that opened Services first must still be able to start captions.
+        source: "/w/:workspaceSlug/:path*",
         headers: [
           {
             key: "Permissions-Policy",

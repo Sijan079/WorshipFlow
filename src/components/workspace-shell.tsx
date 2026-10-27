@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { notificationDeleteScope, useErrorNotificationDeleteQueue } from "@/features/error-notifications/use-delete-queue";
 import { ProductionSelect } from "@/components/ui/production-select";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
+import { useOptionalCaptionEngine } from "@/features/sermon-captions/caption-engine";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -217,6 +218,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
   const accountRole = formatWorkspaceRole(sessionQuery.data?.user?.role);
   const accountAvatarUrl = sessionQuery.data?.user?.avatarUrl;
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+  const captionsLive = Boolean(useOptionalCaptionEngine()?.running);
   const [signingOut, setSigningOut] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<"ISSUE" | "FEEDBACK">("ISSUE");
@@ -553,7 +555,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
             <div>
               <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Sign Out?</DialogTitle>
               <DialogDescription className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-                You will return to the login screen.
+                {captionsLive ? "Captions are live. Signing out will stop them for everyone reading. " : ""}You will return to the login screen.
               </DialogDescription>
             </div>
           </div>

@@ -52,7 +52,7 @@ export function runCaptionUiTests() {
   assert.match(read("use-audio-inputs.ts"), /usableAudioInputs\(/);
 
   // Separation of concerns on one page. The page only composes; it never talks to the network.
-  assert.match(page, /useCaptionSession\(/);
+  assert.match(page, /useCaptionEngine\(/);
   assert.match(page, /<CaptionControls/);
   assert.match(page, /<CaptionMessage/);
   // The next action sits at the top right, like Add person and Add service, never inside a card.
@@ -61,8 +61,8 @@ export function runCaptionUiTests() {
   assert.match(header, /<CaptionControls/);
   assert.doesNotMatch(page.slice(page.indexOf("</section>")), /<CaptionControls/);
   assert.match(page, /<CaptionPreview/);
-  assert.match(page, /usePAPToasts/);
-  assert.match(page, /PAPToastViewport/);
+  // Toasts, the stop question and the floating button live in the engine, shared by every page.
+  assert.doesNotMatch(page, /usePAPToasts|PAPToastViewport/);
   assert.doesNotMatch(page, /apiFetch|fetch\(|sessionStorage|MediaRecorder|getUserMedia|useEffect/);
 
   // Audio input is a setting, not a step on the page. An options icon beside Start captions opens
@@ -77,14 +77,16 @@ export function runCaptionUiTests() {
   // Stopping is a decision, not a stray click. Both stop buttons ask first, say what happens, and
   // default to Cancel. The question closes by itself if the session ends while it is open.
   const stopDialog = read("stop-confirm-dialog.tsx");
-  assert.match(page, /onStop=\{\(\) => setStopOpen\(true\)\}/);
-  assert.match(page, /onStopExisting=\{\(\) => setStopOpen\(true\)\}/);
-  assert.doesNotMatch(page, /onStop=\{\(\) => void captions\.stop\(\)\}/);
-  assert.doesNotMatch(page, /onStopExisting=\{\(\) => void captions\.stopExisting\(\)\}/);
-  assert.match(page, /\{stopOpen && \(running \|\| captions\.session\) \? \(\s*<StopConfirmDialog/);
-  assert.match(page, /running \? captions\.stop\(\) : captions\.stopExisting\(\)/);
+  // The stop question is owned by the engine (caption-engine.tsx), so the page and the floating button
+  // ask it the same way. The page only requests it.
+  const engineSource = read("caption-engine.tsx");
+  assert.match(page, /onStop=\{engine\.requestStop\}/);
+  assert.match(page, /onStopExisting=\{engine\.requestStop\}/);
+  assert.doesNotMatch(page, /engine\.stop\(\)|engine\.stopExisting\(\)/);
+  assert.match(engineSource, /\{stopOpen && \(running \|\| captions\.session\) \? \(\s*<StopConfirmDialog/);
+  assert.match(engineSource, /running \? captions\.stop\(\) : captions\.stopExisting\(\)/);
   // A question left open by a session that ended on its own must not come back on the next Start.
-  assert.match(page, /function startCaptions\(\) \{\s*setStopOpen\(false\);/);
+  assert.match(engineSource, /function requestStart\(\) \{\s*setStopOpen\(false\);/);
   assert.match(page, /onStart=\{startCaptions\}/);
   assert.match(stopDialog, /<Dialog\b/);
   assert.match(stopDialog, /<DialogTitle[^>]*>Stop Captions\?<\/DialogTitle>/);

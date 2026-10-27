@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api-client";
 import { CaptionAssembler, latestCaptionLines, type CaptionUpdate } from "./caption-contract";
 import { CaptionStreamConnection } from "./caption-connection";
+import { createTicker } from "./heartbeat-ticker";
 import type { CaptionRunState } from "./caption-ui";
 import {
   fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
@@ -26,7 +27,7 @@ function openDeepgramSocket(token: string) {
 // Owns one captions session from start to stop: the audio stream, the provider connection, the
 // queue that publishes each line, the heartbeat, and the expiry. It renders nothing, and it must
 // stay mounted for the whole visit because leaving the page ends the session.
-export function useCaptionSession({ inputId, notify }: { inputId: string; notify: Notify }) {
+export function useCaptionSession({ inputId, notify, enabled }: { inputId: string; notify: Notify; enabled: boolean }) {
   const [session, setSession] = useState<CaptionSession | null>(null);
   const [operatorToken, setOperatorToken] = useState("");
   const [canOperate, setCanOperate] = useState(false);
@@ -35,6 +36,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   const [lines, setLines] = useState<CaptionLine[]>([]);
   const [canShare, setCanShare] = useState(false);
   const [canRegenerate, setCanRegenerate] = useState(false);
+  const [devAgainstLiveDatabase, setDevAgainstLiveDatabase] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const connectionRef = useRef<CaptionStreamConnection | null>(null);
   const assemblerRef = useRef(new CaptionAssembler());
@@ -43,7 +45,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   const stoppingRef = useRef(false);
   const mountedRef = useRef(true);
   const expiryTimerRef = useRef<number | null>(null);
-  const presenceTimerRef = useRef<number | null>(null);
+  const presenceTickerRef = useRef<{ stop: () => void } | null>(null);
   const presenceSequenceRef = useRef(0);
   const quotaNotifiedRef = useRef(false);
   const connectionStatusRef = useRef<PresenceStatus>("CONNECTING");
@@ -51,8 +53,8 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   const releaseAudio = useCallback(() => {
     if (expiryTimerRef.current !== null) window.clearTimeout(expiryTimerRef.current);
     expiryTimerRef.current = null;
-    if (presenceTimerRef.current !== null) window.clearInterval(presenceTimerRef.current);
-    presenceTimerRef.current = null;
+    presenceTickerRef.current?.stop();
+    presenceTickerRef.current = null;
     connectionRef.current?.stop();
     connectionRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -60,28 +62,12 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   }, []);
 
   useEffect(() => {
-    let mounted = true;
     mountedRef.current = true;
     const retryOnOnline = () => connectionRef.current?.retryNow();
     const reconnectOnOffline = () => connectionRef.current?.interrupt();
     window.addEventListener("online", retryOnOnline);
     window.addEventListener("offline", reconnectOnOffline);
-    void fetchActiveSession().then(({ session: current, canOperate: allowed, canShare: share, canRegenerate: regenerate }) => {
-      if (!mounted) return;
-      setCanOperate(allowed);
-      setCanShare(share);
-      setCanRegenerate(regenerate);
-      if (!current) {
-        if (!allowed) setMessage("A workspace admin can grant you permission to operate Sermon Captions in Membership settings.");
-        return;
-      }
-      setSession(current);
-      const savedToken = loadOperatorToken(current.id);
-      setOperatorToken(savedToken);
-      setMessage(allowed && (savedToken || current.canManage) ? "A session is active. Start a new one after stopping it." : "Another operator is running captions.");
-    }).catch((error) => { if (mounted) setMessage(errorMessage(error)); });
     return () => {
-      mounted = false;
       mountedRef.current = false;
       window.removeEventListener("online", retryOnOnline);
       window.removeEventListener("offline", reconnectOnOffline);
@@ -92,6 +78,29 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       releaseAudio();
     };
   }, [releaseAudio]);
+
+  // The first look at the church's session, only for people who can view captions: a refused request is
+  // reported to error notifications.
+  useEffect(() => {
+    if (!enabled) return;
+    let mounted = true;
+    void fetchActiveSession().then(({ session: current, canOperate: allowed, canShare: share, canRegenerate: regenerate, devAgainstLiveDatabase: devLive }) => {
+      if (!mounted) return;
+      setCanOperate(allowed);
+      setCanShare(share);
+      setCanRegenerate(regenerate);
+      setDevAgainstLiveDatabase(devLive);
+      if (!current) {
+        if (!allowed) setMessage("A workspace admin can grant you permission to operate Sermon Captions in Membership settings.");
+        return;
+      }
+      setSession(current);
+      const savedToken = loadOperatorToken(current.id);
+      setOperatorToken(savedToken);
+      setMessage(allowed && (savedToken || current.canManage) ? "A session is active. Start a new one after stopping it." : "Another operator is running captions.");
+    }).catch((error) => { if (mounted) setMessage(errorMessage(error)); });
+    return () => { mounted = false; };
+  }, [enabled]);
 
   function heartbeat(status: PresenceStatus) {
     const active = activeRef.current;
@@ -119,8 +128,8 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   async function stop() {
     if (stoppingRef.current) return;
     stoppingRef.current = true;
-    if (presenceTimerRef.current !== null) window.clearInterval(presenceTimerRef.current);
-    presenceTimerRef.current = null;
+    presenceTickerRef.current?.stop();
+    presenceTickerRef.current = null;
     setState("stopping");
     setMessage("Finishing the last caption…");
     const active = activeRef.current;
@@ -179,7 +188,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
       presenceSequenceRef.current = 0;
       quotaNotifiedRef.current = false;
       connectionStatusRef.current = "CONNECTING";
-      presenceTimerRef.current = window.setInterval(() => heartbeat(connectionStatusRef.current), 5_000);
+      presenceTickerRef.current = createTicker(5_000, () => heartbeat(connectionStatusRef.current));
 
       const connection = new CaptionStreamConnection({
         initialToken: deepgramToken,
@@ -252,7 +261,7 @@ export function useCaptionSession({ inputId, notify }: { inputId: string; notify
   }
 
   return {
-    state, session, message, lines, canOperate, canShare, canRegenerate,
+    state, session, message, lines, canOperate, canShare, canRegenerate, devAgainstLiveDatabase,
     canStopExisting: canOperate && Boolean(operatorToken || session?.canManage),
     start, stop, stopExisting,
   };
