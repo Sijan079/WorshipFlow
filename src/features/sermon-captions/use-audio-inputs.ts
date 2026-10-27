@@ -11,7 +11,7 @@ export type AudioCheckState = "idle" | "checking" | "receiving" | "error";
 export function useAudioInputs(selectedId: string) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [state, setState] = useState<AudioCheckState>("idle");
-  const [message, setMessage] = useState("Choose the PC input carrying the Ui24R AUX feed.");
+  const [message, setMessage] = useState("");
   const [level, setLevel] = useState(0);
   const streamRef = useRef<MediaStream | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
@@ -124,7 +124,7 @@ export function useAudioInputs(selectedId: string) {
         setMessage("The selected input disconnected. Reconnect it and select it again.");
       }, { once: true });
       setState("receiving");
-      setMessage("Input test is running locally. Speak into a mic included in the caption AUX mix.");
+      setMessage("Input test is running locally. Speak into a microphone that is sent to this input.");
       update();
     } catch (error) {
       if (!mountedRef.current || requestId !== requestRef.current) return;

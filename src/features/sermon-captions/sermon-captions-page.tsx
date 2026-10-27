@@ -13,6 +13,7 @@ import CaptionStatus from "./caption-status";
 import { captionIsRunning } from "./caption-ui";
 import ShareButton from "./share-button";
 import ShareDialog from "./share-dialog";
+import StopConfirmDialog from "./stop-confirm-dialog";
 import { useCaptionLink } from "./use-caption-link";
 import { useCaptionSession } from "./use-caption-session";
 
@@ -25,10 +26,18 @@ export default function SermonCaptionsPage() {
   const [input, setInput] = useState<AudioInputChoice>(NO_INPUT);
   const [audioOpen, setAudioOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [stopOpen, setStopOpen] = useState(false);
   const { dismissToast, showToast, toasts } = usePAPToasts();
   const captions = useCaptionSession({ inputId: input.id, notify: showToast });
   const running = captionIsRunning(captions.state);
   const captionLink = useCaptionLink({ enabled: shareOpen, notify: showToast });
+
+  // With no input chosen, Start opens the audio settings instead of failing. It also clears a stop
+  // question left open by a session that ended on its own.
+  function startCaptions() {
+    setStopOpen(false);
+    void (input.id ? captions.start() : setAudioOpen(true));
+  }
 
   return (
     <div className="flex min-h-[calc(100dvh-6.5rem)] flex-col gap-6 py-1 lg:min-h-[calc(100dvh-7rem)] lg:px-2 min-[1200px]:min-h-[calc(100dvh-3rem)]">
@@ -45,24 +54,33 @@ export default function SermonCaptionsPage() {
             hasSession={Boolean(captions.session)}
             canOperate={captions.canOperate}
             canStopExisting={captions.canStopExisting}
-            onStart={() => (input.id ? void captions.start() : setAudioOpen(true))}
-            onStop={() => void captions.stop()}
-            onStopExisting={() => void captions.stopExisting()}
+            onStart={startCaptions}
+            onStop={() => setStopOpen(true)}
+            onStopExisting={() => setStopOpen(true)}
           />
         </div>
       </section>
 
-      <section className="ui-surface-elevated flex flex-1 flex-col p-4 sm:p-6" aria-label="Live captions">
-        <div className="flex flex-1 flex-col gap-5">
-          <div className="flex items-center justify-between gap-3">
-            <CaptionInfo inputLabel={input.label} running={running} />
-            <CaptionStatus state={captions.state} hasSession={Boolean(captions.session)} />
-          </div>
-          <CaptionPreview lines={captions.lines} />
+      <section className="ui-surface-elevated flex flex-1 flex-col divide-y divide-[var(--rule-default)]" aria-label="Live captions">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
+          <CaptionInfo inputLabel={input.label} running={running} />
+          <CaptionStatus state={captions.state} hasSession={Boolean(captions.session)} />
+        </div>
+        <CaptionPreview lines={captions.lines} />
+        <div className="px-4 py-3 sm:px-6">
           <CaptionMessage message={captions.message} />
         </div>
       </section>
 
+      {stopOpen && (running || captions.session) ? (
+        <StopConfirmDialog
+          onConfirm={() => {
+            setStopOpen(false);
+            void (running ? captions.stop() : captions.stopExisting());
+          }}
+          onCancel={() => setStopOpen(false)}
+        />
+      ) : null}
       {shareOpen ? (
         <ShareDialog
           link={captionLink.link}
@@ -70,7 +88,8 @@ export default function SermonCaptionsPage() {
           error={captionLink.error}
           running={running}
           regenerating={captionLink.regenerating}
-          onCopy={() => void captionLink.copy()}
+          onCopyLink={() => void captionLink.copyLink()}
+          onCopyQr={(qr) => void captionLink.copyQr(qr)}
           onRegenerate={() => void captionLink.regenerate()}
           notify={showToast}
           onClose={() => setShareOpen(false)}

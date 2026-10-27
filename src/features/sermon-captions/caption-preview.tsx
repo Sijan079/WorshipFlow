@@ -2,7 +2,7 @@ import type { CaptionLine } from "./caption-session-api";
 
 export default function CaptionPreview({ lines }: { lines: CaptionLine[] }) {
   return (
-    <div className="min-h-52 flex-1 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel-alt)] p-5" aria-live="polite" aria-relevant="additions text">
+    <div className="min-h-52 flex-1 bg-[var(--surface-panel-alt)] px-4 py-5 sm:px-6" aria-live="polite" aria-relevant="additions text">
       {lines.length ? (
         <div className="space-y-3">
           {lines.map((item) => (

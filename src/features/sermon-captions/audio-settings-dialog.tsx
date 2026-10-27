@@ -2,7 +2,9 @@
 
 import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import AudioHelp from "./audio-help";
 import AudioInputStep, { type AudioInputChoice } from "./audio-input-step";
+import AudioPrivacyInfo from "./audio-privacy-info";
 
 type Props = {
   input: AudioInputChoice;
@@ -17,25 +19,20 @@ export default function AudioSettingsDialog({ input, onInputChange, locked, onCl
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Audio input</DialogTitle>
-            <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
-              Select the PC input receiving the Ui24R speech mix.
-            </DialogDescription>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1">
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Audio Input</DialogTitle>
+            <AudioPrivacyInfo />
           </div>
+          <DialogDescription className="sr-only">Choose the PC input used for live captions.</DialogDescription>
           <button type="button" onClick={onClose} className="ui-modal-close pressable" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-5 space-y-5">
+        <div className="mt-4 space-y-5">
           <AudioInputStep input={input} onInputChange={onInputChange} locked={locked} />
-          <div className="border-t border-[var(--rule-default)] pt-4 text-sm leading-6 text-[var(--text-secondary)]">
-            <p>Ui24R speaking microphones → dedicated AUX output → worship PC Line In.</p>
-            <p className="mt-1">The input test stays on this computer. Starting live captions sends this input to Deepgram and the recognized text to Azure Translator.</p>
-            <p className="mt-1">The meter shows all sound on that input. If it stays active while the mics are quiet, check which mixer channels feed the AUX.</p>
-          </div>
+          <AudioHelp />
           <div className="flex justify-end pt-2">
             <button type="button" onClick={onClose} className="ui-btn-primary pressable min-h-11 px-4 text-sm font-semibold">Done</button>
           </div>

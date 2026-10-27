@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { isConfigurableModuleAction, CONFIGURABLE_MODULE_ACTIONS } from "../../lib/module-access.ts";
 import { isPublicPathForProxy } from "../../lib/proxy-paths.ts";
 import { CAPTION_TAKEOVER_STALE_MS, isTakeoverStale, selectViewerSession, sessionAvailability } from "./caption-contract.ts";
-import { canRegenerateCaptionLink, canShareCaptionLink, isViewerToken, viewerLinkUrl, viewerPollMs } from "./caption-link.ts";
+import { canRegenerateCaptionLink, canShareCaptionLink, dataUrlToBytes, isViewerToken, viewerLinkUrl, viewerPollMs } from "./caption-link.ts";
 
 function read(...segments: string[]) {
   return readFileSync(join(process.cwd(), ...segments), "utf8");
@@ -156,11 +156,53 @@ export function runCaptionLinkTests() {
   assert.match(shareButton, /border-0/);
   const shareDialog = feature("share-dialog.tsx");
   assert.match(shareDialog, /toDataURL\(/);
-  assert.match(shareDialog, /Copy link/);
-  assert.match(shareDialog, /Download QR/);
   assert.match(shareDialog, /Regenerate link/);
+
+  // The link itself is not shown: pressing copy puts it on the clipboard. Copy and download are quiet
+  // icon-only controls (no fill, no border). The copy icon opens a small menu with two choices.
+  assert.doesNotMatch(shareDialog, /\{link\.url\}|break-all/);
+  for (const icon of ["Copy", "Download", "Link2", "QrCode"]) {
+    assert.match(shareDialog, new RegExp(`import \\{[^}]*\\b${icon}\\b[^}]*\\} from "lucide-react"`));
+  }
+  assert.match(shareDialog, /<DropdownMenu>/);
+  assert.match(shareDialog, /aria-label="Copy link or QR code"/);
+  assert.match(shareDialog, /title="Copy link or QR code"/);
+  assert.match(shareDialog, /aria-label="Download QR"/);
+  assert.match(shareDialog, /title="Download QR"/);
+  assert.match(shareDialog, /Copy Link<\/DropdownMenuItem>|Copy Link\s*<\/DropdownMenuItem>/);
+  assert.match(shareDialog, /Copy QR\s*<\/DropdownMenuItem>/);
+  assert.match(shareDialog, /onSelect=\{onCopyLink\}/);
+  assert.match(shareDialog, /onSelect=\{\(\) => onCopyQr\(qr\)\}/);
+  assert.match(shareDialog, /ui-action-menu-content/);
+  assert.match(shareDialog, /z-\[70\]/);
+  const iconStart = shareDialog.indexOf("const ICON_BUTTON");
+  const iconClasses = shareDialog.slice(iconStart, shareDialog.indexOf(";", iconStart));
+  assert.match(iconClasses, /border-0 bg-transparent/);
+  assert.match(iconClasses, /min-h-11 min-w-11/);
+  assert.doesNotMatch(iconClasses, /ui-btn-secondary/);
+  assert.doesNotMatch(shareDialog, />Copy link<|>Download QR</);
   assert.match(shareDialog, /Anyone with the old link or a printed QR code will stop getting captions/);
   assert.match(shareDialog, /Stop captions before regenerating the link/);
+
+  // Regenerate sits on the right with an icon at its start. Its confirmation opens and closes
+  // smoothly (the shared collapsible animation) instead of swapping in, and the yes button says so
+  // plainly.
+  assert.match(shareDialog, /import \{[^}]*\bRefreshCw\b[^}]*\} from "lucide-react"/);
+  assert.match(shareDialog, /import \{ Collapsible \} from "radix-ui"/);
+  assert.match(shareDialog, /<Collapsible\.Root open=\{confirming\}/);
+  assert.match(shareDialog, /<Collapsible\.Content className="ui-collapsible-content"/);
+  assert.match(shareDialog, /flex justify-end[^"]*">\s*<button/);
+  assert.match(shareDialog, /<RefreshCw className="h-4 w-4" \/>\}?\s*Regenerate link/);
+  // While the decision is being made the main button is hidden, and focus moves to the safe choice.
+  assert.match(shareDialog, /\{confirming \? null : \(\s*<div className="flex justify-end">/);
+  assert.doesNotMatch(shareDialog, /aria-expanded/);
+  assert.match(shareDialog, /autoFocus/);
+  assert.match(shareDialog, /Yes, I am sure/);
+  // Only Regenerate moves to the right. The copy and download icons stay centred under the QR code.
+  assert.match(shareDialog, /flex items-center justify-center gap-2">\s*<DropdownMenu>/);
+  assert.doesNotMatch(shareDialog, /justify-end gap-2/);
+  assert.match(shareDialog, /Cancel/);
+  assert.doesNotMatch(shareDialog, /confirming \? \(/);
   assert.match(shareDialog, /ui-modal-close/);
   assert.match(shareDialog, /aria-label="Close"/);
   assert.doesNotMatch(shareDialog, /apiFetch|fetch\(|sessionStorage/);
@@ -171,5 +213,22 @@ export function runCaptionLinkTests() {
   assert.doesNotMatch(pageClient, /ViewerLink|viewerUrl/);
   assert.doesNotMatch(feature("use-caption-session.ts"), /viewerUrl|viewerUrlFor|copyViewerLink/);
   assert.match(feature("use-caption-link.ts"), /fetchCaptionLink\(/);
+  // Copying the QR code puts the image on the clipboard, and failing says how to get it another way.
+  const linkHook = feature("use-caption-link.ts");
+  assert.match(linkHook, /async function copyQr\(/);
+  // The site's Content Security Policy does not allow connect-src data:, so a data URL must never be
+  // fetched. It is decoded in place instead.
+  assert.doesNotMatch(linkHook, /fetch\(/);
+  assert.match(linkHook, /dataUrlToBytes\(qr\)/);
+  assert.doesNotMatch(readFileSync(join(process.cwd(), "next.config.ts"), "utf8"), /connect-src[^\n]*\bdata:/);
+  assert.deepEqual(dataUrlToBytes("data:image/png;base64,iVBORw0KGgo="), { type: "image/png", bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]) });
+  assert.throws(() => dataUrlToBytes("https://example.com/qr.png"));
+  assert.throws(() => dataUrlToBytes("data:image/png;base64,"));
+  assert.match(linkHook, /new ClipboardItem\(\{ "image\/png": /);
+  assert.match(linkHook, /QR code copied\./);
+  assert.match(linkHook, /Could not copy the QR code\. Use Download QR instead\./);
+  assert.match(linkHook, /Link copied\./);
+  assert.match(feature("sermon-captions-page.tsx"), /onCopyLink=\{\(\) => void captionLink\.copyLink\(\)\}/);
+  assert.match(feature("sermon-captions-page.tsx"), /onCopyQr=\{\(qr\) => void captionLink\.copyQr\(qr\)\}/);
   assert.match(feature("caption-session-api.ts"), /export function (fetchCaptionLink|regenerateCaptionLink)/);
 }

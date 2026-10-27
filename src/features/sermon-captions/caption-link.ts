@@ -31,3 +31,12 @@ export function canRegenerateCaptionLink(role: string) {
 export function viewerPollMs(status: CaptionPublicStatus | undefined) {
   return status === "waiting" || status === "ended" ? 15_000 : 2_000;
 }
+
+// Turns a base64 data URL (the QR code image) into bytes without any network request. The site's
+// Content Security Policy does not allow fetching data: URLs, so they are decoded in place.
+export function dataUrlToBytes(dataUrl: string): { type: string; bytes: Uint8Array } {
+  const match = /^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!match) throw new Error("Not a base64 data URL.");
+  const binary = atob(match[2]);
+  return { type: match[1], bytes: Uint8Array.from(binary, (character) => character.charCodeAt(0)) };
+}

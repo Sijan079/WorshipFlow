@@ -12,13 +12,13 @@ type Props = {
 };
 
 // The one next action, shown at the top right of the page like Add person and Add service.
-// Start is the purple button; stopping is secondary.
+// Start is the purple button; stopping is red, because it ends the broadcast for everyone reading.
 export default function CaptionControls({ state, hasSession, canOperate, canStopExisting, onStart, onStop, onStopExisting }: Props) {
   const running = state === "live" || state === "reconnecting" || state === "error" || state === "stopping" || (state === "starting" && hasSession);
   const base = "pressable inline-flex min-h-11 items-center justify-center gap-2 self-start px-4 py-2.5 text-sm font-semibold disabled:opacity-50 sm:self-auto";
   if (running) {
     return (
-      <button type="button" onClick={onStop} disabled={state === "stopping"} className={`ui-btn-secondary ${base}`}>
+      <button type="button" onClick={onStop} disabled={state === "stopping"} className={`ui-btn-danger-solid ${base}`}>
         <Square className="h-4 w-4" />
         Stop captions
       </button>
@@ -26,7 +26,7 @@ export default function CaptionControls({ state, hasSession, canOperate, canStop
   }
   if (hasSession) {
     return (
-      <button type="button" onClick={onStopExisting} disabled={!canStopExisting} className={`ui-btn-secondary ${base}`}>
+      <button type="button" onClick={onStopExisting} disabled={!canStopExisting} className={`ui-btn-danger-solid ${base}`}>
         <Square className="h-4 w-4" />
         Stop current session
       </button>

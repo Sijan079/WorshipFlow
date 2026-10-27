@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchCaptionLink, regenerateCaptionLink, type CaptionLinkInfo } from "./caption-session-api";
-import { viewerLinkUrl } from "./caption-link";
+import { dataUrlToBytes, viewerLinkUrl } from "./caption-link";
 
 type Notify = (message: string, tone: "success" | "error") => void;
 type Link = { url: string; rotatedAt: string | null; canRegenerate: boolean };
@@ -31,12 +31,25 @@ export function useCaptionLink({ enabled, notify }: { enabled: boolean; notify: 
     return () => { active = false; };
   }, [enabled]);
 
-  function copy() {
+  function copyLink() {
     if (!link) return Promise.resolve();
     return navigator.clipboard.writeText(link.url).then(
       () => notify("Link copied.", "success"),
-      () => notify("Could not copy the link. Select it and copy it instead.", "error"),
+      () => notify("Could not copy the link.", "error"),
     );
+  }
+
+  // The QR code goes on the clipboard as a PNG image. Not every browser allows that, so a failure
+  // points to the download instead.
+  async function copyQr(qr: string) {
+    try {
+      const { type, bytes } = dataUrlToBytes(qr);
+      const blob = new Blob([bytes as BlobPart], { type });
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      notify("QR code copied.", "success");
+    } catch {
+      notify("Could not copy the QR code. Use Download QR instead.", "error");
+    }
   }
 
   async function regenerate() {
@@ -51,5 +64,5 @@ export function useCaptionLink({ enabled, notify }: { enabled: boolean; notify: 
     }
   }
 
-  return { link, loading: enabled && !link && !error, error, regenerating, copy, regenerate };
+  return { link, loading: enabled && !link && !error, error, regenerating, copyLink, copyQr, regenerate };
 }

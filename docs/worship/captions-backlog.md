@@ -15,11 +15,11 @@ From a web page the browser can apply noise suppression, echo cancellation, and 
 to the microphone before it goes to Deepgram (`getUserMedia` audio constraints). Those are tuned
 for voice calls and can hurt a mixer line-in feed, so they should be visible switches in the
 audio dialog, not hidden defaults. Deepgram's model already tolerates some noise. Test with the
-real Ui24R feed before deciding a default.
+real mixer feed before deciding a default.
 
 ## Other
 
 - Count of people reading now, shown to the operator (needs a viewer heartbeat).
 - Rate limiting on the public feed if readers grow past a few dozen.
-- Generic wording for the booth notes in the audio dialog (they name the Ui24R mixer, which is
-  specific to one church).
+- Per-church booth notes (done: the setup guide is generic). A church could later add its own mixer
+  notes, such as its channel layout, next to the general guide.
