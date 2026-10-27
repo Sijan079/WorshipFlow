@@ -2,6 +2,8 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
   { module: "EVENTS", label: "Events", actions: [
     { action: "VIEW", label: "View calendar" },
     { action: "CREATE", label: "Create events" },
+    // Needs View. Changing or cancelling a date, or the whole series, is one permission.
+    { action: "EDIT", label: "Edit and cancel events" },
   ] },
   { module: "CAPTIONS", label: "Sermon Captions", actions: [
     { action: "VIEW", label: "View captions" },

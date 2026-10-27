@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { expiredCaptionSessionFilter } from "@/features/sermon-captions/caption-contract";
+import { extendOpenEndedSeries } from "@/features/events/event-series-db";
 import { checkCronAuthorization } from "@/lib/cron-auth";
 import { reportRouteFailure } from "@/lib/observability";
 
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
 // a week of low activity; this one small database write keeps it awake. Writing the current time is
 // safe to run twice, since Vercel may deliver a run more than once and never retries a missed one. It
 // also erases caption lines the public feed no longer serves, so the one-hour hold is not left to
-// chance (Hobby allows one run a day, so "within a day" is the promise).
+// chance (Hobby allows one run a day, so "within a day" is the promise). It also adds the missing dates of
+// open-ended repeating events so each keeps four months ahead.
 export async function GET(request: Request) {
   const authorization = checkCronAuthorization(request.headers.get("authorization"), process.env.CRON_SECRET);
   if (authorization !== "ok") {
@@ -31,7 +33,9 @@ export async function GET(request: Request) {
       ON CONFLICT ("id") DO UPDATE SET "lastRunAt" = EXCLUDED."lastRunAt"
       RETURNING "lastRunAt"`;
     const removed = await prisma.captionLine.deleteMany({ where: { session: { is: expiredCaptionSessionFilter(new Date()) } } });
-    return NextResponse.json({ ok: true, lastRunAt: rows[0]?.lastRunAt ?? null, captionLinesRemoved: removed.count }, { headers: { "Cache-Control": "no-store" } });
+    // Open-ended repeating events keep four months of dates ahead. Only missing dates are added.
+    const eventDatesAdded = await extendOpenEndedSeries(prisma, new Date());
+    return NextResponse.json({ ok: true, lastRunAt: rows[0]?.lastRunAt ?? null, captionLinesRemoved: removed.count, eventDatesAdded }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     reportRouteFailure(error, {
       route: "/api/internal/keep-alive",

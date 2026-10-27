@@ -5,6 +5,9 @@ export type EventOccurrenceSummary = {
   description: string | null;
   venue: string | null;
   timezone: string;
+  isPublic: boolean;
+  repeats: boolean;
+  edited: boolean;
   localDate: string;
   startsAt: string;
   endsAt: string;

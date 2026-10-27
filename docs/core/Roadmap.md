@@ -61,6 +61,10 @@ write the failing check first, build, verify, document.
    `isPublic`; service headcount.**
    Check: weekly series creates the right occurrences; open-ended series keeps
    a 4-month window; one occurrence can be edited or cancelled alone.
+   **Progress (2026-10-27):** data and API built and tested (repeat engine, validation, create, series
+   edit, single-date edit, service headcount, daily top-up); see `docs/changes/20261027.md` item 10.
+   Remaining: apply the additive migration `20261028000000_event_repeat_rule` to the hosted database,
+   and the Events screen (repeat controls, multi-day dates, headcount, Public switch).
 7. **Announcements**, with `isPublic`.
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
    indexable/unlisted switch. Largest step, and the one most likely to slip.

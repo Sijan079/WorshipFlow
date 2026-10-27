@@ -30,6 +30,7 @@ type UpdateWorshipServicePayload = {
   templateType?: ServiceTemplateType;
   templatePresetCode?: string | null;
   pledgeType?: PledgeType | null;
+  headcount?: number | null;
   bibleVerses?: Array<{
     verse: string;
     order: number;
@@ -131,6 +132,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         templateType: nextTemplateType,
         templatePresetCode: payload.templatePresetCode !== undefined ? (templatePreset?.code ?? payload.templatePresetCode) : undefined,
         pledgeType: payload.pledgeType as PledgeType | null | undefined,
+        headcount: payload.headcount,
       };
 
       await tx.worshipService.update({

@@ -81,6 +81,8 @@ export const UpdateWorshipServiceSchema = z.object({
   templateType: ServiceTemplateTypeSchema.optional(),
   templatePresetCode: PresetCodeSchema.optional().nullable(),
   pledgeType: PledgeTypeSchema.optional().nullable(),
+  // How many people attended. Optional, and null clears it.
+  headcount: z.number().int().min(0).max(100000).optional().nullable(),
   bibleVerses: z.array(ServiceBibleVerseSchema).optional(),
   servantAssignments: z.array(ServiceServantAssignmentSchema).optional(),
   hymnals: z.array(ServiceHymnalSchema).optional(),

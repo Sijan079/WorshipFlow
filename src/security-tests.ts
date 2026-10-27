@@ -53,6 +53,11 @@ import { runCaptionResumeTests } from "./features/sermon-captions/caption-resume
 import { runCaptionMetricsTests } from "./features/sermon-captions/caption-metrics.test.ts";
 import { runDialogTitleTests } from "./lib/dialog-titles.test.ts";
 import "./lib/module-access.test.ts";
+import "./features/events/recurrence.test.ts";
+import "./features/events/event-schema.test.ts";
+import "./features/events/event-validation.test.ts";
+import "./features/events/event-series.test.ts";
+import "./features/events/event-api.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";

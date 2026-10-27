@@ -146,6 +146,13 @@ enum EventRecurrenceKind {
   WEEKLY
 }
 
+// The repeat rule for events. The older EventRecurrenceKind stays until a deliberate cleanup.
+enum EventRepeatKind {
+  NONE
+  DAILY
+  WEEKLY
+}
+
 enum EventOccurrenceStatus {
   SCHEDULED
   CANCELLED
@@ -439,6 +446,7 @@ model WorshipService {
   templateType  ServiceTemplateType @default(REGULAR)
   templatePresetCode String?
   pledgeType    PledgeType?
+  headcount     Int?
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -947,6 +955,17 @@ model ChurchEvent {
   weeklyDay        Int?
   weeklyStartLocal String?
   weeklyEndLocal   String?
+  // The repeat rule. weekdays are 0 (Sunday) to 6 (Saturday); repeatUntil is a local date, null for "never".
+  // startLocal and endLocal ("HH:mm") and spanDays give each occurrence its times; they are null for events
+  // created before the rule existed, which are one-offs.
+  repeatKind       EventRepeatKind     @default(NONE)
+  repeatWeekdays   Int[]               @default([])
+  repeatUntil      String?
+  firstLocalDate   String?
+  startLocal       String?
+  endLocal         String?
+  spanDays         Int                 @default(0)
+  isPublic         Boolean             @default(false)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
@@ -971,6 +990,8 @@ model ChurchEventOccurrence {
   yesCount             Int?
   noCount              Int?
   attendanceCount      Int?
+  // True once this occurrence was changed by hand, so a change to the series leaves it alone.
+  edited               Boolean                   @default(false)
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 

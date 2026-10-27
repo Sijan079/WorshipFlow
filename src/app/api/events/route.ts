@@ -4,6 +4,8 @@ import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { requireEventAction } from "@/lib/event-access";
 import { CreateEventSchema, EventRangeSchema } from "@/features/events/event-validation";
 import type { EventOccurrenceSummary } from "@/features/events/event-types";
+import { initialOccurrences, seriesShapeFromTimes } from "@/features/events/event-series";
+import { localDateInZone } from "@/features/events/recurrence";
 import { resolveModuleAction } from "@/lib/module-access";
 
 function errorResponse(error: unknown, fallback: string) {
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
           event: { workspaceId: context.workspaceId },
         },
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-        include: { event: { select: { title: true, description: true, venue: true, timezone: true } } },
+        include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, repeatKind: true } } },
       }),
       context.role === "MEMBER"
         ? prisma.workspaceActionGrant.findUnique({
@@ -57,6 +59,9 @@ export async function GET(request: Request) {
       description: occurrence.event.description,
       venue: occurrence.event.venue,
       timezone: occurrence.event.timezone,
+      isPublic: occurrence.event.isPublic,
+      repeats: occurrence.event.repeatKind !== "NONE",
+      edited: occurrence.edited,
       localDate: occurrence.localDate,
       startsAt: occurrence.startsAt.toISOString(),
       endsAt: occurrence.endsAt.toISOString(),
@@ -82,27 +87,53 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
     const input = parsed.data;
-    const event = await prisma.churchEvent.create({
-      data: {
-        workspaceId: context.workspaceId,
-        title: input.title,
-        description: input.description || null,
-        venue: input.venue || null,
-        timezone: input.timezone,
-        status: "CONFIRMED",
-        occurrences: {
-          create: {
-            localDate: input.localDate,
-            startsAt: new Date(input.startsAt),
-            endsAt: new Date(input.endsAt),
-            registrationUrl: input.registrationUrl || null,
-            registrationProvider: input.registrationUrl ? "OTHER" : null,
-          },
+    const repeat = input.repeat ?? { kind: "NONE" as const, weekdays: [], until: null };
+    const shape = seriesShapeFromTimes(input.startsAt, input.endsAt, input.timezone);
+    const rule = {
+      repeatKind: repeat.kind,
+      repeatWeekdays: repeat.kind === "WEEKLY" ? repeat.weekdays : [],
+      repeatUntil: repeat.kind === "NONE" ? null : repeat.until,
+      ...shape,
+      timezone: input.timezone,
+    };
+    // A one-off keeps the exact times it was entered with. A repeating series builds every date from the
+    // local times, so each date stays at the same wall-clock time through daylight saving.
+    const rows = repeat.kind === "NONE"
+      ? [{ localDate: input.localDate, startsAt: new Date(input.startsAt), endsAt: new Date(input.endsAt) }]
+      : initialOccurrences(rule, localDateInZone(new Date(), input.timezone));
+    const event = await prisma.$transaction(async (tx) => {
+      const created = await tx.churchEvent.create({
+        data: {
+          workspaceId: context.workspaceId,
+          title: input.title,
+          description: input.description || null,
+          venue: input.venue || null,
+          timezone: input.timezone,
+          status: "CONFIRMED",
+          isPublic: input.isPublic,
+          repeatKind: rule.repeatKind,
+          repeatWeekdays: rule.repeatWeekdays,
+          repeatUntil: rule.repeatUntil,
+          firstLocalDate: shape.firstLocalDate,
+          startLocal: shape.startLocal,
+          endLocal: shape.endLocal,
+          spanDays: shape.spanDays,
         },
-      },
-      select: { id: true },
+        select: { id: true },
+      });
+      await tx.churchEventOccurrence.createMany({
+        data: rows.map((row) => ({
+          eventId: created.id,
+          localDate: row.localDate,
+          startsAt: row.startsAt,
+          endsAt: row.endsAt,
+          registrationUrl: input.registrationUrl || null,
+          registrationProvider: input.registrationUrl ? ("OTHER" as const) : null,
+        })),
+      });
+      return created;
     });
-    return NextResponse.json(event, { status: 201 });
+    return NextResponse.json({ ...event, occurrences: rows.length }, { status: 201 });
   } catch (error: unknown) {
     return errorResponse(error, "Failed to create event.");
   }
