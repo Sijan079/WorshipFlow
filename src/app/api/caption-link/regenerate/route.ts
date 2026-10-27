@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { canRegenerateCaptionLink, viewerLinkUrl } from "@/features/sermon-captions/caption-link";
-import { canonicalOrigin } from "@/features/sermon-captions/caption-environment";
+import { shareableOrigin } from "@/features/sermon-captions/caption-environment";
 import { captionErrorResponse, newViewerToken } from "@/features/sermon-captions/caption-server";
 import { requireExplicitWorkspaceRole, WorkspaceAuthorizationError } from "@/lib/security-context";
 
@@ -22,13 +22,15 @@ export async function POST(request: Request) {
     if (running) {
       return NextResponse.json({ error: "Stop captions before regenerating the link." }, { status: 409, headers });
     }
+    // Checked before the link is replaced, so a missing APP_URL cannot leave the church with a new link nobody can open.
+    const origin = shareableOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
+    if (!origin) return NextResponse.json({ error: "The public address is not set, so there is no link to share yet. Set APP_URL on the server, then try again." }, { status: 503, headers });
     const settings = await prisma.captionSettings.upsert({
       where: { workspaceId: context.workspaceId },
       create: { workspaceId: context.workspaceId, viewerToken: newViewerToken(), rotatedAt: new Date() },
       update: { viewerToken: newViewerToken(), rotatedAt: new Date() },
       select: { viewerToken: true, rotatedAt: true },
     });
-    const origin = canonicalOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
     const url = viewerLinkUrl(origin, settings.viewerToken);
     return NextResponse.json({ token: settings.viewerToken, url, rotatedAt: settings.rotatedAt, canRegenerate: true }, { headers });
   } catch (error) {

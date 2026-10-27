@@ -5,6 +5,19 @@ export type CaptionDisplayLine = { line: number; english: string; final: boolean
 export const CAPTION_RETENTION_MS = 60 * 60 * 1000;
 export const CAPTION_HEARTBEAT_STALE_MS = 15_000;
 
+// A session runs for four hours. In the last fifteen minutes the operator is offered four more.
+export const CAPTION_SESSION_MS = 4 * 60 * 60 * 1000;
+export const EXTEND_WINDOW_MS = 15 * 60 * 1000;
+
+export function extensionWindowOpen(expiresAt: Date, now = new Date()) {
+  const left = expiresAt.getTime() - now.getTime();
+  return left > 0 && left <= EXTEND_WINDOW_MS;
+}
+
+export function extendedExpiresAt(expiresAt: Date) {
+  return new Date(expiresAt.getTime() + CAPTION_SESSION_MS);
+}
+
 export type CaptionPublicStatus = "waiting" | "connecting" | "live" | "interrupted" | "error" | "ended";
 
 // A session that has sent no heartbeat for this long is treated as dead, so Start may take it over.
@@ -128,11 +141,13 @@ export class CaptionAssembler {
 }
 
 // How long the public feed may be cached at the edge. A second while captions flow keeps the delay
-// small; ten seconds while waiting or ended; thirty for a link that does not exist. There is no
-// stale-while-revalidate while waiting, because it would delay the moment "Live" appears.
+// small; ten seconds while waiting; a minute once ended, because an ended session no longer changes;
+// thirty for a link that does not exist. There is no stale-while-revalidate while waiting, because it
+// would delay the moment "Live" appears.
 export function feedCacheControl(status: CaptionPublicStatus | "invalid") {
   if (status === "invalid") return "public, s-maxage=30";
-  if (status === "waiting" || status === "ended") return "public, s-maxage=10";
+  if (status === "ended") return "public, s-maxage=60";
+  if (status === "waiting") return "public, s-maxage=10";
   return "public, s-maxage=1, stale-while-revalidate=1";
 }
 

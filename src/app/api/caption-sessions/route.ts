@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
 import { hasModuleAction } from "@/lib/event-access";
+import { workspaceCaptionBudget } from "@/features/sermon-captions/caption-budget-db";
 import { isTakeoverStale, retainedCaptionExpiry } from "@/features/sermon-captions/caption-contract";
 import { isLiveDatabaseInDev } from "@/features/sermon-captions/caption-environment";
 import { canRegenerateCaptionLink, canShareCaptionLink } from "@/features/sermon-captions/caption-link";
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
     if (!process.env.DEEPGRAM_API_KEY || !process.env.AZURE_TRANSLATOR_KEY) {
       return NextResponse.json({ error: "Deepgram and Azure Translator are not configured on this server." }, { status: 503 });
     }
+    // The monthly cap stops a new session from starting. A running session is never cut off by it.
+    const budget = await workspaceCaptionBudget(prisma, context.workspaceId, now);
+    if (budget.state === "blocked") {
+      return NextResponse.json({ error: "This month's translation limit has been reached. Captions can start again next month, or ask an administrator to raise the limit." }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    }
     const deepgramToken = await requestDeepgramToken(process.env.DEEPGRAM_API_KEY);
     const operatorToken = newOperatorToken();
     const session = await prisma.captionSession.create({
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
       },
       select: { id: true, createdAt: true, expiresAt: true },
     });
-    return NextResponse.json({ session, operatorToken, deepgramToken }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ session, operatorToken, deepgramToken, budget: { state: budget.state, percent: budget.percent } }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isUniqueConflict(error)) return NextResponse.json({ error: "A caption session is already running in this workspace." }, { status: 409 });
     return captionErrorResponse(error, request, "/api/caption-sessions", "POST");

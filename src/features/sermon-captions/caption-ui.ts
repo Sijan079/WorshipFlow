@@ -37,3 +37,20 @@ export function captionLiveButtonTone(state: CaptionRunState): LiveButtonTone {
   if (state === "starting" || state === "reconnecting" || state === "stopping") return "warning";
   return "live";
 }
+
+// Elapsed time on the live bar: 4:09, or 1:02:05 past an hour.
+export function formatElapsed(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, "0");
+  return hours > 0 ? hours + ":" + String(minutes).padStart(2, "0") + ":" + seconds : minutes + ":" + seconds;
+}
+
+const LIVE_TITLE_PREFIX = "● LIVE · ";
+
+// The browser tab title while captions run, so the operator can see it from another tab.
+export function captionTitle(title: string, live: boolean) {
+  const base = title.startsWith(LIVE_TITLE_PREFIX) ? title.slice(LIVE_TITLE_PREFIX.length) : title;
+  return live ? LIVE_TITLE_PREFIX + base : base;
+}

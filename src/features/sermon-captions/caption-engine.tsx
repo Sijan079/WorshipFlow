@@ -1,13 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-toasts";
 import type { AudioInputChoice } from "./audio-input-step";
 import CaptionLiveButton from "./caption-live-button";
-import { captionIsRunning } from "./caption-ui";
+import { extensionWindowOpen } from "./caption-contract";
+import { captionIsRunning, captionTitle } from "./caption-ui";
+import ExtendPrompt from "./extend-prompt";
 import DevDatabaseDialog from "./dev-database-dialog";
 import StopConfirmDialog from "./stop-confirm-dialog";
 import { useCaptionSession } from "./use-caption-session";
@@ -58,6 +60,33 @@ export default function CaptionEngineProvider({ workspaceSlug, children }: { wor
   const running = captionIsRunning(captions.state);
   useLiveGuards(running);
 
+  // The tab title says LIVE while captions run, so the operator can see it from another tab.
+  useEffect(() => {
+    const apply = () => {
+      const next = captionTitle(document.title, running);
+      if (next !== document.title) document.title = next;
+    };
+    apply();
+    if (!running) return;
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => {
+      observer.disconnect();
+      document.title = captionTitle(document.title, false);
+    };
+  }, [running]);
+
+  // In the last fifteen minutes of the session, offer four more hours once.
+  const [clock, setClock] = useState(() => Date.now());
+  const [declinedFor, setDeclinedFor] = useState("");
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  const expiresAt = captions.session?.expiresAt ?? "";
+  const extendOffered = running && expiresAt !== "" && declinedFor !== expiresAt && extensionWindowOpen(new Date(expiresAt), new Date(clock));
+
   // Start clears a stop question left open by a session that ended on its own. On a development server
   // connected to the live database it asks first, because test captions would reach the real link.
   function requestStart() {
@@ -102,11 +131,19 @@ export default function CaptionEngineProvider({ workspaceSlug, children }: { wor
           onCancel={() => setLiveDatabaseOpen(false)}
         />
       ) : null}
+      {extendOffered ? (
+        <ExtendPrompt
+          minutesLeft={Math.max(1, Math.ceil((new Date(expiresAt).getTime() - clock) / 60_000))}
+          onExtend={() => void captions.extend()}
+          onDismiss={() => setDeclinedFor(expiresAt)}
+        />
+      ) : null}
       {running && !onCaptionsPage ? (
         <CaptionLiveButton
           state={captions.state}
           inputLabel={input.label}
           captionsHref={`/w/${workspaceSlug}/captions`}
+          startedAt={captions.session?.createdAt ?? new Date().toISOString()}
           onStop={() => setStopOpen(true)}
         />
       ) : null}

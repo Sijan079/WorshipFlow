@@ -200,7 +200,7 @@ export async function runCaptionEngineTests() {
   assert.match(button, /bottom-/);
   assert.match(button, /right-/);
   assert.match(button, /z-40/);
-  assert.match(button, /size-14/);
+  assert.match(button, /h-14/); // a large target, now a pill with the elapsed time
   assert.match(button, /animate-ping/);
   assert.match(button, /Popover/);
   assert.match(button, /Open Captions/);

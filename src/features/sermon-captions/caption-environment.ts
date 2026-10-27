@@ -1,18 +1,17 @@
 // Two facts about where the app is running, as pure functions so they can be tested.
 
-// The address the QR code and listener link use. In production it is APP_URL (the public https
-// address), because the team alias and per-deployment addresses sit behind a Vercel login and would
-// not open for the congregation. In development the address you are actually on wins, because
-// APP_URL names port 3000 while the dev server may run on another port.
-export function canonicalOrigin({ appUrl, requestOrigin, production }: { appUrl: string | undefined; requestOrigin: string; production: boolean }) {
+// The address to put in the QR code and the shared link, or null when there is none worth sharing. In
+// production only a valid https APP_URL counts: falling back to the address the admin is browsing
+// could hand the congregation a link that opens a Vercel login. In development the page address wins.
+export function shareableOrigin({ appUrl, requestOrigin, production }: { appUrl: string | undefined; requestOrigin: string; production: boolean }) {
   if (!production) return requestOrigin;
   const value = appUrl?.trim();
-  if (!value) return requestOrigin;
+  if (!value) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" ? url.origin : requestOrigin;
+    return url.protocol === "https:" ? url.origin : null;
   } catch {
-    return requestOrigin;
+    return null;
   }
 }
 

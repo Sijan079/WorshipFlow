@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
 import { canRegenerateCaptionLink, canShareCaptionLink, viewerLinkUrl } from "@/features/sermon-captions/caption-link";
-import { canonicalOrigin } from "@/features/sermon-captions/caption-environment";
+import { shareableOrigin } from "@/features/sermon-captions/caption-environment";
 import { captionErrorResponse, newViewerToken } from "@/features/sermon-captions/caption-server";
 import { hasModuleAction } from "@/lib/event-access";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
@@ -14,14 +14,16 @@ export async function GET(request: Request) {
     const context = await requireCaptionAction("VIEW");
     const canShare = canShareCaptionLink(context.role, { VIEW: true, SHARE: await hasModuleAction(context, "CAPTIONS", "SHARE") });
     if (!canShare) throw new WorkspaceAuthorizationError(403, "You do not have permission to share the captions link.");
+    // The address comes from APP_URL in production. Without it there is nothing safe to share: the address
+    // being browsed may sit behind a Vercel login that the congregation cannot pass.
+    const origin = shareableOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
+    if (!origin) return NextResponse.json({ error: "The public address is not set, so there is no link to share yet. Set APP_URL on the server, then try again." }, { status: 503, headers: { "Cache-Control": "no-store" } });
     const settings = await prisma.captionSettings.upsert({
       where: { workspaceId: context.workspaceId },
       create: { workspaceId: context.workspaceId, viewerToken: newViewerToken() },
       update: {},
       select: { viewerToken: true, rotatedAt: true },
     });
-    // The address comes from APP_URL in production, so a QR code made from a protected alias still works.
-    const origin = canonicalOrigin({ appUrl: process.env.APP_URL, requestOrigin: new URL(request.url).origin, production: process.env.NODE_ENV === "production" });
     const url = viewerLinkUrl(origin, settings.viewerToken);
     return NextResponse.json(
       { token: settings.viewerToken, url, rotatedAt: settings.rotatedAt, canRegenerate: canRegenerateCaptionLink(context.role) },

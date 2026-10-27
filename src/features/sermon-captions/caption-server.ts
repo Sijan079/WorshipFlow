@@ -6,7 +6,7 @@ import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { reportRouteFailure } from "@/lib/observability";
 import { CaptionProviderConfigurationError, CaptionProviderQuotaError } from "./caption-providers";
 
-export const CAPTION_SESSION_MS = 4 * 60 * 60 * 1000;
+export { CAPTION_SESSION_MS } from "./caption-contract";
 
 // The listener link. 24 random bytes is 32 base64url characters; see `isViewerToken`.
 export function newViewerToken() {

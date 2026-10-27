@@ -11,8 +11,9 @@ test: do it with captions live and a listener page open on a phone, then check w
    browser is slowing the page; see Opera GX below.
 2. **Minimize the window.** Do: minimize the browser for 5 minutes, then speak. Expect: captions continue.
 3. **Go to Services and back.** Do: while live, open Services, then another page, then return to Captions.
-   Expect: a purple pulsing microphone button appears at the bottom right on other pages; Captions still says
-   Live when you come back, and nothing restarted.
+   Expect: a pulsing pill with a microphone and "LIVE 0:42" (time running) appears at the bottom right on other
+   pages, and the browser tab title starts with "● LIVE"; Captions still says Live when you come back, and nothing
+   restarted. Closing the tab or reloading still stops the microphone, so the browser asks first.
 4. **Let the screen dim.** Do: leave the computer idle for the length of your screen timeout. Expect: the
    screen stays on while live (it is kept awake), and captions continue.
 
@@ -39,3 +40,8 @@ changing the setting, repeat test 1.
 ## If a test fails
 
 Write down which test, what the phone showed, and the time, and tell whoever maintains WorshipFlow.
+
+## Long services
+
+Captions run for up to four hours. In the last fifteen minutes a box asks "Keep Captions Going?". Extend adds four
+more hours; Not now lets the session end on time. If nobody answers, the session ends at the limit.

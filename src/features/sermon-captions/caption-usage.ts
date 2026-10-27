@@ -38,3 +38,20 @@ export function totalCaptionUsage(
     unmeteredRequests: appUsage.unmeteredRequests,
   };
 }
+
+// The monthly cap on translated characters per church. Azure's free allowance is two million, so that is
+// the default; CAPTION_MONTHLY_CHARACTER_CAP overrides it.
+export const DEFAULT_CHARACTER_CAP = 2_000_000;
+
+export function parseCharacterCap(value: string | undefined) {
+  const parsed = Number(value);
+  return value && Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_CHARACTER_CAP;
+}
+
+// ok below 80%, warning from 80%, blocked at 100%. Blocked only stops a new session from starting;
+// a session already running is never cut off by it.
+export function captionBudget(used: number, cap: number): { state: "ok" | "warning" | "blocked"; percent: number; used: number; cap: number } {
+  const percent = Math.min(100, Math.floor((used / cap) * 100));
+  const state = used >= cap ? "blocked" : used >= cap * 0.8 ? "warning" : "ok";
+  return { state, percent, used, cap };
+}

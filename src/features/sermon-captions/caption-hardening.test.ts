@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CAPTION_RETENTION_MS, expiredCaptionSessionFilter, feedCacheControl } from "./caption-contract.ts";
-import { canonicalOrigin, isLiveDatabaseInDev } from "./caption-environment.ts";
+import { shareableOrigin, isLiveDatabaseInDev } from "./caption-environment.ts";
 
 function read(...segments: string[]) {
   return readFileSync(join(process.cwd(), ...segments), "utf8");
@@ -15,16 +15,16 @@ export function runCaptionHardeningTests() {
   // admin happened to browse (the team alias and per-deployment URLs sit behind a Vercel login).
   const alias = "https://worshipflow-artsijan-yu-s-projects.vercel.app";
   const publicHost = "https://sndev-worship-flow.vercel.app";
-  assert.equal(canonicalOrigin({ appUrl: `${publicHost}/`, requestOrigin: alias, production: true }), publicHost);
-  assert.equal(canonicalOrigin({ appUrl: `${publicHost}/some/path?x=1`, requestOrigin: alias, production: true }), publicHost);
-  assert.equal(canonicalOrigin({ appUrl: "  " + publicHost + "  ", requestOrigin: alias, production: true }), publicHost);
-  assert.equal(canonicalOrigin({ appUrl: undefined, requestOrigin: alias, production: true }), alias);
-  assert.equal(canonicalOrigin({ appUrl: "not a url", requestOrigin: alias, production: true }), alias);
-  assert.equal(canonicalOrigin({ appUrl: "ftp://example.com", requestOrigin: alias, production: true }), alias);
+  assert.equal(shareableOrigin({ appUrl: `${publicHost}/`, requestOrigin: alias, production: true }), publicHost);
+  assert.equal(shareableOrigin({ appUrl: `${publicHost}/some/path?x=1`, requestOrigin: alias, production: true }), publicHost);
+  assert.equal(shareableOrigin({ appUrl: "  " + publicHost + "  ", requestOrigin: alias, production: true }), publicHost);
+  assert.equal(shareableOrigin({ appUrl: undefined, requestOrigin: alias, production: true }), null);
+  assert.equal(shareableOrigin({ appUrl: "not a url", requestOrigin: alias, production: true }), null);
+  assert.equal(shareableOrigin({ appUrl: "ftp://example.com", requestOrigin: alias, production: true }), null);
   // Production needs https. In development the address you are actually on wins, because APP_URL
   // names port 3000 while the dev server runs on another port.
-  assert.equal(canonicalOrigin({ appUrl: "http://example.com", requestOrigin: alias, production: true }), alias);
-  assert.equal(canonicalOrigin({ appUrl: "http://localhost:3000", requestOrigin: "http://localhost:3001", production: false }), "http://localhost:3001");
+  assert.equal(shareableOrigin({ appUrl: "http://example.com", requestOrigin: alias, production: true }), null);
+  assert.equal(shareableOrigin({ appUrl: "http://localhost:3000", requestOrigin: "http://localhost:3001", production: false }), "http://localhost:3001");
 
   // The public feed is cached briefly so its load does not grow with the audience: a second while
   // captions flow, ten seconds while waiting, thirty for a link that does not exist.
@@ -32,7 +32,7 @@ export function runCaptionHardeningTests() {
   for (const status of ["connecting", "interrupted", "error"] as const) assert.equal(feedCacheControl(status), "public, s-maxage=1, stale-while-revalidate=1");
   // No stale-while-revalidate while waiting: it would delay the moment "Live" appears after Start.
   assert.equal(feedCacheControl("waiting"), "public, s-maxage=10");
-  assert.equal(feedCacheControl("ended"), "public, s-maxage=10");
+  assert.equal(feedCacheControl("ended"), "public, s-maxage=60");
   assert.equal(feedCacheControl("invalid"), "public, s-maxage=30");
 
   const feed = read("src", "app", "api", "captions", "live", "[token]", "route.ts");
@@ -53,7 +53,7 @@ export function runCaptionHardeningTests() {
   const linkRoute = read("src", "app", "api", "caption-link", "route.ts");
   const regenerate = read("src", "app", "api", "caption-link", "regenerate", "route.ts");
   for (const route of [linkRoute, regenerate]) {
-    assert.match(route, /canonicalOrigin\(/);
+    assert.match(route, /shareableOrigin\(/);
     assert.match(route, /process\.env\.APP_URL/);
     assert.match(route, /url,/);
   }
@@ -68,7 +68,7 @@ export function runCaptionHardeningTests() {
   assert.match(hook, /status === 429/);
 
   // A session lasts up to four hours, so a long service is not cut off.
-  assert.match(server, /CAPTION_SESSION_MS = 4 \* 60 \* 60 \* 1000/);
+  assert.match(read("src", "features", "sermon-captions", "caption-contract.ts"), /CAPTION_SESSION_MS = 4 \* 60 \* 60 \* 1000/);
   assert.doesNotMatch(read("src", "features", "sermon-captions", "caption-contract.ts"), /three-hour/);
 
   // Retention: expired lines are also erased by the daily job, matching exactly what the feed treats as gone.

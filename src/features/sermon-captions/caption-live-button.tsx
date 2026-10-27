@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mic, Square } from "lucide-react";
 import { Popover } from "radix-ui";
 import CaptionStatus from "./caption-status";
-import { captionLiveButtonTone, captionStatus, type CaptionRunState, type LiveButtonTone } from "./caption-ui";
+import { captionLiveButtonTone, captionStatus, formatElapsed, type CaptionRunState, type LiveButtonTone } from "./caption-ui";
 
 const FILL: Record<LiveButtonTone, string> = {
   live: "var(--action-primary-bg)",
@@ -16,7 +17,13 @@ const FILL: Record<LiveButtonTone, string> = {
 // browser is broadcasting captions and the Captions page is not open, pulses so it is noticed, and
 // opens a small panel to go back or stop. It sits under dialogs (layer 40, dialogs are 50 and up) and
 // above the phone's safe area. Reduced motion is respected globally.
-export default function CaptionLiveButton({ state, inputLabel, captionsHref, onStop }: { state: CaptionRunState; inputLabel: string; captionsHref: string; onStop: () => void }) {
+export default function CaptionLiveButton({ state, inputLabel, captionsHref, startedAt, onStop }: { state: CaptionRunState; inputLabel: string; captionsHref: string; startedAt: string; onStop: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const elapsed = formatElapsed(now - new Date(startedAt).getTime());
   const tone = captionLiveButtonTone(state);
   const label = captionStatus(state, true).label;
   return (
@@ -25,13 +32,14 @@ export default function CaptionLiveButton({ state, inputLabel, captionsHref, onS
         <Popover.Trigger asChild>
           <button
             type="button"
-            aria-label={`Captions are ${label.toLowerCase()}. Open the captions menu`}
-            title={`Captions: ${label}`}
-            className="pressable relative flex size-14 items-center justify-center rounded-full text-[var(--action-primary-ink)] shadow-[var(--elevation-raised)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--border-focus)]"
+            aria-label={`Captions are ${label.toLowerCase()}, running for ${elapsed}. Open the captions menu`}
+            title={`Captions: ${label} · ${elapsed}`}
+            className="pressable relative flex h-14 items-center justify-center gap-2 rounded-full px-5 text-[var(--action-primary-ink)] shadow-[var(--elevation-raised)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--border-focus)]"
             style={{ backgroundColor: FILL[tone] }}
           >
             <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full opacity-40" style={{ backgroundColor: FILL[tone] }} />
             <Mic className="relative h-6 w-6" />
+            <span className="relative text-sm font-semibold tabular-nums">LIVE {elapsed}</span>
           </button>
         </Popover.Trigger>
         <Popover.Portal>

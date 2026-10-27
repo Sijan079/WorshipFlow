@@ -10,12 +10,12 @@ import { canResumeSession } from "./caption-resume";
 import { claimStreamLock } from "./stream-lock";
 import type { CaptionRunState } from "./caption-ui";
 import {
-  fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
+  extendSession, fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
   stopSessionOnLeave, type CaptionLine, type CaptionSession, type PresenceStatus,
 } from "./caption-session-api";
 import { clearOperatorToken, loadOperatorInput, loadOperatorToken, saveOperatorInput, saveOperatorToken } from "./operator-token-store";
 
-type Notify = (message: string, tone: "success" | "error") => void;
+type Notify = (message: string, tone: "success" | "error" | "info") => void;
 
 const STOPPED_MESSAGE = "Caption session stopped. The final captions remain on the shared viewer for one hour.";
 
@@ -260,6 +260,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
         return;
       }
       const { session: current, operatorToken: token, deepgramToken } = created;
+      if (created.budget?.state === "warning") notify(`Translation use is at ${created.budget.percent}% of this month's limit.`, "info");
       // A new session: nobody else can hold its stream. The lock keeps a duplicated tab from resuming it.
       streamLockRef.current = await claimStreamLock(current.id);
       beginStreaming(current, token, deepgramToken, stream, mimeType, { id: inputId, label: inputLabel }, 0);
@@ -315,6 +316,21 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   // Keeps the latest resume function reachable from the first-look effect without making it re-run.
   useEffect(() => { resumeRef.current = resumeStreaming; });
 
+  // Adds four hours to the running session and moves the automatic stop to the new end.
+  async function extend() {
+    const active = activeRef.current;
+    if (!active || !session) return;
+    try {
+      const { expiresAt } = await extendSession(active.id, active.token);
+      if (expiryTimerRef.current !== null) window.clearTimeout(expiryTimerRef.current);
+      expiryTimerRef.current = window.setTimeout(() => void stop(), Math.max(0, new Date(expiresAt).getTime() - Date.now()));
+      setSession({ ...session, expiresAt });
+      notify("Captions extended by four hours.", "success");
+    } catch (error) {
+      notify(`Could not extend captions: ${errorMessage(error)}`, "error");
+    }
+  }
+
   // Stops a session this page did not start (found on load, or left from an earlier visit).
   async function stopExisting() {
     if (!session) return;
@@ -331,6 +347,6 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   return {
     state, session, message, lines, canOperate, canShare, canRegenerate, devAgainstLiveDatabase,
     canStopExisting: canOperate && Boolean(operatorToken || session?.canManage),
-    start, stop, stopExisting,
+    start, stop, stopExisting, extend,
   };
 }

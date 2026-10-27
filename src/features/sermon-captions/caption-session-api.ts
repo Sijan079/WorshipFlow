@@ -5,7 +5,7 @@ import type { CaptionUpdate } from "./caption-contract";
 
 export type CaptionSession = { id: string; operatorUserId?: string; createdAt: string; expiresAt: string; canManage?: boolean; lastLine?: number };
 export type CaptionLine = { line: number; english: string; final: boolean };
-export type StartedSession = { session: CaptionSession; operatorToken: string; deepgramToken: string };
+export type StartedSession = { session: CaptionSession; operatorToken: string; deepgramToken: string; budget?: { state: "ok" | "warning" | "blocked"; percent: number } };
 export type PresenceStatus = "CONNECTING" | "STREAMING" | "INTERRUPTED" | "ERROR";
 
 const OPERATOR_TOKEN_HEADER = "x-caption-operator-token";
@@ -28,6 +28,11 @@ export function fetchCaptionLink() {
 // Owner and Admin only, and refused while captions run.
 export function regenerateCaptionLink() {
   return apiFetch<CaptionLinkInfo>("/api/caption-link/regenerate", { method: "POST" });
+}
+
+// Adds four hours; allowed only in the last fifteen minutes, by the session's operator.
+export function extendSession(sessionId: string, operatorToken: string) {
+  return apiFetch<{ expiresAt: string }>(`/api/caption-sessions/${sessionId}/extend`, { method: "POST", headers: operatorHeaders(operatorToken) });
 }
 
 export function startSession() {
