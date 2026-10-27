@@ -551,7 +551,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
               <LogOut className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Sign out?</DialogTitle>
+              <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Sign Out?</DialogTitle>
               <DialogDescription className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
                 You will return to the login screen.
               </DialogDescription>
@@ -581,7 +581,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
 
       <Dialog open={feedbackOpen} onOpenChange={(open) => !feedbackMutation.isPending && setFeedbackOpen(open)}>
         <DialogContent className="ui-modal max-w-md p-5">
-          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Report issue or feedback</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Report Issue or Feedback</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Send this directly to the WorshipFlow team. No GitHub account is needed.</DialogDescription>
           <form
             className="mt-5 space-y-4"

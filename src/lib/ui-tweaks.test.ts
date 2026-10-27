@@ -69,4 +69,22 @@ export function runUiTweaksTests() {
   const rule = globals.slice(globals.indexOf(".ui-raised-field {"), globals.indexOf("}", globals.indexOf(".ui-raised-field {")));
   assert.match(rule, /box-shadow: var\(--elevation-subtle\)/);
   assert.doesNotMatch(rule, /inset/);
+
+  // A dropdown is exactly as wide as the field that opens it. The list inside used to be forced to
+  // the field's full width while the box around it added padding and a border, so it ended up a few
+  // pixels wider. Now the box carries the minimum width and the list inside only fills it.
+  const select = read("src", "components", "ui", "select.tsx");
+  assert.match(select, /data-\[position=popper\]:min-w-\(--radix-select-trigger-width\)/);
+  const viewerStart = select.indexOf("<SelectPrimitive.Viewport");
+  const viewport = select.slice(viewerStart, select.indexOf(">", select.indexOf("className", viewerStart)));
+  assert.doesNotMatch(viewport, /min-w-\(--radix-select-trigger-width\)/);
+  assert.match(viewport, /data-\[position=popper\]:min-w-0/);
+
+  // The dropdown opens and closes smoothly: a short fade and small slide from where it opens, in
+  // the standard motion tokens. Reduced motion is handled globally.
+  assert.match(read("src", "components", "ui", "production-select.tsx"), /ui-select-content/);
+  assert.match(globals, /@keyframes ui-pop-in \{[\s\S]*?opacity: 0[\s\S]*?opacity: 1/);
+  assert.match(globals, /@keyframes ui-pop-out/);
+  assert.match(globals, /\.ui-select-content\[data-state="open"\] \{\s*animation: ui-pop-in var\(--dur-fast\) var\(--ease-out\)/);
+  assert.match(globals, /\.ui-select-content\[data-state="closed"\] \{\s*animation: ui-pop-out var\(--dur-fast\) var\(--ease-out\)/);
 }

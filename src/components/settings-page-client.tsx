@@ -160,7 +160,7 @@ function SettingsAddButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${expanded ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)]" : "bg-transparent text-[var(--text-accent)] hover:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,transparent)] hover:text-[var(--text-primary)]"}`}
+      className={`pressable inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${expanded ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)]" : "bg-transparent text-[var(--text-accent)] hover:bg-[color-mix(in_oklab,var(--action-secondary-accent-bg)_14%,transparent)] hover:text-[var(--text-primary)]"}`}
       aria-controls={controls}
       aria-expanded={expanded}
     >
@@ -987,7 +987,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                         </div>
                         {isDirty || currentSaveState === "saving" || currentSaveState === "error" ? (
                           <span
-                            className={`inline-flex min-h-7 items-center gap-2 rounded px-2.5 py-1 font-[var(--font-mono)] text-[11px] font-semibold uppercase tracking-wide ${currentSaveState === "error" ? "bg-[var(--state-danger-soft)] text-[var(--text-danger)]" : "bg-[color:color-mix(in_oklab,var(--action-primary-bg)_22%,var(--surface-panel-strong))] text-[var(--text-accent)]"}`}
+                            className={`inline-flex min-h-7 items-center gap-2 rounded px-2.5 py-1 font-[var(--font-mono)] text-[11px] font-semibold uppercase tracking-wide ${currentSaveState === "error" ? "bg-[var(--state-danger-soft)] text-[var(--text-danger)]" : "bg-[color:color-mix(in_oklab,var(--action-secondary-accent-bg)_22%,var(--surface-panel-strong))] text-[var(--text-accent)]"}`}
                             role={currentSaveState === "error" ? "alert" : "status"}
                           >
                             {currentSaveState === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className={`h-2 w-2 rounded-full ${currentSaveState === "error" ? "bg-[var(--state-danger)]" : "bg-[var(--action-primary-bg)]"}`} />}
@@ -1042,7 +1042,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                           <button
                             type="button"
                             onClick={() => setDraft(record.id, { ...draft, blocks: [...draft.blocks, { id: crypto.randomUUID(), label: "", kind: "TEXT" }] })}
-                            className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]"
+                            className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-secondary-accent-bg-hover)] hover:bg-[var(--action-secondary-accent-bg)] hover:text-[var(--action-secondary-accent-ink)] active:bg-[var(--action-secondary-accent-bg-hover)]"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             <span>Add block</span>
@@ -1174,7 +1174,7 @@ function ServiceTemplateSection({ records }: { records: ServiceTemplatePresetRec
                           <Redo2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <button type="button" onClick={() => setNewDraft({ ...newRecord, blocks: [...newRecord.blocks, { id: crypto.randomUUID(), label: "", kind: "TEXT" }] })} className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-primary-bg-hover)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)] active:bg-[var(--action-primary-bg-hover)]">
+                      <button type="button" onClick={() => setNewDraft({ ...newRecord, blocks: [...newRecord.blocks, { id: crypto.randomUUID(), label: "", kind: "TEXT" }] })} className="pressable inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-strong)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--action-secondary-accent-bg-hover)] hover:bg-[var(--action-secondary-accent-bg)] hover:text-[var(--action-secondary-accent-ink)] active:bg-[var(--action-secondary-accent-bg-hover)]">
                         <Plus className="h-3.5 w-3.5" />
                         <span>Add block</span>
                       </button>

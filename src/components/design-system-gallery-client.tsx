@@ -216,7 +216,7 @@ export default function DesignSystemGalleryClient() {
       <Dialog open={modal === "delete"} onOpenChange={(open) => !open && setModal(null)}>
         <DialogContent className="max-w-md">
           <button type="button" onClick={() => setModal(null)} className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)]" aria-label="Close delete modal"><X className="h-4 w-4" /></button>
-          <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">Delete service?</DialogTitle>
+          <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">Delete Service?</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">This permanently removes the service and its prepared production details.</DialogDescription>
           <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setModal(null)} className="ui-btn-cancel pressable min-h-11 px-4 py-2 text-sm font-semibold">Cancel</button><button type="button" onClick={() => { setModal(null); showToast("Delete preview completed.", "success"); }} className="ui-btn-danger pressable inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"><Trash2 className="h-4 w-4" />Delete service</button></div>
         </DialogContent>

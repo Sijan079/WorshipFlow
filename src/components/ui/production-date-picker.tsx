@@ -212,7 +212,7 @@ export function ProductionDatePicker({
                 <button
                   type="button"
                   onClick={() => selectDate(formatCalendarDate(new Date()))}
-                  className="text-sm font-semibold text-[var(--text-accent)] hover:text-[var(--action-primary-bg-hover)]"
+                  className="text-sm font-semibold text-[var(--text-accent)] hover:text-[var(--action-secondary-accent-bg-hover)]"
                 >
                   Today
                 </button>

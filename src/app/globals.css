@@ -97,6 +97,10 @@ html body[data-scroll-locked] {
   --action-primary-bg: var(--workspace-action-primary-bg);
   --action-primary-bg-hover: var(--workspace-action-primary-bg-hover);
   --action-primary-ink: var(--workspace-action-primary-ink);
+  --action-secondary-accent-bg: var(--workspace-action-secondary-accent-bg);
+  --action-secondary-accent-bg-hover: var(--workspace-action-secondary-accent-bg-hover);
+  --action-secondary-accent-ink: var(--workspace-action-secondary-accent-ink);
+  --surface-highlight: var(--workspace-surface-highlight);
   --action-secondary-bg: var(--workspace-action-secondary-bg);
   --action-secondary-bg-hover: var(--workspace-action-secondary-bg-hover);
   --action-secondary-ink: var(--workspace-action-secondary-ink);
@@ -174,6 +178,49 @@ textarea:focus-visible {
 
 /* A raised field: lifted off the page with a soft shadow instead of sunk into it. Every input gets a
    global inset shadow, so this has to be a rule here. Used for choosing a person on a service. */
+/* Panels that open and close (Radix Collapsible exposes the measured height). Short, ease-out, and only
+   height and opacity; reduced motion is handled at the end of this file. */
+@keyframes ui-collapsible-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+@keyframes ui-collapsible-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
+.ui-collapsible-content {
+  overflow: hidden;
+}
+
+.ui-collapsible-content[data-state="open"] {
+  animation: ui-collapsible-open var(--dur-base) var(--ease-out);
+}
+
+.ui-collapsible-content[data-state="closed"] {
+  animation: ui-collapsible-close var(--dur-base) var(--ease-out);
+}
+
+/* A dropdown list fades in and drops a few pixels from where it opens, and reverses on close. */
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ui-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+
+.ui-select-content[data-state="open"] {
+  animation: ui-pop-in var(--dur-fast) var(--ease-out);
+}
+
+.ui-select-content[data-state="closed"] {
+  animation: ui-pop-out var(--dur-fast) var(--ease-out);
+}
+
 .ui-raised-field {
   background-color: var(--surface-panel);
   border: 1px solid var(--border-default);
@@ -585,6 +632,22 @@ textarea:focus-visible {
   border-color: transparent;
   color: var(--action-primary-ink);
   filter: none;
+}
+
+/* Solid red at rest, for an action that ends something live (Stop captions). The quieter
+   .ui-btn-danger above stays for Delete buttons, which turn red only on hover. */
+.ui-btn-danger-solid {
+  background: var(--state-danger);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--action-primary-ink);
+  box-shadow: var(--elevation-subtle);
+  min-height: var(--control-height-standard);
+  min-width: var(--control-height-standard);
+}
+
+.ui-btn-danger-solid:hover:not(:disabled) {
+  filter: brightness(0.92);
 }
 
 .ui-btn-primary:active:not(:disabled),

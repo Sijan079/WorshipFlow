@@ -52,7 +52,7 @@ export function runWorkspaceRouteTests() {
   assert.doesNotMatch(serviceBuilder, /href="\/media-tools"/);
   assert.match(serviceBuilder, /<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">/);
   assert.doesNotMatch(serviceBuilder, /grid divide-y divide-\[var\(--border-default\)\] border-y/);
-  assert.match(serviceBuilder, /group pressable flex min-h-32 flex-col items-center justify-center gap-3 rounded-\[var\(--radius-card\)\] border border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\] p-4 text-center shadow-\[var\(--elevation-subtle\)\] hover:bg-\[var\(--action-primary-bg\)\] hover:text-\[var\(--action-primary-ink\)\]/);
+  assert.match(serviceBuilder, /group pressable flex min-h-32 flex-col items-center justify-center gap-3 rounded-\[var\(--radius-card\)\] border border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\] p-4 text-center shadow-\[var\(--elevation-subtle\)\] hover:bg-\[var\(--action-secondary-accent-bg\)\] hover:text-\[var\(--action-secondary-accent-ink\)\]/);
   assert.match(backgroundRemoval, /import \{ ApiError, reportClientError, triggerBrowserDownload, workspaceApiPath \} from "@\/lib\/api-client"/);
   assert.match(backgroundRemoval, /reportClientError\(removalError, "\/api\/media\/background-removal"\)/);
   assert.match(backgroundRemoval, /fetch\(workspaceApiPath\("\/api\/media\/background-removal"\)/);

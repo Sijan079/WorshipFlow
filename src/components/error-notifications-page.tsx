@@ -78,7 +78,7 @@ export default function ErrorNotificationsPage() {
       )}
       <Dialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
         <DialogContent className="ui-modal max-w-md p-5">
-          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Clear all error notifications?</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Clear All Error Notifications?</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">This queues the {notifications.length} visible error notifications for deletion. They disappear now and finish clearing in the background.</DialogDescription>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" onClick={() => setConfirmClearAll(false)} className="ui-btn-cancel pressable h-10 px-3 text-sm font-semibold">Cancel</button>

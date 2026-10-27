@@ -55,13 +55,13 @@ export function ProductionSelect<T extends string>({
         <SelectContent
           position="popper"
           align="start"
-          className="workspace-content-light border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 text-[var(--text-primary)] shadow-[var(--elevation-raised)]"
+          className="ui-select-content workspace-content-light border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 text-[var(--text-primary)] shadow-[var(--elevation-raised)]"
         >
           {options.map((option) => (
             <SelectItem
               key={option.value || EMPTY_VALUE}
               value={option.value || EMPTY_VALUE}
-              className="min-h-9 bg-transparent px-2 py-2 pr-8 font-medium text-[var(--text-primary)] hover:bg-[var(--palette-primary-focus)] hover:text-[var(--text-primary)] hover:**:!text-[var(--text-primary)] focus:bg-[var(--palette-primary-focus)] focus:text-[var(--text-primary)] focus:**:!text-[var(--text-primary)] data-[state=checked]:bg-[var(--action-primary-bg)] data-[state=checked]:text-[var(--action-primary-ink)] data-[state=checked]:**:!text-[var(--action-primary-ink)] data-[state=checked]:hover:bg-[var(--action-primary-bg)] data-[state=checked]:hover:text-[var(--action-primary-ink)] data-[state=checked]:hover:**:!text-[var(--action-primary-ink)] data-[state=checked]:focus:bg-[var(--action-primary-bg)] data-[state=checked]:focus:text-[var(--action-primary-ink)] data-[state=checked]:focus:**:!text-[var(--action-primary-ink)]"
+              className="min-h-9 bg-transparent px-2 py-2 pr-8 font-medium text-[var(--text-primary)] hover:bg-[var(--surface-highlight)] hover:text-[var(--text-primary)] hover:**:!text-[var(--text-primary)] focus:bg-[var(--surface-highlight)] focus:text-[var(--text-primary)] focus:**:!text-[var(--text-primary)] data-[state=checked]:bg-[var(--action-primary-bg)] data-[state=checked]:text-[var(--action-primary-ink)] data-[state=checked]:**:!text-[var(--action-primary-ink)] data-[state=checked]:hover:bg-[var(--action-primary-bg)] data-[state=checked]:hover:text-[var(--action-primary-ink)] data-[state=checked]:hover:**:!text-[var(--action-primary-ink)] data-[state=checked]:focus:bg-[var(--action-primary-bg)] data-[state=checked]:focus:text-[var(--action-primary-ink)] data-[state=checked]:focus:**:!text-[var(--action-primary-ink)]"
             >
               {option.label}
             </SelectItem>

@@ -130,7 +130,7 @@ export function runServiceTemplateRenderingTests() {
   assert.doesNotMatch(datePicker, /DialogContent/);
   assert.match(datePicker, /side="bottom"/);
   assert.match(productionSelect, /bg-transparent.*text-\[var\(--text-primary\)\]/);
-  assert.match(productionSelect, /hover:bg-\[var\(--palette-primary-focus\)\] hover:text-\[var\(--text-primary\)\]/);
+  assert.match(productionSelect, /hover:bg-\[var\(--surface-highlight\)\] hover:text-\[var\(--text-primary\)\]/);
   assert.match(productionSelect, /focus:\*\*:!text-\[var\(--text-primary\)\]/);
   assert.match(productionSelect, /data-\[state=checked\]:bg-\[var\(--action-primary-bg\)\] data-\[state=checked\]:text-\[var\(--action-primary-ink\)\]/);
   assert.match(productionSelect, /data-\[state=checked\]:hover:bg-\[var\(--action-primary-bg\)\] data-\[state=checked\]:hover:text-\[var\(--action-primary-ink\)\]/);

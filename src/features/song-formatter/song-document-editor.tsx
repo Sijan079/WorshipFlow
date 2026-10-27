@@ -528,7 +528,7 @@ export default function SongDocumentEditor(props: Props) {
       </div>
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
         <DialogContent className="workspace-content-light" onOpenAutoFocus={event => { event.preventDefault(); cancelClear.current?.focus(); }}>
-          <DialogTitle>Clear this song draft?</DialogTitle><DialogDescription>This marks the conversion Done, deletes its temporary draft across your devices, and returns to song selection. Export a DOCX first if you want to keep it.</DialogDescription>
+          <DialogTitle>Clear This Song Draft?</DialogTitle><DialogDescription>This marks the conversion Done, deletes its temporary draft across your devices, and returns to song selection. Export a DOCX first if you want to keep it.</DialogDescription>
           <div className="mt-4 flex justify-end gap-2"><button ref={cancelClear} type="button" className="ui-btn-cancel px-4 py-2" onClick={() => setClearOpen(false)}>Cancel</button><button type="button" className="ui-btn-danger px-4 py-2" disabled={readOnly || props.aiPending || props.exportPending} onClick={() => { setClearOpen(false); props.onClear(); }}>Clear draft</button></div>
         </DialogContent>
       </Dialog>

@@ -35,7 +35,7 @@ export function runMembershipSectionUiTests() {
   assert.match(source, /<SelectItem value="ADMIN"[^>]*>Admin<\/SelectItem>/);
   assert.match(source, /<SelectItem value="MEMBER"[^>]*>Member<\/SelectItem>/);
   assert.match(source, /<SelectContent position="popper" align="start" className="workspace-content-light border/);
-  assert.match(source, /data-\[highlighted\]:bg-\[color-mix\(in_oklab,var\(--action-primary-bg\)_14%,var\(--surface-panel\)\)\]/);
+  assert.match(source, /data-\[highlighted\]:bg-\[color-mix\(in_oklab,var\(--action-secondary-accent-bg\)_14%,var\(--surface-panel\)\)\]/);
   assert.match(source, /data-\[highlighted\]:text-\[var\(--text-primary\)\]/);
   assert.match(source, /focus:\*\*:text-\[var\(--text-primary\)\]/);
   assert.doesNotMatch(source, /<select aria-label="New workspace role"/);
@@ -46,10 +46,10 @@ export function runMembershipSectionUiTests() {
   assert.match(source, /aria-label={`Remove \$\{member\.user\.email\}`}/);
   assert.doesNotMatch(source, /window\.confirm/);
   assert.match(source, /confirmationTarget/);
-  assert.match(source, /Revoke invitation\?/);
-  assert.match(source, /Remove member\?/);
+  assert.match(source, /Revoke Invitation\?/);
+  assert.match(source, /Remove Member\?/);
   assert.match(source, /Confirm action/);
   assert.match(source, /roleDialogMember/);
-  assert.match(source, /Reassign role/);
+  assert.match(source, /<DialogTitle[^>]*>Reassign Role<\/DialogTitle>/);
   assert.doesNotMatch(source, /<select aria-label={`Role for \$\{member\.user\.email\}`}/);
 }

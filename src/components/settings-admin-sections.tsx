@@ -236,7 +236,7 @@ export function MembershipSection() {
 
       <Dialog open={inviteDialogOpen} onOpenChange={(open) => { if (!invite.isPending) setInviteDialogOpen(open); }}>
         <DialogContent className="ui-modal max-w-md p-5">
-          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Invite a member</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Invite a Member</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Send an invitation link to an existing email account.</DialogDescription>
           <form onSubmit={(event) => { event.preventDefault(); invite.mutate(); }} className="mt-5 space-y-4">
             <label className="block text-sm font-medium text-[var(--text-primary)]">
@@ -254,7 +254,7 @@ export function MembershipSection() {
 
       <Dialog open={Boolean(roleDialogMember)} onOpenChange={(open) => { if (!open && !updateMember.isPending) setRoleDialogMember(null); }}>
         <DialogContent className="ui-modal max-w-md p-5">
-          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Reassign role</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Reassign Role</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Choose the workspace role for {roleDialogMember?.user.email}.</DialogDescription>
           <form onSubmit={(event) => { event.preventDefault(); if (roleDialogMember) updateMember.mutate({ userId: roleDialogMember.user.id, data: { role: roleDialogValue } }, { onSuccess: () => setRoleDialogMember(null) }); }} className="mt-5 space-y-4">
             <label className="block text-sm font-medium text-[var(--text-primary)]">
@@ -264,8 +264,8 @@ export function MembershipSection() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent position="popper" align="start" className="workspace-content-light border border-[var(--border-default)] bg-[var(--surface-panel-elevated)] p-1.5 text-[var(--text-primary)] shadow-[var(--elevation-raised)]">
-                  <SelectItem value="ADMIN" className="px-2 py-2 pr-8 font-medium data-[highlighted]:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,var(--surface-panel))] data-[highlighted]:text-[var(--text-primary)] focus:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,var(--surface-panel))] focus:text-[var(--text-primary)] focus:**:text-[var(--text-primary)]">Admin</SelectItem>
-                  <SelectItem value="MEMBER" className="px-2 py-2 pr-8 font-medium data-[highlighted]:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,var(--surface-panel))] data-[highlighted]:text-[var(--text-primary)] focus:bg-[color-mix(in_oklab,var(--action-primary-bg)_14%,var(--surface-panel))] focus:text-[var(--text-primary)] focus:**:text-[var(--text-primary)]">Member</SelectItem>
+                  <SelectItem value="ADMIN" className="px-2 py-2 pr-8 font-medium data-[highlighted]:bg-[color-mix(in_oklab,var(--action-secondary-accent-bg)_14%,var(--surface-panel))] data-[highlighted]:text-[var(--text-primary)] focus:bg-[color-mix(in_oklab,var(--action-secondary-accent-bg)_14%,var(--surface-panel))] focus:text-[var(--text-primary)] focus:**:text-[var(--text-primary)]">Admin</SelectItem>
+                  <SelectItem value="MEMBER" className="px-2 py-2 pr-8 font-medium data-[highlighted]:bg-[color-mix(in_oklab,var(--action-secondary-accent-bg)_14%,var(--surface-panel))] data-[highlighted]:text-[var(--text-primary)] focus:bg-[color-mix(in_oklab,var(--action-secondary-accent-bg)_14%,var(--surface-panel))] focus:text-[var(--text-primary)] focus:**:text-[var(--text-primary)]">Member</SelectItem>
                 </SelectContent>
               </Select>
             </label>
@@ -279,7 +279,7 @@ export function MembershipSection() {
 
       <Dialog open={Boolean(confirmationTarget)} onOpenChange={(open) => { if (!open && !confirmationPending) setConfirmationTarget(null); }}>
         <DialogContent className="ui-modal max-w-md p-5">
-          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{confirmationTarget?.kind === "invitation" ? "Revoke invitation?" : "Remove member?"}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{confirmationTarget?.kind === "invitation" ? "Revoke Invitation?" : "Remove Member?"}</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
             {confirmationTarget?.kind === "invitation"
               ? <>This will cancel the invitation for <span className="font-medium text-[var(--text-primary)]">{confirmationTarget.email}</span>.</>

@@ -41,7 +41,7 @@ function MinistryDialog({
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{ministry ? "Edit ministry" : "Add ministry"}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{ministry ? "Edit Ministry" : "Add Ministry"}</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               {ministry ? "Change who belongs to a ministry from the People page." : "Give the ministry a name. You can choose members afterward."}
             </DialogDescription>

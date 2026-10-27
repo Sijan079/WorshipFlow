@@ -69,7 +69,7 @@ export function runWorkspaceShellTests() {
   assert.doesNotMatch(shell, /min-h-14 min-w-\[5\.5rem\]/);
   assert.match(shell, /min-h-0 flex-1 overflow-y-auto overflow-x-hidden/);
   assert.doesNotMatch(shell, /github\.com\/Sijan079\/WorshipFlow\/issues\/new/);
-  assert.match(shell, /Report issue or feedback/);
+  assert.match(shell, /Report Issue or Feedback/);
   assert.match(shell, /MessageSquare/);
   assert.match(shell, /PAPToastViewport/);
   assert.match(shell, /usePAPToasts/);

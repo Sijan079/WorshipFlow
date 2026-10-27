@@ -369,7 +369,7 @@ export default function PeoplePageClient() {
       {deleting ? (
         <Dialog open onOpenChange={(open) => !open && setDeleting(null)}>
           <DialogContent className="max-w-md">
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Delete {deleting.firstName} {deleting.lastName} permanently?</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Delete {deleting.firstName} {deleting.lastName} Permanently?</DialogTitle>
             <DialogDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               This removes their profile, birthday, baptism details, and ministry memberships. Names already written on past services stay as plain text. This cannot be undone. To keep their history, archive them instead.
             </DialogDescription>
@@ -392,7 +392,7 @@ export default function PeoplePageClient() {
       {addToMinistryOpen ? (
         <Dialog open onOpenChange={(open) => !open && setAddToMinistryOpen(false)}>
           <DialogContent className="max-w-md">
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Add {selectedIds.length} to a ministry</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">Add {selectedIds.length} to a Ministry</DialogTitle>
             <DialogDescription className="mt-2 text-sm text-[var(--text-secondary)]">They stay in any ministries they already belong to.</DialogDescription>
             <div className="mt-4">
               <ProductionSelect

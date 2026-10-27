@@ -1069,7 +1069,7 @@ export default function ServiceBuilderClient({
           <DialogContent className="max-w-lg">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-xl font-semibold">Create worship service</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Create Worship Service</DialogTitle>
                 <DialogDescription className="mt-1 text-sm text-[var(--color-text-secondary)]">
                   Add the service details and choose the flow template.
                 </DialogDescription>
@@ -1886,7 +1886,7 @@ export default function ServiceBuilderClient({
                             type="button"
                             aria-label="Supported output formats"
                             title="Supported output formats"
-                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-[var(--text-accent)] shadow-none hover:text-[var(--action-primary-bg-hover)]"
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-[var(--text-accent)] shadow-none hover:text-[var(--action-secondary-accent-bg-hover)]"
                           >
                             <Info className="h-5 w-5" aria-hidden="true" />
                           </button>
@@ -2072,7 +2072,7 @@ export default function ServiceBuilderClient({
                                         href={workspaceFormatterPath("format")}
                                         aria-label={`Resume ${songName}`}
                                         title="Resume editing"
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--text-accent)] hover:text-[var(--action-primary-bg-hover)]"
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--text-accent)] hover:text-[var(--action-secondary-accent-bg-hover)]"
                                       >
                                         <Pencil className="h-4 w-4" aria-hidden="true" />
                                       </Link>
@@ -2193,10 +2193,10 @@ export default function ServiceBuilderClient({
                     <Link
                       key={tool.id}
                       href={workspaceMediaToolsPath(tool.id)}
-                      className="group pressable flex min-h-32 flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-center shadow-[var(--elevation-subtle)] hover:bg-[var(--action-primary-bg)] hover:text-[var(--action-primary-ink)]"
+                      className="group pressable flex min-h-32 flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-4 text-center shadow-[var(--elevation-subtle)] hover:bg-[var(--action-secondary-accent-bg)] hover:text-[var(--action-secondary-accent-ink)]"
                     >
-                      <ToolIcon className="h-8 w-8 text-[var(--text-accent)] group-hover:text-[var(--action-primary-ink)]" strokeWidth={1.75} aria-hidden="true" />
-                      <span className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--action-primary-ink)]">{tool.label}</span>
+                      <ToolIcon className="h-8 w-8 text-[var(--text-accent)] group-hover:text-[var(--action-secondary-accent-ink)]" strokeWidth={1.75} aria-hidden="true" />
+                      <span className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--action-secondary-accent-ink)]">{tool.label}</span>
                     </Link>
                   );
                 })}

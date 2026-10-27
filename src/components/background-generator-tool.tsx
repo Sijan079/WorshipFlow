@@ -594,7 +594,7 @@ function BackgroundPreviewModal({
       <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-3">
           <div>
-            <DialogTitle className="text-sm font-semibold text-[var(--text-primary)]">Generated background preview</DialogTitle>
+            <DialogTitle className="text-sm font-semibold text-[var(--text-primary)]">Generated Background Preview</DialogTitle>
             <DialogDescription className="ui-meta-text">{new Date(output.createdAt).toLocaleString()}</DialogDescription>
           </div>
           <div className="flex items-center gap-2">

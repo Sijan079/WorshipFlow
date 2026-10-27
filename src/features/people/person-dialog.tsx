@@ -95,7 +95,7 @@ export function PersonDialog({
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{person ? "Edit person" : "Add person"}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[var(--text-primary)]">{person ? "Edit Person" : "Add Person"}</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-[var(--text-secondary)]">
               {person ? formatAudit(person) : "Only the name is required. You can add the rest later."}
             </DialogDescription>
