@@ -65,8 +65,8 @@ intent and the decisions behind schema changes.
 - `Servant` is replaced by `Person` plus Ministry membership, **without a data
   migration**: the roster is entered fresh by hand on the People screens. The
   `Servant` and `ServantGroupPreset` tables and the `ServantGroup` enum are dropped
-  by a migration held in `prisma/deploy-queue/` and applied only when the new code
-  is merged and deployed, because the live deployed app still reads them.
+  by the `drop_servants` migration, applied on 2026-10-27 after the new code was
+  deployed. A copy of the 29 rows was kept outside the repository.
 - `ServiceServantAssignment` and `BlockPerson` store `personName` text, not a
   link to a servant. Step 1 adds an optional `personId` to both and keeps
   `personName` as the record of who served. Linking happens at step 3, if wanted,

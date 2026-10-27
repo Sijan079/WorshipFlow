@@ -34,15 +34,14 @@ write the failing check first, build, verify, document.
    People; switch the service ministry to `Ministry`; remove the Teams page,
    `/api/servants`, and the two Settings preset sections, and put People and
    Ministries in the nav. The roster is entered fresh by hand (no bulk add).
-   Applying `prisma/deploy-queue/` (drops `Servant` data) happens at deploy time.
+   The `drop_servants` migration (drops `Servant` data) was applied on 2026-10-27.
    **Progress (2026-10-26):** built and committed: schema, People API, People
    screen, Ministries API and screen, nav entries, the service pickers and parser
    reading People, the service ministry reading Ministry, and removal of Teams,
    `/api/servants`, the two Settings preset sections, and the Servant models from
    the schema. People and Ministries were checked in the browser; the service
-   changes were checked by tests, types, lint, and the database. Remaining: apply
-   `prisma/deploy-queue/` (drops the old Servant data) when the new code is
-   merged and deployed.
+   changes were checked by tests, types, lint, and the database. The
+   `drop_servants` migration was applied on 2026-10-27, so nothing remains.
    Check: create, edit, archive, restore; hard delete is Owner/Admin only;
    baptism date is rejected unless status is BAPTIZED.
    After this step, write a thin project design skill in `.claude/skills/` that

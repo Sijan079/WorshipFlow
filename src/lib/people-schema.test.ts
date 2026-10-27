@@ -39,14 +39,12 @@ export function runPeopleSchemaTests() {
   assert.match(namesSql, /ADD COLUMN "lastName"/);
   assert.match(namesSql, /UPDATE "WorshipService"/, "Existing services keep their ministry");
 
-  // The destructive drop is queued, not applied, until the new code is deployed.
-  const queue = join(root, "prisma", "deploy-queue");
-  const dropFolder = existsSync(queue) ? readdirSync(queue).find((name) => name.endsWith("_drop_servants")) : undefined;
-  assert.ok(dropFolder, "Expected prisma/deploy-queue/*_drop_servants");
-  const dropSql = readFileSync(join(queue, dropFolder, "migration.sql"), "utf8");
+  // The old roster drop was applied on the owner's instruction (2026-10-27), so it is now a current migration.
+  const dropFolder = readdirSync(join(root, "prisma", "migrations-current")).find((name) => name.endsWith("_drop_servants"));
+  assert.ok(dropFolder, "Expected prisma/migrations-current/*_drop_servants");
+  const dropSql = readFileSync(join(root, "prisma", "migrations-current", dropFolder, "migration.sql"), "utf8");
   assert.match(dropSql, /DROP TABLE "Servant"/);
   assert.match(dropSql, /DROP TABLE "ServantGroupPreset"/);
-  assert.equal(readdirSync(join(root, "prisma", "migrations-current")).some((name) => name.endsWith("_drop_servants")), false, "The drop must not be in migrations-current until deploy");
 
   const ministry = modelBlock(schema, "Ministry");
   assert.match(ministry, /\bserviceOnly\s+Boolean\b/);
