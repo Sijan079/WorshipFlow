@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-export type CaptionUpdate = { line: number; source: string; final: boolean };
+export type CaptionUpdate = { line: number; source: string; final: boolean; recognitionMs?: number };
 export type CaptionDisplayLine = { line: number; english: string; final: boolean };
 export const CAPTION_RETENTION_MS = 60 * 60 * 1000;
 export const CAPTION_HEARTBEAT_STALE_MS = 15_000;

@@ -6,8 +6,10 @@ import { reportRouteFailure } from "@/lib/observability";
 
 // The cache is short and shared, so the load on the database does not grow with the audience. Nothing
 // private is in these responses: anyone with the link may read them.
-function respond(body: unknown, status: number, cacheStatus: CaptionPublicStatus | "invalid") {
-  return NextResponse.json(body, { status, headers: { "Cache-Control": feedCacheControl(cacheStatus), "Referrer-Policy": "no-referrer" } });
+// `serverNow` and each line's `updatedAt` let a listener (or the measuring script) tell how old a caption
+// is when it arrives.
+function respond(body: object, status: number, cacheStatus: CaptionPublicStatus | "invalid") {
+  return NextResponse.json({ ...body, serverNow: Date.now() }, { status, headers: { "Cache-Control": feedCacheControl(cacheStatus), "Referrer-Policy": "no-referrer" } });
 }
 
 // The public feed behind a church's one listener link. It returns the church name and caption text
@@ -32,7 +34,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       await prisma.captionLine.deleteMany({ where: { session: { is: { workspaceId, expiresAt: { lte: now } } } } });
       return respond({ status: "waiting", churchName, lines: [] }, 200, "waiting");
     }
-    const lines = await prisma.captionLine.findMany({ where: { sessionId: chosen.session.id }, orderBy: { line: "desc" }, take: 10, select: { line: true, english: true, final: true } });
+    const lines = await prisma.captionLine.findMany({ where: { sessionId: chosen.session.id }, orderBy: { line: "desc" }, take: 10, select: { line: true, english: true, final: true, updatedAt: true } });
     if (chosen.availability.kind === "live") {
       const status = captionViewerStatus(chosen.session, now);
       return respond({ status, churchName, lines }, 200, status);

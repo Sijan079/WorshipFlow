@@ -13,6 +13,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "measure:captions": "node --experimental-strip-types scripts/measure-caption-latency.ts",
     "test": "node --experimental-strip-types src/security-tests.ts",
     "test:formatter-file": "node --experimental-strip-types scripts/inspect-formatter-file.ts",
     "test:resize-image": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --experimental-strip-types scripts/test-resize-image.ts",

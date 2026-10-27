@@ -45,11 +45,13 @@ export function stopSessionOnLeave(sessionId: string, operatorToken: string) {
   });
 }
 
-export async function publishLine(sessionId: string, operatorToken: string, update: CaptionUpdate) {
+// `previousRoundTripMs` is how long the booth's last publish took; it and `recognitionMs` are only
+// logged next to the server's timings, to find where the delay is.
+export async function publishLine(sessionId: string, operatorToken: string, update: CaptionUpdate, previousRoundTripMs?: number) {
   const result = await apiFetch<{ line: CaptionLine }>(`/api/caption-sessions/${sessionId}/lines`, {
     method: "POST",
     headers: { [OPERATOR_TOKEN_HEADER]: operatorToken },
-    body: JSON.stringify(update),
+    body: JSON.stringify({ line: update.line, source: update.source, final: update.final, timing: { recognitionMs: update.recognitionMs, previousRoundTripMs } }),
     signal: AbortSignal.timeout(15_000),
   });
   return result.line;

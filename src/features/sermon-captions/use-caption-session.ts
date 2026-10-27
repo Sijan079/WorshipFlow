@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api-client";
 import { CaptionAssembler, latestCaptionLines, type CaptionUpdate } from "./caption-contract";
 import { CaptionStreamConnection } from "./caption-connection";
 import { createTicker } from "./heartbeat-ticker";
+import { recognitionLagMs } from "./caption-metrics";
 import { canResumeSession } from "./caption-resume";
 import { claimStreamLock } from "./stream-lock";
 import type { CaptionRunState } from "./caption-ui";
@@ -53,6 +54,9 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   const presenceSequenceRef = useRef(0);
   const quotaNotifiedRef = useRef(false);
   const streamLockRef = useRef<{ release: () => void } | null>(null);
+  // Timing only: when this audio stream began, and how long the last publish took.
+  const streamStartRef = useRef(0);
+  const lastRoundTripRef = useRef<number | undefined>(undefined);
   const resumeRef = useRef<((current: CaptionSession, token: string, saved: InputChoice) => Promise<void>) | null>(null);
   const connectionStatusRef = useRef<PresenceStatus>("CONNECTING");
 
@@ -126,7 +130,9 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     const active = activeRef.current;
     if (!active) return;
     queueRef.current = queueRef.current.then(async () => {
-      const line = await publishLine(active.id, active.token, update);
+      const startedAt = performance.now();
+      const line = await publishLine(active.id, active.token, update, lastRoundTripRef.current);
+      lastRoundTripRef.current = Math.round(performance.now() - startedAt);
       setLines((previous) => latestCaptionLines(previous, line));
     }).catch((error) => {
       // Azure's allowance is used up: say so plainly, once, instead of repeating "interrupted".
@@ -185,6 +191,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     stoppingRef.current = false;
     presenceSequenceRef.current = 0;
     quotaNotifiedRef.current = false;
+    lastRoundTripRef.current = undefined;
     connectionStatusRef.current = "CONNECTING";
     presenceTickerRef.current = createTicker(5_000, () => heartbeat(connectionStatusRef.current));
 
@@ -192,11 +199,16 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
       initialToken: deepgramToken,
       getToken: () => fetchDeepgramToken(current.id, token),
       createSocket: openDeepgramSocket,
-      createRecorder: () => new MediaRecorder(stream, mimeType ? { mimeType } : undefined),
+      // Each new connection restarts the audio clock, so the start time is taken when its recorder is made.
+      createRecorder: () => {
+        streamStartRef.current = performance.now();
+        return new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      },
       onMessage: (data) => {
         try {
           const result = JSON.parse(String(data));
-          for (const update of assemblerRef.current.accept(result)) publish(update);
+          const recognitionMs = recognitionLagMs({ streamElapsedMs: performance.now() - streamStartRef.current, start: result.start, duration: result.duration });
+          for (const update of assemblerRef.current.accept(result)) publish({ ...update, recognitionMs });
         } catch { /* Ignore non-transcript provider events. */ }
       },
       onState: (connectionState, attempts) => {
