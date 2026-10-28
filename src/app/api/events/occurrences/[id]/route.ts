@@ -5,7 +5,7 @@ import { reportRouteFailure } from "@/lib/observability";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { requireEventsEdit } from "@/features/events/event-access";
 import { UpdateOccurrenceSchema } from "@/features/events/event-validation";
-import { localDateInZone } from "@/features/events/recurrence";
+import { eventSpanDays, localDateInZone, localTimeInZone } from "@/features/events/recurrence";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -28,7 +28,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const occurrence = await prisma.churchEventOccurrence.findFirst({
       where: { id, event: { workspaceId: context.workspaceId } },
-      select: { id: true, status: true, doneAt: true, startsAt: true, event: { select: { timezone: true, repeatKind: true } } },
+      select: { id: true, eventId: true, status: true, doneAt: true, startsAt: true, event: { select: { timezone: true, repeatKind: true } } },
     });
     if (!occurrence) return NextResponse.json({ error: "Event date not found." }, { status: 404 });
 
@@ -62,6 +62,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
       select: { id: true, eventId: true, localDate: true, startsAt: true, endsAt: true, status: true, doneAt: true, changeNote: true, registrationUrl: true, attendanceCount: true, edited: true },
     });
+    // A one-time event keeps its saved first date, times and length next to the date itself, so they follow it.
+    if (occurrence.event.repeatKind === "NONE" && input.startsAt && input.endsAt) {
+      const zone = occurrence.event.timezone;
+      await prisma.churchEvent.update({
+        where: { id: occurrence.eventId },
+        data: {
+          firstLocalDate: updated.localDate,
+          startLocal: localTimeInZone(updated.startsAt, zone),
+          endLocal: localTimeInZone(updated.endsAt, zone),
+          spanDays: eventSpanDays(updated.startsAt, updated.endsAt, zone),
+        },
+      });
+    }
     return NextResponse.json({ ...updated, startsAt: updated.startsAt.toISOString(), endsAt: updated.endsAt.toISOString(), doneAt: updated.doneAt?.toISOString() ?? null });
   } catch (error: unknown) {
     return errorResponse(error, request, "Failed to save the event date.");

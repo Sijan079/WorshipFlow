@@ -6,8 +6,8 @@ import { ExternalLink } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { PublicSwitch } from "./event-form-fields";
 import { fullDateLabel, timeLabel } from "./event-labels";
-import { timeInputValue } from "./event-form";
-import { localDateInZone, zonedLocalToUtc } from "./recurrence";
+import { buildOccurrenceTimes, occurrenceProblem, timeInputValue } from "./event-form";
+import { localDateInZone } from "./recurrence";
 import { canMarkDone, canMarkNotDone, needsReview } from "./event-status";
 import type { EventOccurrenceSummary } from "./event-types";
 
@@ -123,10 +123,16 @@ function EditForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onD
   const [title, setTitle] = useState(item.title);
   const [venue, setVenue] = useState(item.venue ?? "");
   const [description, setDescription] = useState(item.description ?? "");
+  const dateNow = item.localDate;
+  const endDateNow = localDateInZone(new Date(item.endsAt), item.timezone);
+  const [date, setDate] = useState(dateNow);
+  const [endDate, setEndDate] = useState(endDateNow);
   const [startTime, setStartTime] = useState(startNow);
   const [endTime, setEndTime] = useState(endNow);
   const [scope, setScope] = useState<Scope>("THIS");
   const timesChanged = startTime !== startNow || endTime !== endNow;
+  const datesChanged = date !== dateNow || endDate !== endDateNow;
+  const problem = occurrenceProblem({ date, endDate, startTime, endTime });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -135,21 +141,18 @@ function EditForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onD
         ...(venue.trim() !== (item.venue ?? "") ? { venue: venue.trim() || null } : {}),
         ...(description.trim() !== (item.description ?? "") ? { description: description.trim() || null } : {}),
       };
-      const futureTimes = timesChanged && item.repeats && scope === "FUTURE";
+      // Moving a date, or changing how long it lasts, only ever applies to this date.
+      const futureTimes = timesChanged && !datesChanged && item.repeats && scope === "FUTURE";
       if (Object.keys(eventChanges).length > 0 || futureTimes) {
         await apiFetch(`/api/events/${item.eventId}`, {
           method: "PATCH",
           body: JSON.stringify({ ...eventChanges, ...(futureTimes ? { startLocal: startTime, endLocal: endTime } : {}) }),
         });
       }
-      if (timesChanged && !futureTimes) {
-        const lastDay = localDateInZone(new Date(item.endsAt), item.timezone);
+      if ((timesChanged || datesChanged) && !futureTimes) {
         await apiFetch(`/api/events/occurrences/${item.id}`, {
           method: "PATCH",
-          body: JSON.stringify({
-            startsAt: zonedLocalToUtc(item.localDate, startTime, item.timezone).toISOString(),
-            endsAt: zonedLocalToUtc(lastDay, endTime, item.timezone).toISOString(),
-          }),
+          body: JSON.stringify(buildOccurrenceTimes({ date, endDate, startTime, endTime }, item.timezone)),
         });
       }
     },
@@ -158,7 +161,7 @@ function EditForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onD
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || problem) return;
     save.mutate();
   }
 
@@ -166,11 +169,17 @@ function EditForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onD
     <form onSubmit={submit} className="space-y-4 border-t border-[var(--border-default)] pt-4">
       <h3 className="text-lg font-semibold">Edit event</h3>
       <label className="block text-sm font-medium">Event name<input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} className={INPUT} /></label>
+      <label className="block text-sm font-medium">Date<input required type="date" value={date} onChange={(event) => { setDate(event.target.value); if (endDate < event.target.value) setEndDate(event.target.value); }} className={INPUT} /></label>
+      {item.repeats ? null : (
+        <label className="block text-sm font-medium">Ends on <span className="font-normal text-[var(--text-muted)]">for an event over several days</span>
+          <input required type="date" min={date} value={endDate} onChange={(event) => setEndDate(event.target.value)} className={INPUT} />
+        </label>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-sm font-medium">Start<input required type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={INPUT} /></label>
         <label className="block text-sm font-medium">End<input required type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={INPUT} /></label>
       </div>
-      {item.repeats && timesChanged ? (
+      {item.repeats && timesChanged && !datesChanged ? (
         <fieldset>
           <legend className="text-sm font-medium">Change the times for</legend>
           <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label="Which dates get the new times">
@@ -183,10 +192,11 @@ function EditForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onD
       ) : null}
       <label className="block text-sm font-medium">Venue <span className="font-normal text-[var(--text-muted)]">optional</span><input maxLength={200} value={venue} onChange={(event) => setVenue(event.target.value)} className={INPUT} /></label>
       <label className="block text-sm font-medium">Details <span className="font-normal text-[var(--text-muted)]">optional</span><textarea rows={3} maxLength={4000} value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 py-2 focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]" /></label>
-      {item.repeats ? <p className="text-xs text-[var(--text-muted)]">Name, place and details apply to every date of this event.</p> : null}
+      {item.repeats ? <p className="text-xs text-[var(--text-muted)]">Name, place and details apply to every date of this event. A new date applies to this date only.</p> : null}
+      {problem ? <p role="alert" className="text-sm text-[var(--state-danger)]">{problem}</p> : null}
       {save.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(save.error)}</p> : null}
       <div className="flex gap-3">
-        <button type="submit" disabled={save.isPending} className="min-h-11 flex-1 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60">{save.isPending ? "Saving…" : "Save"}</button>
+        <button type="submit" disabled={save.isPending || Boolean(problem)} className="min-h-11 flex-1 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60">{save.isPending ? "Saving…" : "Save"}</button>
         <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Close</button>
       </div>
     </form>

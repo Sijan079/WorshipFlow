@@ -131,6 +131,8 @@ export const UpdateOccurrenceSchema = z.object({
     context.addIssue({ code: "custom", path: ["endsAt"], message: "Change the start and the end together." });
   } else if (value.startsAt && value.endsAt && new Date(value.endsAt) <= new Date(value.startsAt)) {
     context.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
+  } else if (value.startsAt && value.endsAt && new Date(value.endsAt).getTime() - new Date(value.startsAt).getTime() > (MAX_ONE_OFF_SPAN_DAYS + 1) * 86400000 + 3600000) {
+    context.addIssue({ code: "custom", path: ["endsAt"], message: "An event can last up to 31 days." });
   }
 });
 

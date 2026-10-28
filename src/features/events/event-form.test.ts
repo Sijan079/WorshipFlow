@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { CreateEventSchema } from "./event-validation.ts";
-import { buildCreatePayload, formProblem, initialForm, timeInputValue, toggleWeekday } from "./event-form.ts";
+import { buildCreatePayload, buildOccurrenceTimes, formProblem, initialForm, occurrenceProblem, timeInputValue, toggleWeekday } from "./event-form.ts";
 
 const zone = "Asia/Manila";
 const read = (...segments: string[]) => readFileSync(join(process.cwd(), ...segments), "utf8");
@@ -84,4 +84,29 @@ test("a service has an optional attendance number", () => {
   const services = read("src", "components", "service-builder-client.tsx");
   assert.ok(services.includes("How many attended"));
   assert.match(services, /headcount/);
+});
+
+test("editing one date can move it and change how many days it lasts", () => {
+  const moved = buildOccurrenceTimes({ date: "2026-11-02", endDate: "2026-11-02", startTime: "18:00", endTime: "20:00" }, zone);
+  assert.equal(moved.startsAt, "2026-11-02T10:00:00.000Z");
+  assert.equal(moved.endsAt, "2026-11-02T12:00:00.000Z");
+  const longer = buildOccurrenceTimes({ date: "2026-11-02", endDate: "2026-11-04", startTime: "09:00", endTime: "12:00" }, zone);
+  assert.equal(longer.endsAt, "2026-11-04T04:00:00.000Z");
+});
+
+test("an edit that ends before it starts is explained", () => {
+  assert.equal(occurrenceProblem({ date: "2026-11-02", endDate: "2026-11-02", startTime: "18:00", endTime: "20:00" }), null);
+  assert.match(occurrenceProblem({ date: "2026-11-02", endDate: "2026-11-01", startTime: "18:00", endTime: "20:00" }) ?? "", /end date/i);
+  assert.match(occurrenceProblem({ date: "2026-11-02", endDate: "2026-11-02", startTime: "20:00", endTime: "18:00" }) ?? "", /end time/i);
+  assert.match(occurrenceProblem({ date: "", endDate: "", startTime: "18:00", endTime: "20:00" }) ?? "", /date/i);
+});
+
+test("the edit form has date fields and a one-time event keeps its saved shape in step", () => {
+  const details = read("src", "features", "events", "event-details.tsx");
+  assert.match(details, /type="date"/);
+  assert.ok(details.includes("Ends on"));
+  assert.match(details, /buildOccurrenceTimes\(/);
+  const route = read("src", "app", "api", "events", "occurrences", "[id]", "route.ts");
+  assert.match(route, /firstLocalDate/);
+  assert.match(route, /repeatKind === "NONE"/);
 });

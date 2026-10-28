@@ -75,3 +75,21 @@ export function buildCreatePayload(form: NewEventForm, timezone: string) {
 export function timeInputValue(instant: string, timezone: string) {
   return localTimeInZone(new Date(instant), timezone);
 }
+
+type OccurrenceEdit = { date: string; endDate: string; startTime: string; endTime: string };
+
+// What stops an edit of one date from being saved, in plain words, or null.
+export function occurrenceProblem(edit: OccurrenceEdit) {
+  if (!edit.date || !edit.endDate) return "Choose a date.";
+  if (edit.endDate < edit.date) return "The end date cannot be before the first date.";
+  if (`${edit.endDate}T${edit.endTime}` <= `${edit.date}T${edit.startTime}`) return "The end time must be after the start time.";
+  return null;
+}
+
+// The exact start and end for an edited date, read in the event's time zone.
+export function buildOccurrenceTimes(edit: OccurrenceEdit, timezone: string) {
+  return {
+    startsAt: zonedLocalToUtc(edit.date, edit.startTime, timezone).toISOString(),
+    endsAt: zonedLocalToUtc(edit.endDate, edit.endTime, timezone).toISOString(),
+  };
+}
