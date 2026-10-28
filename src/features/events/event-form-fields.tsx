@@ -20,7 +20,7 @@ const REPEATS: Array<{ value: RepeatChoice; label: string }> = [
 ];
 
 // A large on/off switch. The label is part of the button, so the whole row is the target.
-export function PublicSwitch({ checked, onChange, disabled }: { checked: boolean; onChange: (next: boolean) => void; disabled?: boolean }) {
+export function PublicSwitch({ checked, onChange, disabled, note = "Only the title, date, time and place are shown." }: { checked: boolean; onChange: (next: boolean) => void; disabled?: boolean; note?: string }) {
   return (
     <div>
       <button
@@ -36,7 +36,7 @@ export function PublicSwitch({ checked, onChange, disabled }: { checked: boolean
           <span className="size-5 rounded-full bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]" />
         </span>
       </button>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">Only the title, date, time and place are shown.</p>
+      <p className="mt-1 text-xs text-[var(--text-muted)]">{note}</p>
     </div>
   );
 }

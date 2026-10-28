@@ -273,6 +273,7 @@ model Workspace {
   errorNotifications ErrorNotification[]
   formatterConversions FormatterConversion[]
   churchEvents ChurchEvent[]
+  posts Post[]
   actionGrants WorkspaceActionGrant[]
   roleActionDefaults WorkspaceRoleActionDefault[]
 }
@@ -295,6 +296,8 @@ model User {
   actionGrants WorkspaceActionGrant[] @relation("ActionGrantSubject")
   grantedActions WorkspaceActionGrant[] @relation("ActionGrantIssuer")
   captionSessions CaptionSession[] @relation("CaptionSessionOperator")
+  postsCreated Post[] @relation("PostCreatedBy")
+  postsUpdated Post[] @relation("PostUpdatedBy")
 }
 
 // Conversion history is metadata only. Lyrics live exclusively in the disposable draft.
@@ -972,6 +975,7 @@ model ChurchEvent {
   workspace        Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   occurrences      ChurchEventOccurrence[]
   announcements    EventAnnouncement[]
+  posts            Post[]
 
   @@index([workspaceId, status, createdAt])
 }
@@ -1070,4 +1074,46 @@ model WorkspaceRoleActionDefault {
 model KeepAlive {
   id        String   @id
   lastRunAt DateTime
+}
+
+enum PostKind {
+  ANNOUNCEMENT
+  ARTICLE
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// One content type for everything the church writes to be read. An ANNOUNCEMENT is a short, timely notice with
+// optional dates, an event link and social copy. An ARTICLE (added with the public site) is a longer, lasting
+// post with its own page. Both share one publishing flow: Draft or Published, and the website switch.
+// Dates are local ("YYYY-MM-DD") in the post's own time zone. Authorship is set by the server.
+model Post {
+  id            String     @id @default(uuid())
+  workspaceId   String
+  kind          PostKind
+  title         String
+  body          String     @default("") @db.Text
+  status        PostStatus @default(DRAFT)
+  isPublic      Boolean    @default(false)
+  timezone      String     @default("UTC")
+  startDate     String?
+  endDate       String?
+  eventId       String?
+  facebookText  String?    @db.Text
+  instagramText String?    @db.Text
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  event     ChurchEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy User?        @relation("PostCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?        @relation("PostUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, kind, status])
+  @@index([eventId])
 }

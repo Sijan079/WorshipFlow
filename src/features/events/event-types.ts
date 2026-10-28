@@ -31,4 +31,5 @@ export type EventListResponse = {
   canEdit: boolean;
   canDelete: boolean;
   needsReviewCount: number;
+  canCreateAnnouncement: boolean;
 };

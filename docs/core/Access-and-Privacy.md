@@ -23,6 +23,15 @@ team enters and edits all People data; congregants only see the public site.
   if a real need appears. Rules live in
   `src/features/people/people-access-rules.ts`, enforced per route handler with
   `requirePeopleAction`.
+- Module ANNOUNCEMENTS (built, step 7) with grantable actions VIEW, CREATE, EDIT,
+  DELETE, and PUBLISH. Member default: no access, so an Owner grants them. Every
+  action also requires View, and Edit is needed alongside Publish to change an
+  announcement. Create and Edit save drafts. Only Publish can publish, unpublish,
+  or change the website switch; someone with Edit but not Publish who changes a
+  published announcement sends it back to Draft. Only a draft can be deleted.
+  Anyone with View sees drafts inside the app. Rules live in
+  `src/features/posts/post-rules.ts` and are enforced per route handler with
+  `requireAnnouncementAction`. The public site must use `isPubliclyVisible`.
 - Site management (pages, posts, publish) is a module with its own actions
   (VIEW, CREATE, EDIT, DELETE, PUBLISH). Exact enum names are set in
   `Data-Model.md`.

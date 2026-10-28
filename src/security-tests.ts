@@ -61,6 +61,8 @@ import "./features/events/event-series.test.ts";
 import "./features/events/event-api.test.ts";
 import "./features/events/event-form.test.ts";
 import "./features/events/event-status.test.ts";
+import "./features/posts/post-rules.test.ts";
+import "./features/posts/post-api.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";

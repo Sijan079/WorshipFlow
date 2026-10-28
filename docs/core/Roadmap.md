@@ -66,6 +66,9 @@ write the failing check first, build, verify, document.
    controls, multi-day dates, Public switch, edit, cancel, restore, service attendance); see item 14.
    Remaining: change how an existing event repeats from the screen, and checking it in a browser.
 7. **Announcements** as the first kind of Post (`kind = ANNOUNCEMENT`), with `isPublic`. Articles are added to the same Post table in step 8.
+   **Progress (2026-10-28):** built and tested (Post table and migration, rules, API, permissions,
+   sidebar item, Announcements screen, "Announce this event"); see `docs/changes/20261027.md` item 16.
+   Remaining: checking it in a browser.
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
    indexable/unlisted switch. Largest step, and the one most likely to slip.
    Check: a test proves public routes cannot read People, Ministry, or

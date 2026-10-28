@@ -34,7 +34,8 @@ test("only implemented actions can be assigned", () => {
   assert.equal(isConfigurableModuleAction("EVENTS", "CREATE"), true);
   assert.equal(isConfigurableModuleAction("EVENTS", "DELETE"), true);
   assert.equal(isConfigurableModuleAction("EVENTS", "PUBLISH"), false);
-  assert.equal(isConfigurableModuleAction("ANNOUNCEMENTS", "PUBLISH"), false);
+  assert.equal(isConfigurableModuleAction("ANNOUNCEMENTS", "PUBLISH"), true);
+  assert.equal(isConfigurableModuleAction("ANNOUNCEMENTS", "OPERATE"), false);
   assert.equal(isConfigurableModuleAction("CAPTIONS", "VIEW"), true);
   assert.equal(isConfigurableModuleAction("CAPTIONS", "OPERATE"), true);
   assert.equal(isConfigurableModuleAction("CAPTIONS", "DELETE"), false);

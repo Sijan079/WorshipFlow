@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const now = new Date();
     const needsReviewWhere = { event: { workspaceId: context.workspaceId, repeatKind: "NONE" as const }, status: "SCHEDULED" as const, doneAt: null, endsAt: { lt: now } };
 
-    const [occurrences, createGrant, createDefault, canEdit, canDelete, needsReviewCount] = await Promise.all([
+    const [occurrences, createGrant, createDefault, canEdit, canDelete, needsReviewCount, canCreateAnnouncement] = await Promise.all([
       prisma.churchEventOccurrence.findMany({
         where: review || !range.success
           ? needsReviewWhere
@@ -60,6 +60,8 @@ export async function GET(request: Request) {
       hasModuleAction(context, "EVENTS", "EDIT"),
       hasModuleAction(context, "EVENTS", "DELETE"),
       prisma.churchEventOccurrence.count({ where: needsReviewWhere }),
+      // "Announce this event" needs permission to view and to write announcements.
+      Promise.all([hasModuleAction(context, "ANNOUNCEMENTS", "VIEW"), hasModuleAction(context, "ANNOUNCEMENTS", "CREATE")]).then(([view, create]) => view && create),
     ]);
     // For each event, how many of its dates are still scheduled. Delete is offered only when none are.
     const stillScheduled = await prisma.churchEventOccurrence.groupBy({
@@ -95,7 +97,7 @@ export async function GET(request: Request) {
       conflict: occurrences.some((other) => other.id !== occurrence.id && other.status === "SCHEDULED" && occurrence.status === "SCHEDULED" && other.startsAt < occurrence.endsAt && other.endsAt > occurrence.startsAt),
     }));
 
-    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit, canDelete, needsReviewCount });
+    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit, canDelete, needsReviewCount, canCreateAnnouncement });
   } catch (error: unknown) {
     return errorResponse(error, "Failed to load events.");
   }

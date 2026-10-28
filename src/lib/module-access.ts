@@ -7,6 +7,16 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
     // Needs View. Permanent: removes the event and all of its dates. Cancelling a date is under Edit.
     { action: "DELETE", label: "Delete events" },
   ] },
+  { module: "ANNOUNCEMENTS", label: "Announcements", actions: [
+    { action: "VIEW", label: "View announcements" },
+    { action: "CREATE", label: "Write announcements" },
+    // Needs View. Edits to a published announcement send it back to Draft unless the person can also publish.
+    { action: "EDIT", label: "Edit announcements" },
+    // Needs View. Only a draft can be deleted; a published one is set back to Draft first.
+    { action: "DELETE", label: "Delete announcements" },
+    // Needs View. Publishing, unpublishing, and the website switch.
+    { action: "PUBLISH", label: "Publish announcements" },
+  ] },
   { module: "CAPTIONS", label: "Sermon Captions", actions: [
     { action: "VIEW", label: "View captions" },
     { action: "OPERATE", label: "Operate live captions" },
@@ -32,8 +42,9 @@ export function resolveModuleAction(role: string, defaultEnabled: boolean, perso
   return personalOverride ?? defaultEnabled;
 }
 
-export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false, canViewPeople = false) {
+export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false, canViewPeople = false, canViewAnnouncements = false) {
   if (href === "/events") return canViewEvents;
+  if (href === "/announcements") return canViewAnnouncements;
   if (href === "/captions") return canViewCaptions;
   if (href === "/people" || href === "/ministries") return canViewPeople;
   return true;

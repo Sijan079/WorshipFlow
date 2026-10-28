@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -22,7 +23,8 @@ function errorText(error: unknown) {
 
 // The panel for one date of an event. Anyone who can see events reads it; people with Edit can change the
 // event, change this date's times, cancel the date, and bring a cancelled date back.
-export default function EventDetails({ item, canEdit, canDelete }: { item: EventOccurrenceSummary; canEdit: boolean; canDelete: boolean }) {
+export default function EventDetails({ item, canEdit, canDelete, canAnnounce }: { item: EventOccurrenceSummary; canEdit: boolean; canDelete: boolean; canAnnounce: boolean }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit" | "cancel" | "cancelAll" | "done" | "delete">("view");
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -33,6 +35,22 @@ export default function EventDetails({ item, canEdit, canDelete }: { item: Event
   const togglePublic = useMutation({
     mutationFn: (isPublic: boolean) => apiFetch(`/api/events/${item.eventId}`, { method: "PATCH", body: JSON.stringify({ isPublic }) }),
     onSuccess: refresh,
+  });
+  // Starts a draft announcement for this event, with the date, time and place filled in, and opens it to edit.
+  const announce = useMutation({
+    mutationFn: () => apiFetch<{ id: string }>("/api/announcements", {
+      method: "POST",
+      body: JSON.stringify({
+        title: item.title,
+        body: [`${fullDateLabel(item.localDate)}, ${timeLabel(item.startsAt, item.timezone)} to ${timeLabel(item.endsAt, item.timezone)}`, item.venue ? `at ${item.venue}` : ""].filter(Boolean).join(" ") + ".",
+        eventId: item.eventId,
+        timezone: item.timezone,
+      }),
+    }),
+    onSuccess: (created) => {
+      const slug = window.location.pathname.match(/^\/w\/([^/]+)/)?.[1];
+      router.push(slug ? `/w/${slug}/announcements?post=${created.id}` : "/");
+    },
   });
   const markNotDone = useMutation({
     mutationFn: () => apiFetch(`/api/events/occurrences/${item.id}`, { method: "PATCH", body: JSON.stringify({ done: false }) }),
@@ -85,6 +103,12 @@ export default function EventDetails({ item, canEdit, canDelete }: { item: Event
           ) : null}
           {canEdit && item.repeats && item.activeDates > 0 ? <button type="button" onClick={() => setMode("cancelAll")} className={SECONDARY_BUTTON}>Cancel all dates</button> : null}
           {canDelete && item.activeDates === 0 ? <button type="button" onClick={() => setMode("delete")} className={SECONDARY_BUTTON}>Delete event</button> : null}
+        </div>
+      ) : null}
+      {canAnnounce && mode === "view" ? (
+        <div>
+          <button type="button" onClick={() => announce.mutate()} disabled={announce.isPending} className={SECONDARY_BUTTON}>{announce.isPending ? "Creating…" : "Announce this event"}</button>
+          {announce.isError ? <p role="alert" className="mt-1 text-sm text-[var(--state-danger)]">{errorText(announce.error)}</p> : null}
         </div>
       ) : null}
       {canDelete && item.activeDates > 0 && mode === "view" ? <p className="text-xs text-[var(--text-muted)]">To delete this event, cancel it first.</p> : null}
