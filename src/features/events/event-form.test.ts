@@ -110,3 +110,9 @@ test("the edit form has date fields and a one-time event keeps its saved shape i
   assert.match(route, /firstLocalDate/);
   assert.match(route, /repeatKind === "NONE"/);
 });
+
+test("the whole day cell selects the date, and an event chip inside it selects the event instead", () => {
+  const page = read("src", "features", "events", "events-page-client.tsx");
+  assert.match(page, /<div key=\{cell\.date\} onClick=/);
+  assert.match(page, /event\.stopPropagation\(\)/);
+});
