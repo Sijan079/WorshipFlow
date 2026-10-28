@@ -65,7 +65,7 @@ write the failing check first, build, verify, document.
    The migration `20261028000000_event_repeat_rule` was applied and the Events screen was built (repeat
    controls, multi-day dates, Public switch, edit, cancel, restore, service attendance); see item 14.
    Remaining: change how an existing event repeats from the screen, and checking it in a browser.
-7. **Announcements**, with `isPublic`.
+7. **Announcements** as the first kind of Post (`kind = ANNOUNCEMENT`), with `isPublic`. Articles are added to the same Post table in step 8.
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
    indexable/unlisted switch. Largest step, and the one most likely to slip.
    Check: a test proves public routes cannot read People, Ministry, or

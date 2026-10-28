@@ -56,7 +56,7 @@ intent and the decisions behind schema changes.
 - `PageBlock`: belongs to a page, ordered, typed (heading, rich text, image,
   button, announcements list, events list, service times, contact). Content is
   structured data, never raw HTML. Rich text is a restricted ProseMirror subset.
-- `Post`: title, slug, body (rich text), publish date, status, `isPublic`.
+- `Post` (shared with Announcements, see above): as an `ARTICLE` it adds slug, publish date and a rich-text body.
 - Image blocks reference files in Supabase Storage and count toward the
   workspace storage meter.
 
@@ -86,9 +86,13 @@ intent and the decisions behind schema changes.
   old enum column stays until the final cleanup).
 - `ChurchEventOccurrence.attendanceCount` stays as the optional per-occurrence
   headcount.
-- `EventAnnouncement` becomes a church-wide `Announcement`: title, body, optional
-  event link, status (DRAFT, PUBLISHED), start and end dates, `isPublic`, plus
-  plain text fields for Facebook and Instagram copy.
+- `EventAnnouncement` is replaced by a church-wide `Post` with a `kind` of
+  `ANNOUNCEMENT` or `ARTICLE` (decided 2026-10-28). Shared: title, body, status
+  (DRAFT, PUBLISHED), `isPublic`, who wrote it, and when. Announcement only: optional
+  event link, start and end dates, plain text fields for Facebook and Instagram copy.
+  Article only (added in step 8): slug, publish date, rich-text body. The rules for
+  each kind are enforced in validation and proved by tests. The old
+  `EventAnnouncement` table stays until the final cleanup.
 - `WorkspaceModule` enum: add PEOPLE, SITE (plus MINISTRIES if given its own
   grants). Site actions add PUBLISH to the existing action list.
 - `CaptionSettings` (stable captions link): one row per workspace with a unique `viewerToken` and `rotatedAt`,
@@ -109,7 +113,7 @@ and invitations, integrations, error notifications.
 2. Servant to Person and Ministry migration with dry-run.
 3. PEOPLE permission enum and grants.
 4. Event repeat rule and occurrence changes; service headcount.
-5. Announcement, with `isPublic`.
+5. Post (kind ANNOUNCEMENT first), with `isPublic`.
 6. Site models and the SITE permission enum.
 7. Keep-alive heartbeat table.
 8. Remove superseded tables and enums only after nothing references them.

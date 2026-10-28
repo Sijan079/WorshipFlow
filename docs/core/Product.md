@@ -56,7 +56,7 @@ Each links into its module. No charts or trends until there is enough data.
 
 - Pages are ordered lists of typed blocks: heading, rich text, image, button,
   announcements list, events list, service times, contact. Posts are a content
-  type with title, body, publish date, and a public flag.
+  type (see Announcements above) with title, body, publish date, and a public flag.
 - Public only by opt-in per item. People data never appears.
 - No custom HTML, CSS, or JavaScript, and no themes beyond a logo and a color
   and font preset. A default home page template ships with it.
@@ -88,8 +88,10 @@ Worship; they are not standalone modules.
   4 months of occurrences. Each occurrence can be edited or cancelled alone.
   A one-off event covers things like a monthly fellowship whose time varies.
   Overlapping events warn but never block.
-- Announcements: title, body, optional event link, draft/published status,
-  start and end date, public flag. Facebook/Instagram text is plain copy-paste
+- Posts are one content type with a kind. An Announcement is a short, timely
+  post: title, body, optional event link, draft/published status, start and end
+  date, public flag. An Article (step 8) is a longer, lasting post with its own
+  page. Both share one publishing flow. Facebook/Instagram text is plain copy-paste
   text. Auto-publishing to social media is a future feature, not built now.
 
 ## Deferred (not in the first cut)
