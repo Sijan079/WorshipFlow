@@ -10,6 +10,9 @@ export type EventOccurrenceSummary = {
   edited: boolean;
   changeNote: string | null;
   dateCount: number;
+  // How many of the event's dates are not cancelled. An event can be deleted only when this is 0.
+  activeDates: number;
+  doneAt: string | null;
   localDate: string;
   startsAt: string;
   endsAt: string;
@@ -27,4 +30,5 @@ export type EventListResponse = {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  needsReviewCount: number;
 };

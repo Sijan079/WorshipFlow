@@ -19,15 +19,22 @@ export async function GET(request: Request) {
   try {
     const context = await requireEventAction("EVENTS", "VIEW");
     const url = new URL(request.url);
+    // ?review=1 lists the one-time events that have ended and are neither done nor cancelled, in any month.
+    const review = url.searchParams.get("review") === "1";
     const range = EventRangeSchema.safeParse({ from: url.searchParams.get("from"), to: url.searchParams.get("to") });
-    if (!range.success) return NextResponse.json({ error: "Select a valid date range of up to 93 days." }, { status: 400 });
+    if (!review && !range.success) return NextResponse.json({ error: "Select a valid date range of up to 93 days." }, { status: 400 });
+    const now = new Date();
+    const needsReviewWhere = { event: { workspaceId: context.workspaceId, repeatKind: "NONE" as const }, status: "SCHEDULED" as const, doneAt: null, endsAt: { lt: now } };
 
-    const [occurrences, createGrant, createDefault, canEdit, canDelete] = await Promise.all([
+    const [occurrences, createGrant, createDefault, canEdit, canDelete, needsReviewCount] = await Promise.all([
       prisma.churchEventOccurrence.findMany({
-        where: {
-          localDate: { gte: range.data.from, lte: range.data.to },
-          event: { workspaceId: context.workspaceId },
-        },
+        where: review || !range.success
+          ? needsReviewWhere
+          : {
+            localDate: { gte: range.data.from, lte: range.data.to },
+            event: { workspaceId: context.workspaceId },
+          },
+        take: review ? 100 : undefined,
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
         include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, repeatKind: true, _count: { select: { occurrences: true } } } } },
       }),
@@ -52,7 +59,15 @@ export async function GET(request: Request) {
         : Promise.resolve(null),
       hasModuleAction(context, "EVENTS", "EDIT"),
       hasModuleAction(context, "EVENTS", "DELETE"),
+      prisma.churchEventOccurrence.count({ where: needsReviewWhere }),
     ]);
+    // For each event, how many of its dates are still scheduled. Delete is offered only when none are.
+    const stillScheduled = await prisma.churchEventOccurrence.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: [...new Set(occurrences.map((occurrence) => occurrence.eventId))] }, status: { not: "CANCELLED" } },
+      _count: { _all: true },
+    });
+    const activeByEvent = new Map(stillScheduled.map((row) => [row.eventId, row._count._all]));
 
     const items: EventOccurrenceSummary[] = occurrences.map((occurrence) => ({
       id: occurrence.id,
@@ -66,6 +81,8 @@ export async function GET(request: Request) {
       edited: occurrence.edited,
       changeNote: occurrence.changeNote,
       dateCount: occurrence.event._count.occurrences,
+      activeDates: activeByEvent.get(occurrence.eventId) ?? 0,
+      doneAt: occurrence.doneAt?.toISOString() ?? null,
       localDate: occurrence.localDate,
       startsAt: occurrence.startsAt.toISOString(),
       endsAt: occurrence.endsAt.toISOString(),
@@ -78,7 +95,7 @@ export async function GET(request: Request) {
       conflict: occurrences.some((other) => other.id !== occurrence.id && other.status === "SCHEDULED" && occurrence.status === "SCHEDULED" && other.startsAt < occurrence.endsAt && other.endsAt > occurrence.startsAt),
     }));
 
-    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit, canDelete });
+    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit, canDelete, needsReviewCount });
   } catch (error: unknown) {
     return errorResponse(error, "Failed to load events.");
   }

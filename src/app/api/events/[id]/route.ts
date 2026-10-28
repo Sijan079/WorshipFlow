@@ -34,6 +34,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     });
     if (!event) return NextResponse.json({ error: "Event not found." }, { status: 404 });
 
+    if (input.cancelAll) {
+      // Every date that is still scheduled is cancelled and marked as changed on its own, so a later change to
+      // the series leaves it alone. An open-ended series stops at its last date, so it does not grow again.
+      const result = await prisma.$transaction(async (tx) => {
+        const cancelled = await tx.churchEventOccurrence.updateMany({ where: { eventId: id, status: "SCHEDULED" }, data: { status: "CANCELLED", edited: true } });
+        if (event.repeatKind !== "NONE" && event.repeatUntil === null) {
+          const last = event.occurrences.at(-1);
+          if (last) await tx.churchEvent.update({ where: { id }, data: { repeatUntil: last.localDate } });
+        }
+        return cancelled.count;
+      });
+      return NextResponse.json({ id, cancelled: result });
+    }
+
     const changesSchedule = input.repeat !== undefined || input.firstLocalDate !== undefined || input.startLocal !== undefined || input.endLocal !== undefined || input.spanDays !== undefined;
     let schedule: ReturnType<typeof mergedSchedule> | null = null;
     if (changesSchedule) {
@@ -83,8 +97,14 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     const context = await requireEventsDelete();
     const { id } = await params;
     if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    const removed = await prisma.churchEvent.deleteMany({ where: { id, workspaceId: context.workspaceId } });
-    if (removed.count === 0) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    // The rule is part of the delete itself: it matches only when no date is left scheduled, so it holds even
+    // if someone restores a date a moment earlier.
+    const removed = await prisma.churchEvent.deleteMany({ where: { id, workspaceId: context.workspaceId, occurrences: { none: { status: { not: "CANCELLED" } } } } });
+    if (removed.count === 0) {
+      const exists = await prisma.churchEvent.findFirst({ where: { id, workspaceId: context.workspaceId }, select: { id: true } });
+      if (!exists) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      return NextResponse.json({ error: "Cancel every date of this event before deleting it." }, { status: 409 });
+    }
     return NextResponse.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     const status = error instanceof WorkspaceAuthorizationError ? error.status : 500;

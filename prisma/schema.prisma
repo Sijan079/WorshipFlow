@@ -983,6 +983,7 @@ model ChurchEventOccurrence {
   startsAt             DateTime
   endsAt               DateTime
   status               EventOccurrenceStatus     @default(SCHEDULED)
+  doneAt               DateTime?
   changeNote           String?                   @db.Text
   registrationUrl      String?                   @db.Text
   registrationProvider EventRegistrationProvider?

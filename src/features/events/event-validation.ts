@@ -103,6 +103,8 @@ export const UpdateEventSchema = z.object({
   startLocal: time.optional(),
   endLocal: time.optional(),
   spanDays: z.number().int().min(0).max(MAX_ONE_OFF_SPAN_DAYS).optional(),
+  // Cancels every date that is still scheduled. A repeating event must be fully cancelled before it can be deleted.
+  cancelAll: z.literal(true).optional(),
 }).refine((value) => Object.values(value).some((entry) => entry !== undefined), "Change at least one thing.");
 
 const optionalRegistrationUrl = z.url().max(2048).refine((value) => {
@@ -119,6 +121,8 @@ export const UpdateOccurrenceSchema = z.object({
   changeNote: z.string().trim().max(1000).nullable().optional(),
   registrationUrl: optionalRegistrationUrl.nullable().optional(),
   attendanceCount: z.number().int().min(0).max(100000).nullable().optional(),
+  // Marks a one-time event done (true) or not done (false).
+  done: z.boolean().optional(),
 }).superRefine((value, context) => {
   if (Object.values(value).every((entry) => entry === undefined)) {
     context.addIssue({ code: "custom", message: "Change at least one thing." });

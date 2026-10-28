@@ -9,9 +9,18 @@ import EventDetails from "./event-details";
 import EventFormFields from "./event-form-fields";
 import { buildCreatePayload, formProblem, initialForm, type NewEventForm } from "./event-form";
 import { fullDateLabel, monthLabel, timeLabel } from "./event-labels";
-import type { EventListResponse } from "./event-types";
+import { needsReview, reviewBannerText } from "./event-status";
+import type { EventListResponse, EventOccurrenceSummary } from "./event-types";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// A short word before the title when a date is not simply scheduled.
+function datePrefix(item: EventOccurrenceSummary) {
+  if (item.status === "CANCELLED") return "Cancelled · ";
+  if (item.doneAt) return "Done · ";
+  if (needsReview(item)) return "Needs review · ";
+  return item.conflict ? "Overlap · " : "";
+}
 
 export default function EventsPageClient({ initialDate }: { initialDate: string }) {
   const initialYear = Number(initialDate.slice(0, 4));
@@ -20,6 +29,7 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<"month" | "list">("month");
+  const [reviewMode, setReviewMode] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewEventForm>(() => initialForm(initialDate));
   const [formProblemText, setFormProblemText] = useState("");
@@ -32,9 +42,18 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
     queryFn: () => apiFetch<EventListResponse>(`/api/events?from=${from}&to=${to}`),
     enabled: Boolean(from && to),
   });
-  const items = useMemo(() => eventQuery.data?.items ?? [], [eventQuery.data?.items]);
-  const byDate = useMemo(() => groupByLocalDate(items), [items]);
-  const selected = items.find((item) => item.id === selectedId) ?? byDate.get(selectedDate)?.[0];
+  const reviewQuery = useQuery({
+    queryKey: ["events", "review"],
+    queryFn: () => apiFetch<EventListResponse>("/api/events?review=1"),
+    enabled: reviewMode,
+  });
+  const calendarItems = useMemo(() => eventQuery.data?.items ?? [], [eventQuery.data?.items]);
+  const reviewItems = useMemo(() => reviewQuery.data?.items ?? [], [reviewQuery.data?.items]);
+  // In review mode the list is the one-time events that ended without being marked done or cancelled.
+  const items = reviewMode ? reviewItems : calendarItems;
+  const byDate = useMemo(() => groupByLocalDate(calendarItems), [calendarItems]);
+  const selected = items.find((item) => item.id === selectedId) ?? (reviewMode ? undefined : byDate.get(selectedDate)?.[0]);
+  const bannerText = reviewBannerText(eventQuery.data?.needsReviewCount ?? 0);
   const createEvent = useMutation({
     mutationFn: (value: NewEventForm) => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -85,7 +104,19 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
         {eventQuery.data?.canCreate ? <button type="button" onClick={() => openNewEvent()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"><Plus aria-hidden="true" className="h-4 w-4" /> New event</button> : null}
       </header>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {reviewMode ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">Past events to review</h2>
+          <button type="button" onClick={() => { setReviewMode(false); setSelectedId(null); }} className="inline-flex min-h-11 items-center rounded-md border border-[var(--border-default)] px-4 text-sm font-semibold hover:bg-[var(--surface-panel-alt)]">Back to calendar</button>
+        </div>
+      ) : bannerText ? (
+        <button type="button" onClick={() => { setReviewMode(true); setSelectedId(null); setShowForm(false); }} className="mb-4 flex min-h-11 w-full items-center justify-between gap-3 rounded-md bg-[var(--state-warning-soft)] px-4 text-left text-sm font-medium text-[var(--state-warning)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
+          <span>{bannerText}</span>
+          <span className="shrink-0 underline underline-offset-2">Review</span>
+        </button>
+      ) : null}
+
+      <div className={reviewMode ? "hidden" : "mb-4 flex flex-wrap items-center justify-between gap-3"}>
         <div className="flex min-h-11 items-center gap-2">
           <h2 className="min-w-44 text-xl font-semibold">{monthLabel(month.year, month.index)}</h2>
           <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>
@@ -105,7 +136,7 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
       {eventQuery.isSuccess ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-            {view === "month" ? (
+            {!reviewMode && view === "month" ? (
               <>
                 <div className="hidden grid-cols-7 border-b border-[var(--border-default)] md:grid">{weekDays.map((day) => <span key={day} className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{day}</span>)}</div>
                 <div className="hidden grid-cols-7 md:grid">
@@ -113,7 +144,7 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
                     const dayItems = byDate.get(cell.date) ?? [];
                     return <div key={cell.date} className={`min-h-28 border-b border-r border-[var(--border-default)] p-1.5 ${cell.inMonth ? "" : "bg-[var(--surface-panel-alt)]"}`}>
                       <button type="button" onClick={() => { setSelectedDate(cell.date); setSelectedId(null); setShowForm(false); }} aria-label={fullDateLabel(cell.date)} aria-pressed={selectedDate === cell.date} className={`mb-1 flex h-8 w-8 items-center justify-center rounded-md text-xs font-semibold focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${selectedDate === cell.date ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]" : cell.inMonth ? "text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)]" : "text-[var(--text-muted)]"}`}>{Number(cell.date.slice(-2))}</button>
-                      {dayItems.slice(0, 3).map((item) => <button type="button" key={item.id} onClick={() => { setSelectedDate(cell.date); setSelectedId(item.id); setShowForm(false); }} className={`mb-1 block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${item.status === "CANCELLED" ? "bg-[var(--surface-panel-alt)] text-[var(--text-muted)] line-through" : item.conflict ? "bg-[var(--state-warning-soft)] text-[var(--state-warning)]" : "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"}`}>{item.status === "CANCELLED" ? "Cancelled · " : item.conflict ? "Overlap · " : ""}{item.title}</button>)}
+                      {dayItems.slice(0, 3).map((item) => <button type="button" key={item.id} onClick={() => { setSelectedDate(cell.date); setSelectedId(item.id); setShowForm(false); }} className={`mb-1 block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${item.status === "CANCELLED" ? "bg-[var(--surface-panel-alt)] text-[var(--text-muted)] line-through" : item.conflict ? "bg-[var(--state-warning-soft)] text-[var(--state-warning)]" : "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"}`}>{datePrefix(item)}{item.title}</button>)}
                       {dayItems.length > 3 ? <span className="px-1 text-xs text-[var(--text-muted)]">+{dayItems.length - 3} more</span> : null}
                     </div>;
                   })}
@@ -121,10 +152,10 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
                 {items.length === 0 ? <p className="hidden border-t border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-muted)] md:block">No events in this month. Scheduled events will appear on these dates.</p> : null}
               </>
             ) : null}
-            <div className={view === "month" ? "p-3 md:hidden" : "p-3"}>
+            <div className={!reviewMode && view === "month" ? "p-3 md:hidden" : "p-3"}>
               {items.length === 0 ? <div className="flex min-h-48 flex-col items-center justify-center px-4 text-center"><CalendarDays aria-hidden="true" className="mb-3 h-7 w-7 text-[var(--text-muted)]" /><p className="font-medium">No events in this month</p><p className="mt-1 text-sm text-[var(--text-muted)]">Scheduled events will appear here.</p></div> : (
                 <div className="divide-y divide-[var(--border-default)]">
-                  {items.map((item) => <button type="button" key={item.id} onClick={() => { setSelectedDate(item.localDate); setSelectedId(item.id); setShowForm(false); }} className="flex min-h-16 w-full items-center gap-4 px-2 py-3 text-left hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><span className="w-14 shrink-0 text-sm font-semibold text-[var(--text-secondary)]">{item.localDate.slice(5)}</span><span className="min-w-0 flex-1"><span className={`block truncate text-sm font-semibold ${item.status === "CANCELLED" ? "text-[var(--text-muted)] line-through" : ""}`}>{item.status === "CANCELLED" ? "Cancelled · " : ""}{item.title}</span><span className="block truncate text-xs text-[var(--text-muted)]">{timeLabel(item.startsAt, item.timezone)}{item.venue ? ` · ${item.venue}` : ""}</span></span>{item.conflict ? <span className="text-xs font-semibold text-[var(--state-warning)]">Overlap</span> : null}</button>)}
+                  {items.map((item) => <button type="button" key={item.id} onClick={() => { setSelectedDate(item.localDate); setSelectedId(item.id); setShowForm(false); }} className="flex min-h-16 w-full items-center gap-4 px-2 py-3 text-left hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><span className="w-14 shrink-0 text-sm font-semibold text-[var(--text-secondary)]">{item.localDate.slice(5)}</span><span className="min-w-0 flex-1"><span className={`block truncate text-sm font-semibold ${item.status === "CANCELLED" ? "text-[var(--text-muted)] line-through" : ""}`}>{datePrefix(item)}{item.title}</span><span className="block truncate text-xs text-[var(--text-muted)]">{timeLabel(item.startsAt, item.timezone)}{item.venue ? ` · ${item.venue}` : ""}</span></span>{item.conflict ? <span className="text-xs font-semibold text-[var(--state-warning)]">Overlap</span> : null}</button>)}
                 </div>
               )}
             </div>

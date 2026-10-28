@@ -28,11 +28,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const occurrence = await prisma.churchEventOccurrence.findFirst({
       where: { id, event: { workspaceId: context.workspaceId } },
-      select: { id: true, event: { select: { timezone: true } } },
+      select: { id: true, status: true, doneAt: true, startsAt: true, event: { select: { timezone: true, repeatKind: true } } },
     });
     if (!occurrence) return NextResponse.json({ error: "Event date not found." }, { status: 404 });
 
+    // Done is for one-time events that have started and are still scheduled; a date is never both done and
+    // cancelled, so one is undone before the other is set.
+    if (input.done === true) {
+      if (occurrence.event.repeatKind !== "NONE") return NextResponse.json({ error: "Only one-time events can be marked done." }, { status: 409 });
+      if (occurrence.status === "CANCELLED") return NextResponse.json({ error: "This event is cancelled. Restore it first." }, { status: 409 });
+      if (occurrence.startsAt > new Date()) return NextResponse.json({ error: "This event has not started yet." }, { status: 409 });
+    }
+    if (input.status === "CANCELLED" && occurrence.doneAt && input.done !== false) {
+      return NextResponse.json({ error: "Mark it not done first." }, { status: 409 });
+    }
+
     const startsAt = input.startsAt ? new Date(input.startsAt) : undefined;
+    // Marking done or recording attendance does not count as changing the date, so it gets no "Changed" tag.
+    const touchesSchedule = input.startsAt !== undefined || input.endsAt !== undefined || input.status !== undefined || input.changeNote !== undefined || input.registrationUrl !== undefined;
     const updated = await prisma.churchEventOccurrence.update({
       where: { id },
       data: {
@@ -44,11 +57,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         registrationUrl: input.registrationUrl === undefined ? undefined : input.registrationUrl,
         registrationProvider: input.registrationUrl === undefined ? undefined : input.registrationUrl ? "OTHER" : null,
         attendanceCount: input.attendanceCount,
-        edited: true,
+        doneAt: input.done === undefined ? undefined : input.done ? new Date() : null,
+        edited: touchesSchedule ? true : undefined,
       },
-      select: { id: true, eventId: true, localDate: true, startsAt: true, endsAt: true, status: true, changeNote: true, registrationUrl: true, attendanceCount: true, edited: true },
+      select: { id: true, eventId: true, localDate: true, startsAt: true, endsAt: true, status: true, doneAt: true, changeNote: true, registrationUrl: true, attendanceCount: true, edited: true },
     });
-    return NextResponse.json({ ...updated, startsAt: updated.startsAt.toISOString(), endsAt: updated.endsAt.toISOString() });
+    return NextResponse.json({ ...updated, startsAt: updated.startsAt.toISOString(), endsAt: updated.endsAt.toISOString(), doneAt: updated.doneAt?.toISOString() ?? null });
   } catch (error: unknown) {
     return errorResponse(error, request, "Failed to save the event date.");
   }

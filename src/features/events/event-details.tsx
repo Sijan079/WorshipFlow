@@ -8,6 +8,7 @@ import { PublicSwitch } from "./event-form-fields";
 import { fullDateLabel, timeLabel } from "./event-labels";
 import { timeInputValue } from "./event-form";
 import { localDateInZone, zonedLocalToUtc } from "./recurrence";
+import { canMarkDone, canMarkNotDone, needsReview } from "./event-status";
 import type { EventOccurrenceSummary } from "./event-types";
 
 const INPUT = "mt-1 min-h-11 w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]";
@@ -22,13 +23,19 @@ function errorText(error: unknown) {
 // The panel for one date of an event. Anyone who can see events reads it; people with Edit can change the
 // event, change this date's times, cancel the date, and bring a cancelled date back.
 export default function EventDetails({ item, canEdit, canDelete }: { item: EventOccurrenceSummary; canEdit: boolean; canDelete: boolean }) {
-  const [mode, setMode] = useState<"view" | "edit" | "cancel" | "delete">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "cancel" | "cancelAll" | "done" | "delete">("view");
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["events"] });
   const cancelled = item.status === "CANCELLED";
+  const done = item.doneAt !== null;
+  const review = needsReview(item);
 
   const togglePublic = useMutation({
     mutationFn: (isPublic: boolean) => apiFetch(`/api/events/${item.eventId}`, { method: "PATCH", body: JSON.stringify({ isPublic }) }),
+    onSuccess: refresh,
+  });
+  const markNotDone = useMutation({
+    mutationFn: () => apiFetch(`/api/events/occurrences/${item.id}`, { method: "PATCH", body: JSON.stringify({ done: false }) }),
     onSuccess: refresh,
   });
   const restore = useMutation({
@@ -43,6 +50,8 @@ export default function EventDetails({ item, canEdit, canDelete }: { item: Event
           <p className="text-xs font-semibold text-[var(--text-muted)]">{fullDateLabel(item.localDate)}</p>
           {item.edited ? <span className="rounded bg-[var(--surface-panel-strong)] px-2 py-0.5 text-xs font-semibold text-[var(--text-secondary)]">Changed</span> : null}
           {cancelled ? <span className="rounded bg-[var(--state-warning-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--state-warning)]">Cancelled</span> : null}
+          {done ? <span className="rounded bg-[var(--surface-panel-strong)] px-2 py-0.5 text-xs font-semibold text-[var(--text-secondary)]">Done</span> : null}
+          {review ? <span className="rounded bg-[var(--state-warning-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--state-warning)]">Needs review</span> : null}
         </div>
         <h2 className={`mt-2 text-xl font-semibold ${cancelled ? "text-[var(--text-muted)] line-through" : "text-[var(--text-primary)]"}`}>{item.title}</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -69,17 +78,24 @@ export default function EventDetails({ item, canEdit, canDelete }: { item: Event
           {canEdit && cancelled ? (
             <button type="button" onClick={() => restore.mutate()} disabled={restore.isPending} className={SECONDARY_BUTTON}>{restore.isPending ? "Restoring…" : "Restore"}</button>
           ) : null}
-          {canEdit && !cancelled ? (
+          {canEdit && canMarkDone(item) ? <button type="button" onClick={() => setMode("done")} className={SECONDARY_BUTTON}>Mark done</button> : null}
+          {canEdit && canMarkNotDone(item) ? <button type="button" onClick={() => markNotDone.mutate()} disabled={markNotDone.isPending} className={SECONDARY_BUTTON}>{markNotDone.isPending ? "Saving…" : "Mark not done"}</button> : null}
+          {canEdit && !cancelled && !done ? (
             <button type="button" onClick={() => setMode("cancel")} className={SECONDARY_BUTTON}>Cancel this date</button>
           ) : null}
-          {canDelete ? <button type="button" onClick={() => setMode("delete")} className={SECONDARY_BUTTON}>Delete event</button> : null}
+          {canEdit && item.repeats && item.activeDates > 0 ? <button type="button" onClick={() => setMode("cancelAll")} className={SECONDARY_BUTTON}>Cancel all dates</button> : null}
+          {canDelete && item.activeDates === 0 ? <button type="button" onClick={() => setMode("delete")} className={SECONDARY_BUTTON}>Delete event</button> : null}
         </div>
       ) : null}
+      {canDelete && item.activeDates > 0 && mode === "view" ? <p className="text-xs text-[var(--text-muted)]">To delete this event, cancel it first.</p> : null}
+      {markNotDone.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(markNotDone.error)}</p> : null}
       {restore.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(restore.error)}</p> : null}
 
       {canEdit && mode === "edit" ? <EditForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
       {canEdit && mode === "cancel" ? <CancelForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
 
+      {canEdit && mode === "done" ? <DoneForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
+      {canEdit && mode === "cancelAll" ? <CancelAllForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
       {canDelete && mode === "delete" ? <DeleteForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
 
       <div className="border-t border-[var(--border-default)] pt-4">
@@ -216,6 +232,52 @@ function DeleteForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; o
       <div className="flex gap-3">
         <button type="button" autoFocus onClick={onClose} className={SECONDARY_BUTTON}>Keep it</button>
         <button type="button" onClick={() => remove.mutate()} disabled={remove.isPending} className="ui-btn-danger-solid pressable min-h-11 flex-1 px-4 text-sm font-semibold disabled:opacity-60">{remove.isPending ? "Deleting…" : "Delete event"}</button>
+      </div>
+    </div>
+  );
+}
+
+// Marking done records that the event took place. The attendance number is optional and can be added later.
+function DoneForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onDone: () => void; onClose: () => void }) {
+  const [count, setCount] = useState(item.attendanceCount === null ? "" : String(item.attendanceCount));
+  const invalid = count.trim() !== "" && !/^[0-9]{1,6}$/.test(count.trim());
+  const mark = useMutation({
+    mutationFn: () => apiFetch(`/api/events/occurrences/${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ done: true, ...(count.trim() ? { attendanceCount: Number(count.trim()) } : {}) }),
+    }),
+    onSuccess: onDone,
+  });
+  return (
+    <div className="space-y-4 border-t border-[var(--border-default)] pt-4">
+      <h3 className="text-lg font-semibold">Mark this event done</h3>
+      <label className="block text-sm font-medium">How many attended <span className="font-normal text-[var(--text-muted)]">optional</span>
+        <input inputMode="numeric" value={count} onChange={(event) => setCount(event.target.value)} className={INPUT} />
+      </label>
+      {invalid ? <p role="alert" className="text-sm text-[var(--state-danger)]">Enter a whole number, like 120, or leave it empty.</p> : null}
+      {mark.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(mark.error)}</p> : null}
+      <div className="flex gap-3">
+        <button type="button" onClick={() => mark.mutate()} disabled={mark.isPending || invalid} className="min-h-11 flex-1 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60">{mark.isPending ? "Saving…" : "Mark done"}</button>
+        <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// Cancels every date that is still scheduled. A repeating event can only be deleted after this.
+function CancelAllForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onDone: () => void; onClose: () => void }) {
+  const cancelAll = useMutation({
+    mutationFn: () => apiFetch(`/api/events/${item.eventId}`, { method: "PATCH", body: JSON.stringify({ cancelAll: true }) }),
+    onSuccess: onDone,
+  });
+  return (
+    <div className="space-y-4 border-t border-[var(--border-default)] pt-4">
+      <h3 className="text-lg font-semibold">Cancel all dates?</h3>
+      <p className="text-sm text-[var(--text-secondary)]">{item.activeDates === 1 ? "The 1 date that is still scheduled" : `The ${item.activeDates} dates that are still scheduled`} will be marked Cancelled, and the event will not add new dates. They stay on the calendar until you delete the event.</p>
+      {cancelAll.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(cancelAll.error)}</p> : null}
+      <div className="flex gap-3">
+        <button type="button" autoFocus onClick={onClose} className={SECONDARY_BUTTON}>Keep it</button>
+        <button type="button" onClick={() => cancelAll.mutate()} disabled={cancelAll.isPending} className="ui-btn-danger-solid pressable min-h-11 flex-1 px-4 text-sm font-semibold disabled:opacity-60">{cancelAll.isPending ? "Cancelling…" : "Cancel all dates"}</button>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ test("deleting an event needs View and Delete, is scoped to the church, and remo
   const source = read(route("[id]"));
   assert.match(source, /export async function DELETE/);
   assert.match(source, /requireEventsDelete\(\)/);
-  assert.match(source, /prisma\.churchEvent\.deleteMany\(\{ where: \{ id, workspaceId: context\.workspaceId \} \}\)/);
+  assert.match(source, /prisma\.churchEvent\.deleteMany\(\{ where: \{ id, workspaceId: context\.workspaceId, occurrences:/);
   assert.match(read("prisma", "schema.prisma"), /event\s+ChurchEvent\s+@relation\(fields: \[eventId\], references: \[id\], onDelete: Cascade\)/);
   assert.match(read(route()), /canDelete/);
 });
@@ -56,7 +56,7 @@ test("changing a series reshapes only the future and is scoped to the church", (
 test("changing one occurrence marks it edited and is scoped to the church", () => {
   const source = read(route("occurrences", "[id]"));
   assert.match(source, /event: \{ workspaceId: context\.workspaceId \}/);
-  assert.match(source, /edited: true/);
+  assert.match(source, /edited: touchesSchedule/);
   assert.match(source, /UpdateOccurrenceSchema\.safeParse/);
   assert.match(source, /localDateInZone\(/);
 });
