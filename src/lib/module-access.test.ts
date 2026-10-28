@@ -32,6 +32,7 @@ test("people access is configurable for view, create, and edit but never delete"
 test("only implemented actions can be assigned", () => {
   assert.equal(isConfigurableModuleAction("EVENTS", "VIEW"), true);
   assert.equal(isConfigurableModuleAction("EVENTS", "CREATE"), true);
+  assert.equal(isConfigurableModuleAction("EVENTS", "DELETE"), true);
   assert.equal(isConfigurableModuleAction("EVENTS", "PUBLISH"), false);
   assert.equal(isConfigurableModuleAction("ANNOUNCEMENTS", "PUBLISH"), false);
   assert.equal(isConfigurableModuleAction("CAPTIONS", "VIEW"), true);

@@ -21,8 +21,8 @@ function errorText(error: unknown) {
 
 // The panel for one date of an event. Anyone who can see events reads it; people with Edit can change the
 // event, change this date's times, cancel the date, and bring a cancelled date back.
-export default function EventDetails({ item, canEdit }: { item: EventOccurrenceSummary; canEdit: boolean }) {
-  const [mode, setMode] = useState<"view" | "edit" | "cancel">("view");
+export default function EventDetails({ item, canEdit, canDelete }: { item: EventOccurrenceSummary; canEdit: boolean; canDelete: boolean }) {
+  const [mode, setMode] = useState<"view" | "edit" | "cancel" | "delete">("view");
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["events"] });
   const cancelled = item.status === "CANCELLED";
@@ -63,20 +63,24 @@ export default function EventDetails({ item, canEdit }: { item: EventOccurrenceS
         </div>
       ) : <p className="text-sm text-[var(--text-secondary)]">{item.isPublic ? "Shown on the church website." : "Not shown on the church website."}</p>}
 
-      {canEdit && mode === "view" ? (
+      {(canEdit || canDelete) && mode === "view" ? (
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => setMode("edit")} className={SECONDARY_BUTTON}>Edit</button>
-          {cancelled ? (
+          {canEdit ? <button type="button" onClick={() => setMode("edit")} className={SECONDARY_BUTTON}>Edit</button> : null}
+          {canEdit && cancelled ? (
             <button type="button" onClick={() => restore.mutate()} disabled={restore.isPending} className={SECONDARY_BUTTON}>{restore.isPending ? "Restoring…" : "Restore"}</button>
-          ) : (
+          ) : null}
+          {canEdit && !cancelled ? (
             <button type="button" onClick={() => setMode("cancel")} className={SECONDARY_BUTTON}>Cancel this date</button>
-          )}
+          ) : null}
+          {canDelete ? <button type="button" onClick={() => setMode("delete")} className={SECONDARY_BUTTON}>Delete event</button> : null}
         </div>
       ) : null}
       {restore.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(restore.error)}</p> : null}
 
       {canEdit && mode === "edit" ? <EditForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
       {canEdit && mode === "cancel" ? <CancelForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
+
+      {canDelete && mode === "delete" ? <DeleteForm item={item} onDone={() => { setMode("view"); void refresh(); }} onClose={() => setMode("view")} /> : null}
 
       <div className="border-t border-[var(--border-default)] pt-4">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Registration</h3>
@@ -189,6 +193,29 @@ function CancelForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; o
       <div className="flex gap-3">
         <button type="button" onClick={() => cancel.mutate()} disabled={cancel.isPending} className="ui-btn-danger-solid pressable min-h-11 flex-1 px-4 text-sm font-semibold disabled:opacity-60">{cancel.isPending ? "Cancelling…" : "Cancel this date"}</button>
         <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Keep it</button>
+      </div>
+    </div>
+  );
+}
+
+// Deleting removes the whole event and every one of its dates. The question says how many, and Keep it is
+// the first choice, so a stray tap does not remove anything.
+function DeleteForm({ item, onDone, onClose }: { item: EventOccurrenceSummary; onDone: () => void; onClose: () => void }) {
+  const remove = useMutation({
+    mutationFn: () => apiFetch(`/api/events/${item.eventId}`, { method: "DELETE" }),
+    onSuccess: onDone,
+  });
+  const dates = item.dateCount === 1 ? "its date" : `all ${item.dateCount} of its dates`;
+  return (
+    <div className="space-y-4 border-t border-[var(--border-default)] pt-4">
+      <h3 className="text-lg font-semibold">Delete this event?</h3>
+      <p className="text-sm text-[var(--text-secondary)]">
+        {item.title} and {dates} will be removed for good. This cannot be undone.{item.repeats ? " To drop only this one date, use Cancel this date instead." : ""}
+      </p>
+      {remove.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{errorText(remove.error)}</p> : null}
+      <div className="flex gap-3">
+        <button type="button" autoFocus onClick={onClose} className={SECONDARY_BUTTON}>Keep it</button>
+        <button type="button" onClick={() => remove.mutate()} disabled={remove.isPending} className="ui-btn-danger-solid pressable min-h-11 flex-1 px-4 text-sm font-semibold disabled:opacity-60">{remove.isPending ? "Deleting…" : "Delete event"}</button>
       </div>
     </div>
   );

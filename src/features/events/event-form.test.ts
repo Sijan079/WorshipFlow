@@ -72,7 +72,7 @@ test("a time field shows the event's own wall-clock time", () => {
 
 test("the screen offers repeat, a public switch, edit, cancel and restore", () => {
   const screen = ["events-page-client.tsx", "event-form-fields.tsx", "event-details.tsx"].map((file) => read("src", "features", "events", file)).join("\n");
-  for (const text of ["Doesn't repeat", "Every day", "Every week", "Ends on", "Never", "Show on the church website", "Only the title, date, time and place are shown.", "Cancel this date", "Restore", "This date only", "All future dates", "Changed", "This date was changed on its own, so series changes skip it."]) {
+  for (const text of ["Doesn't repeat", "Every day", "Every week", "Ends on", "Never", "Show on the church website", "Only the title, date, time and place are shown.", "Cancel this date", "Delete event", "Keep it", "cannot be undone", "Restore", "This date only", "All future dates", "Changed", "This date was changed on its own, so series changes skip it."]) {
     assert.ok(screen.includes(text), text);
   }
   assert.match(screen, /aria-pressed/, "weekday buttons announce whether they are on");

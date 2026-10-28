@@ -7,9 +7,21 @@ import { isConfigurableModuleAction } from "../../lib/module-access.ts";
 const read = (...segments: string[]) => readFileSync(join(process.cwd(), ...segments), "utf8");
 const route = (...segments: string[]) => join("src", "app", "api", "events", ...segments, "route.ts");
 
-test("editing events is a permission an Owner can grant, but deleting is not offered", () => {
+test("editing and deleting events are separate permissions an Owner can grant", () => {
   assert.equal(isConfigurableModuleAction("EVENTS", "EDIT"), true);
-  assert.equal(isConfigurableModuleAction("EVENTS", "DELETE"), false);
+  assert.equal(isConfigurableModuleAction("EVENTS", "DELETE"), true);
+});
+
+test("deleting an event needs View and Delete, is scoped to the church, and removes the event with its dates", () => {
+  const access = read("src", "features", "events", "event-access.ts");
+  assert.match(access, /requireEventsDelete/);
+  assert.match(access, /hasModuleAction\(context, "EVENTS", "DELETE"\)/);
+  const source = read(route("[id]"));
+  assert.match(source, /export async function DELETE/);
+  assert.match(source, /requireEventsDelete\(\)/);
+  assert.match(source, /prisma\.churchEvent\.deleteMany\(\{ where: \{ id, workspaceId: context\.workspaceId \} \}\)/);
+  assert.match(read("prisma", "schema.prisma"), /event\s+ChurchEvent\s+@relation\(fields: \[eventId\], references: \[id\], onDelete: Cascade\)/);
+  assert.match(read(route()), /canDelete/);
 });
 
 test("editing an event or an occurrence needs both View and Edit, checked on the server", () => {

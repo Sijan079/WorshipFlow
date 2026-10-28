@@ -22,14 +22,14 @@ export async function GET(request: Request) {
     const range = EventRangeSchema.safeParse({ from: url.searchParams.get("from"), to: url.searchParams.get("to") });
     if (!range.success) return NextResponse.json({ error: "Select a valid date range of up to 93 days." }, { status: 400 });
 
-    const [occurrences, createGrant, createDefault, canEdit] = await Promise.all([
+    const [occurrences, createGrant, createDefault, canEdit, canDelete] = await Promise.all([
       prisma.churchEventOccurrence.findMany({
         where: {
           localDate: { gte: range.data.from, lte: range.data.to },
           event: { workspaceId: context.workspaceId },
         },
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-        include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, repeatKind: true } } },
+        include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, repeatKind: true, _count: { select: { occurrences: true } } } } },
       }),
       context.role === "MEMBER"
         ? prisma.workspaceActionGrant.findUnique({
@@ -51,6 +51,7 @@ export async function GET(request: Request) {
           })
         : Promise.resolve(null),
       hasModuleAction(context, "EVENTS", "EDIT"),
+      hasModuleAction(context, "EVENTS", "DELETE"),
     ]);
 
     const items: EventOccurrenceSummary[] = occurrences.map((occurrence) => ({
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
       repeats: occurrence.event.repeatKind !== "NONE",
       edited: occurrence.edited,
       changeNote: occurrence.changeNote,
+      dateCount: occurrence.event._count.occurrences,
       localDate: occurrence.localDate,
       startsAt: occurrence.startsAt.toISOString(),
       endsAt: occurrence.endsAt.toISOString(),
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
       conflict: occurrences.some((other) => other.id !== occurrence.id && other.status === "SCHEDULED" && occurrence.status === "SCHEDULED" && other.startsAt < occurrence.endsAt && other.endsAt > occurrence.startsAt),
     }));
 
-    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit });
+    return NextResponse.json({ items, canCreate: resolveModuleAction(context.role, Boolean(createDefault), createGrant?.allowed ?? null), canEdit, canDelete });
   } catch (error: unknown) {
     return errorResponse(error, "Failed to load events.");
   }

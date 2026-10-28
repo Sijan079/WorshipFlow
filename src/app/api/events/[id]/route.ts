@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { reportRouteFailure } from "@/lib/observability";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
-import { requireEventsEdit } from "@/features/events/event-access";
+import { requireEventsDelete, requireEventsEdit } from "@/features/events/event-access";
 import { UpdateEventSchema, shortestRepeatGap } from "@/features/events/event-validation";
 import { buildSeriesPlan, seriesShapeFromTimes } from "@/features/events/event-series";
 import { applySeriesPlan } from "@/features/events/event-series-apply";
@@ -73,6 +73,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json(updated);
   } catch (error: unknown) {
     return errorResponse(error, request, "Failed to save the event.");
+  }
+}
+
+// Permanently removes the event and every one of its dates (they are deleted with it). Cancelling a date
+// is the way to keep a record; this is for events that should not exist.
+export async function DELETE(request: Request, { params }: RouteParams) {
+  try {
+    const context = await requireEventsDelete();
+    const { id } = await params;
+    if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    const removed = await prisma.churchEvent.deleteMany({ where: { id, workspaceId: context.workspaceId } });
+    if (removed.count === 0) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    return NextResponse.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error: unknown) {
+    const status = error instanceof WorkspaceAuthorizationError ? error.status : 500;
+    if (status === 500) reportRouteFailure(error, { route: "/api/events/[id]", method: "DELETE", status, request });
+    return NextResponse.json({ error: status === 500 ? "Failed to delete the event." : (error as Error).message }, { status });
   }
 }
 

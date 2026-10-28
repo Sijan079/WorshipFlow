@@ -4,6 +4,8 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
     { action: "CREATE", label: "Create events" },
     // Needs View. Changing or cancelling a date, or the whole series, is one permission.
     { action: "EDIT", label: "Edit and cancel events" },
+    // Needs View. Permanent: removes the event and all of its dates. Cancelling a date is under Edit.
+    { action: "DELETE", label: "Delete events" },
   ] },
   { module: "CAPTIONS", label: "Sermon Captions", actions: [
     { action: "VIEW", label: "View captions" },

@@ -9,6 +9,7 @@ export type EventOccurrenceSummary = {
   repeats: boolean;
   edited: boolean;
   changeNote: string | null;
+  dateCount: number;
   localDate: string;
   startsAt: string;
   endsAt: string;
@@ -25,4 +26,5 @@ export type EventListResponse = {
   items: EventOccurrenceSummary[];
   canCreate: boolean;
   canEdit: boolean;
+  canDelete: boolean;
 };
