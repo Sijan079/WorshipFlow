@@ -36,7 +36,7 @@ export async function GET(request: Request) {
           },
         take: review ? 100 : undefined,
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-        include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, repeatKind: true, _count: { select: { occurrences: true } } } } },
+        include: { event: { select: { title: true, description: true, venue: true, timezone: true, isPublic: true, color: true, repeatKind: true, _count: { select: { occurrences: true } } } } },
       }),
       context.role === "MEMBER"
         ? prisma.workspaceActionGrant.findUnique({
@@ -79,6 +79,7 @@ export async function GET(request: Request) {
       venue: occurrence.event.venue,
       timezone: occurrence.event.timezone,
       isPublic: occurrence.event.isPublic,
+      color: occurrence.event.color,
       repeats: occurrence.event.repeatKind !== "NONE",
       edited: occurrence.edited,
       changeNote: occurrence.changeNote,
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
           timezone: input.timezone,
           status: "CONFIRMED",
           isPublic: input.isPublic,
+          color: input.color,
           repeatKind: rule.repeatKind,
           repeatWeekdays: rule.repeatWeekdays,
           repeatUntil: rule.repeatUntil,

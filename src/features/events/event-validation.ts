@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EVENT_COLOR_IDS } from "./event-colors.ts";
 import { addDays, eventSpanDays } from "./recurrence.ts";
 
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
@@ -65,6 +66,7 @@ export const CreateEventSchema = z.object({
   timezone,
   registrationUrl,
   isPublic: z.boolean().default(false),
+  color: z.enum(EVENT_COLOR_IDS).default("DEFAULT"),
   repeat: RepeatRuleSchema.optional(),
 }).superRefine((value, context) => {
   const startsAt = new Date(value.startsAt);
@@ -98,6 +100,7 @@ export const UpdateEventSchema = z.object({
   description: z.string().trim().max(4000).nullable().optional(),
   venue: z.string().trim().max(200).nullable().optional(),
   isPublic: z.boolean().optional(),
+  color: z.enum(EVENT_COLOR_IDS).optional(),
   repeat: RepeatRuleSchema.optional(),
   firstLocalDate: localDate.optional(),
   startLocal: time.optional(),

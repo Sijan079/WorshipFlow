@@ -39,6 +39,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (occurrence.status === "CANCELLED") return NextResponse.json({ error: "This event is cancelled. Restore it first." }, { status: 409 });
       if (occurrence.startsAt > new Date()) return NextResponse.json({ error: "This event has not started yet." }, { status: 409 });
     }
+    // A headcount is for a date that has happened: started, and not cancelled. Clearing one is always allowed.
+    if (typeof input.attendanceCount === "number") {
+      if (occurrence.status === "CANCELLED") return NextResponse.json({ error: "This event is cancelled. Restore it first." }, { status: 409 });
+      if (occurrence.startsAt > new Date()) return NextResponse.json({ error: "This event has not started yet." }, { status: 409 });
+    }
     if (input.status === "CANCELLED" && occurrence.doneAt && input.done !== false) {
       return NextResponse.json({ error: "Mark it not done first." }, { status: 409 });
     }

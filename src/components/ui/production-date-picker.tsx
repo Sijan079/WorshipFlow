@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "radix-ui";
 import {
@@ -9,10 +9,12 @@ import {
   getCalendarDays,
   isCalendarDayDisabled,
   monthIsAfter,
+  monthIsBefore,
   parseCalendarDate,
 } from "@/lib/calendar-date";
 import { cn } from "@/lib/utils";
 import { CalendarMenu } from "@/components/ui/calendar-menu";
+import { usePopoverScrollGuard } from "@/components/ui/use-popover-scroll-guard";
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -32,6 +34,8 @@ type ProductionDatePickerProps = {
   jumpToMonthAndYear?: boolean;
   /** Latest date that can be chosen (YYYY-MM-DD). Later days are disabled. */
   maxValue?: string;
+  /** Earliest date that can be chosen (YYYY-MM-DD). Earlier days are disabled, for an end date that cannot precede its start. */
+  minValue?: string;
   /** Oldest year offered in the year menu. */
   minYear?: number;
   /** Newest year offered when there is no latest date. Defaults to five years ahead. */
@@ -52,16 +56,19 @@ export function ProductionDatePicker({
   allowClear = false,
   jumpToMonthAndYear = true,
   maxValue,
+  minValue,
   minYear = new Date().getFullYear() - 10,
   maxYear,
   showToday = true,
   placeholder = "Select date",
 }: ProductionDatePickerProps) {
   const labelId = useId();
-  const scrollGuardCleanup = useRef<(() => void) | null>(null);
+  const scrollGuardRef = usePopoverScrollGuard();
   const [open, setOpen] = useState(false);
   const selectedDate = parseCalendarDate(value);
-  const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ?? new Date());
+  const minDate = minValue ? parseCalendarDate(minValue) : null;
+  const startingMonth = () => selectedDate ?? minDate ?? new Date();
+  const [visibleMonth, setVisibleMonth] = useState(startingMonth);
   const calendarDays = useMemo(() => getCalendarDays(visibleMonth), [visibleMonth]);
   const maxDate = maxValue ? parseCalendarDate(maxValue) : null;
   const yearOptions = useMemo(
@@ -69,27 +76,11 @@ export function ProductionDatePicker({
     [maxDate, maxYear, minYear],
   );
   const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
-
-  // A dialog locks page scrolling and ignores anything outside its own content. When the screen is
-  // short enough that the calendar scrolls, stop wheel and touch at the calendar so it still can.
-  // The calendar is portaled and mounts a render after it opens, so this attaches through a
-  // callback ref the moment the element exists.
-  const scrollGuardRef = useCallback((node: HTMLDivElement | null) => {
-    scrollGuardCleanup.current?.();
-    scrollGuardCleanup.current = null;
-    if (!node) return;
-    const keepScrollHere = (event: Event) => event.stopPropagation();
-    node.addEventListener("wheel", keepScrollHere, { passive: true });
-    node.addEventListener("touchmove", keepScrollHere, { passive: true });
-    scrollGuardCleanup.current = () => {
-      node.removeEventListener("wheel", keepScrollHere);
-      node.removeEventListener("touchmove", keepScrollHere);
-    };
-  }, []);
+  const previousMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
-      setVisibleMonth(selectedDate ?? new Date());
+      setVisibleMonth(startingMonth());
     }
     setOpen(nextOpen);
   }
@@ -136,7 +127,8 @@ export function ProductionDatePicker({
               <button
                 type="button"
                 onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)]"
+                disabled={monthIsBefore(previousMonth, minValue)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--surface-panel-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-panel-strong)] hover:text-[var(--text-primary)] disabled:opacity-40"
                 aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -174,7 +166,7 @@ export function ProductionDatePicker({
               {WEEKDAY_LABELS.map((weekday) => <span key={weekday} className="py-1 text-xs font-medium text-[var(--text-muted)]">{weekday}</span>)}
               {calendarDays.map((day) => {
                 const isSelected = day.value === value;
-                const disabled = isCalendarDayDisabled(day.value, maxValue);
+                const disabled = isCalendarDayDisabled(day.value, maxValue, minValue);
                 return (
                   <button
                     key={day.value}

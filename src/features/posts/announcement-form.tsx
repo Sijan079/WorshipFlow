@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { PublicSwitch } from "@/features/events/event-form-fields";
+import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import type { AnnouncementItem, AnnouncementListResponse } from "./post-types";
 import { ANNOUNCEMENT_BODY_MAX, INSTAGRAM_CAPTION_WARNING } from "./post-validation";
 
@@ -114,8 +115,8 @@ export default function AnnouncementForm({ item, events, canPublish, initial, on
         <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">{draft.body.length} of {ANNOUNCEMENT_BODY_MAX} characters. Plain text only.</span>
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label className="block text-sm font-medium">Starts <span className="font-normal text-[var(--text-muted)]">optional</span><input type="date" value={draft.startDate} onChange={(event) => set("startDate", event.target.value)} className={INPUT} /></label>
-        <label className="block text-sm font-medium">Ends <span className="font-normal text-[var(--text-muted)]">optional</span><input type="date" min={draft.startDate || undefined} value={draft.endDate} onChange={(event) => set("endDate", event.target.value)} className={INPUT} /></label>
+        <ProductionDatePicker label="Starts (Optional)" labelClassName="mb-1 block text-sm font-medium" allowClear value={draft.startDate} onValueChange={(value) => set("startDate", value)} />
+        <ProductionDatePicker label="Ends (Optional)" labelClassName="mb-1 block text-sm font-medium" allowClear minValue={draft.startDate || undefined} value={draft.endDate} onValueChange={(value) => set("endDate", value)} />
       </div>
       <p className="-mt-2 text-xs text-[var(--text-muted)]">With no dates, a published announcement stays up until someone unpublishes it.</p>
       {events ? (

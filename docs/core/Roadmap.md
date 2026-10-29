@@ -64,11 +64,14 @@ write the failing check first, build, verify, document.
    edit, single-date edit, service headcount, daily top-up); see `docs/changes/20261027.md` item 10.
    The migration `20261028000000_event_repeat_rule` was applied and the Events screen was built (repeat
    controls, multi-day dates, Public switch, edit, cancel, restore, service attendance); see item 14.
-   Remaining: change how an existing event repeats from the screen, and checking it in a browser.
+   **Update (2026-10-30):** checked in a browser, and the Events screen was redesigned (see `docs/changes/20261030.md`
+   items 1, 2, 5, 6 and 8): event colours, headcount on any date that has happened, a details card, one date and time
+   picker. Remaining: change how an existing event repeats from the screen.
 7. **Announcements** as the first kind of Post (`kind = ANNOUNCEMENT`), with `isPublic`. Articles are added to the same Post table in step 8.
    **Progress (2026-10-28):** built and tested (Post table and migration, rules, API, permissions,
    sidebar item, Announcements screen, "Announce this event"); see `docs/changes/20261027.md` item 16.
-   Remaining: checking it in a browser.
+   **Update (2026-10-30):** checked in a browser; the "Announce this event" navigation bug was fixed (see
+   `docs/changes/20261030.md` item 7).
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
    indexable/unlisted switch. Largest step, and the one most likely to slip.
    Check: a test proves public routes cannot read People, Ministry, or

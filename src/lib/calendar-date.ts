@@ -44,8 +44,16 @@ export function calendarYearOptions(maxYear: number, minYear: number) {
   return Array.from({ length: Math.max(0, maxYear - minYear + 1) }, (_, index) => maxYear - index);
 }
 
-export function isCalendarDayDisabled(value: string, maxValue?: string) {
-  return Boolean(maxValue) && value > (maxValue as string);
+// A day cannot be chosen when it is after the latest allowed date or before the earliest.
+export function isCalendarDayDisabled(value: string, maxValue?: string, minValue?: string) {
+  return (Boolean(maxValue) && value > (maxValue as string)) || (Boolean(minValue) && value < (minValue as string));
+}
+
+// True when the whole month ends before the earliest allowed date.
+export function monthIsBefore(month: Date, minValue?: string) {
+  const min = minValue ? parseCalendarDate(minValue) : null;
+  if (!min) return false;
+  return month.getFullYear() * 12 + month.getMonth() < min.getFullYear() * 12 + min.getMonth();
 }
 
 // True when the whole month starts after the latest allowed date.

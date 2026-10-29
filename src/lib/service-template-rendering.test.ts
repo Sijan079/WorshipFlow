@@ -88,14 +88,14 @@ export function runServiceTemplateRenderingTests() {
   assert.match(deleteConfirmationModal, /active:border-transparent active:bg-\[var\(--state-danger\)\] active:text-\[var\(--action-primary-ink\)\]/);
   assert.match(readOnlyDetails, /grid-cols-\[2rem_minmax\(0,1fr\)\]/);
   assert.match(readOnlyDetails, /min-\[600px\]:grid-cols-\[2rem_minmax\(0,0\.8fr\)_minmax\(0,1\.2fr\)\]/);
-  assert.match(page, /aria-label=\{`\$\{selectionStateLabel\}: select all filtered services`\}/);
+  assert.match(page, /aria-label=\{`\$\{selectionStateLabel\}: select all services on this page`\}/);
   assert.match(page, /services-row-actions/);
   assert.match(globals, /@media \(max-width: 1199px\)[\s\S]*\.services-register \.ui-row-menu-trigger/);
   assert.match(page, /service\.blocks\.map\(\(block, index\)/);
   assert.match(page, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.doesNotMatch(page, /<ul className="divide-y divide-\[var\(--rule-default\)\]">/);
   assert.match(page, /relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-\[var\(--action-primary-bg\)\]/);
-  assert.match(page, /const followsExpandedService = index > 0 && filteredServices\[index - 1\]\?\.id === expandedServiceId;/);
+  assert.match(page, /const followsExpandedService = index > 0 && visibleServices\[index - 1\]\?\.id === expandedServiceId;/);
   assert.match(page, /followsExpandedService \? "border-t border-\[var\(--rule-default\)\]" : ""/);
   assert.doesNotMatch(page, /border-l-4 border-\[var\(--action-primary-bg\)\]/);
   assert.doesNotMatch(page, /className="border-t border-\[var\(--border-default\)\] bg-\[var\(--surface-panel\)\]"/);

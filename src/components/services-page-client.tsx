@@ -31,6 +31,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
+import { ListPaginationFooter } from "@/components/ui/list-pagination-footer";
+import { latestFirst, paginate } from "@/lib/list-pagination";
 import { addTeamMember, dropdownReserve, filterTeamMembers, removeTeamMember } from "@/lib/team-member-picker";
 
 type ServiceFormState = {
@@ -571,6 +573,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const selectionCheckboxRef = useRef<HTMLInputElement>(null);
   const compactSelectionCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -620,16 +623,21 @@ export default function ServicesPageClient({ initialServices }: { initialService
       })),
     [ministryLabelByCode, servicesQuery.data, templateLabelByCode]
   );
+  // The newest service is always first, whatever order the server sends them in.
+  const newestServices = useMemo(() => latestFirst(services, (service) => service.serviceDate), [services]);
   const filteredServices = useMemo(() => {
-    return services.filter((service) => {
+    return newestServices.filter((service) => {
       const matchesDate = !dateFilter || service.dateKey === dateFilter;
       const serviceMinistry = ministryCodeFromLegacy(service.ministryPresetCode ?? service.assignedMinistry ?? "MIXED");
       const matchesMinistry = !ministryFilter || ministryFilter === serviceMinistry;
       return matchesDate && matchesMinistry;
     });
-  }, [dateFilter, ministryFilter, services]);
-  const selectedFilteredServiceCount = filteredServices.filter((service) => selectedServiceIds.includes(service.id)).length;
-  const allFilteredServicesSelected = filteredServices.length > 0 && selectedFilteredServiceCount === filteredServices.length;
+  }, [dateFilter, ministryFilter, newestServices]);
+  const servicePage = useMemo(() => paginate(filteredServices, currentPage), [currentPage, filteredServices]);
+  const visibleServices = servicePage.items;
+  // "Select all" covers the rows on screen, so a bulk delete never reaches rows the person has not seen.
+  const selectedFilteredServiceCount = visibleServices.filter((service) => selectedServiceIds.includes(service.id)).length;
+  const allFilteredServicesSelected = visibleServices.length > 0 && selectedFilteredServiceCount === visibleServices.length;
   const selectionStateLabel = allFilteredServicesSelected ? "All" : selectedFilteredServiceCount > 0 ? "Partial" : "None";
   const expandedService = filteredServices.find((service) => service.id === expandedServiceId)
     ?? services.find((service) => service.id === expandedServiceId)
@@ -840,10 +848,10 @@ export default function ServicesPageClient({ initialServices }: { initialService
   }
 
   function toggleFilteredServiceSelection() {
-    const filteredServiceIds = new Set(filteredServices.map((service) => service.id));
+    const filteredServiceIds = new Set(visibleServices.map((service) => service.id));
 
     setSelectedServiceIds((current) => {
-      const allSelected = filteredServices.length > 0 && filteredServices.every((service) => current.includes(service.id));
+      const allSelected = visibleServices.length > 0 && visibleServices.every((service) => current.includes(service.id));
       return allSelected
         ? current.filter((serviceId) => !filteredServiceIds.has(serviceId))
         : [...new Set([...current, ...filteredServiceIds])];
@@ -898,7 +906,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
               <ProductionDatePicker
                 ariaLabel="Filter by service date"
                 value={dateFilter}
-                onValueChange={setDateFilter}
+                onValueChange={(value) => { setDateFilter(value); setCurrentPage(1); }}
                 allowClear
                 className="min-w-[180px] flex-1 sm:max-w-[220px]"
                 triggerClassName="bg-[var(--surface-panel-alt)]"
@@ -908,7 +916,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 <ProductionSelect
                   ariaLabel="Filter by ministry"
                   value={ministryFilter}
-                  onValueChange={setMinistryFilter}
+                  onValueChange={(value) => { setMinistryFilter(value); setCurrentPage(1); }}
                   options={[{ value: "", label: "All ministries" }, ...ministryOptions]}
                 />
               </div>
@@ -919,6 +927,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   onClick={() => {
                     setDateFilter("");
                     setMinistryFilter("");
+                    setCurrentPage(1);
                   }}
                   className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--state-danger)]"
                 >
@@ -976,10 +985,10 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 type="checkbox"
                 checked={allFilteredServicesSelected}
                 onChange={toggleFilteredServiceSelection}
-                aria-label={`${selectionStateLabel}: select all filtered services`}
+                aria-label={`${selectionStateLabel}: select all services on this page`}
                 className="ui-checkbox h-5 w-5"
               />
-              <span>{selectedFilteredServiceCount > 0 ? `${selectedFilteredServiceCount} selected` : "Select all services"}</span>
+              <span>{selectedFilteredServiceCount > 0 ? `${selectedFilteredServiceCount} selected` : "Select all services on this page"}</span>
             </label>
             <div className="ui-ledger-header hidden grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(100px,.65fr)_88px] gap-3 px-4 py-2.5 min-[1200px]:grid">
               <label className="flex items-center pr-4">
@@ -988,7 +997,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   type="checkbox"
                   checked={allFilteredServicesSelected}
                   onChange={toggleFilteredServiceSelection}
-                  aria-label={`${selectionStateLabel}: select all filtered services`}
+                  aria-label={`${selectionStateLabel}: select all services on this page`}
                   className="ui-checkbox h-5 w-5"
                 />
               </label>
@@ -998,11 +1007,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
               <span />
             </div>
             <ul>
-              {filteredServices.map((service, index) => {
+              {visibleServices.map((service, index) => {
                 const isExpanded = expandedServiceId === service.id;
                 const isEditing = editingServiceId === service.id;
                 const isSelected = selectedServiceIds.includes(service.id);
-                const followsExpandedService = index > 0 && filteredServices[index - 1]?.id === expandedServiceId;
+                const followsExpandedService = index > 0 && visibleServices[index - 1]?.id === expandedServiceId;
 
                 return (
                   <li
@@ -1173,6 +1182,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
                 );
               })}
             </ul>
+            <ListPaginationFooter {...servicePage} noun="services" onPageChange={setCurrentPage} />
           </div>
         )}
       </section>

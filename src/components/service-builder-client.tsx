@@ -78,6 +78,7 @@ import CommentCardTool from "@/components/comment-card-tool";
 import BackgroundRemovalTool from "@/components/background-removal-tool";
 import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-modules";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
 import {
   analyzeServiceText,
@@ -1100,14 +1101,18 @@ export default function ServiceBuilderClient({
               });
             })}
           >
-            <label className="block text-sm text-[var(--color-text-secondary)]">
-              Service date
-              <input
-                type="date"
-                className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
-                {...createServiceForm.register("serviceDate")}
-              />
-            </label>
+            <Controller
+              control={createServiceForm.control}
+              name="serviceDate"
+              render={({ field }) => (
+                <ProductionDatePicker
+                  label="Service date"
+                  labelClassName="mb-1 block text-sm text-[var(--color-text-secondary)]"
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
             <label className="block text-sm text-[var(--color-text-secondary)]">
               Ministry
               <input
@@ -1238,14 +1243,18 @@ export default function ServiceBuilderClient({
                       <div className="md:col-span-2">
                         <h3 className="text-base font-semibold">Header and status</h3>
                       </div>
-                      <label className="text-sm text-[var(--color-text-secondary)]">
-                        Date
-                        <input
-                          type="date"
-                          className="mt-1 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2"
-                          {...serviceHeaderForm.register("serviceDate")}
-                        />
-                      </label>
+                      <Controller
+                        control={serviceHeaderForm.control}
+                        name="serviceDate"
+                        render={({ field }) => (
+                          <ProductionDatePicker
+                            label="Date"
+                            labelClassName="mb-1 block text-sm text-[var(--color-text-secondary)]"
+                            value={field.value ?? ""}
+                            onValueChange={field.onChange}
+                          />
+                        )}
+                      />
                       <label className="text-sm text-[var(--color-text-secondary)]">
                         Ministry
                         <input
@@ -1354,13 +1363,11 @@ export default function ServiceBuilderClient({
                           <h4 className="text-sm font-semibold text-[var(--color-brand-ink)]">
                             Service info
                           </h4>
-                          <input
-                            type="date"
+                          <ProductionDatePicker
+                            ariaLabel="Service date"
+                            className="mt-3"
                             value={serviceAnalysisDraft.serviceDate ?? ""}
-                            onChange={(event) =>
-                              setServiceAnalysisDraft({ ...serviceAnalysisDraft, serviceDate: event.target.value })
-                            }
-                            className="mt-3 w-full rounded-md border border-[var(--color-brand-border)] bg-[var(--color-brand-panel)] px-3 py-2 text-sm"
+                            onValueChange={(value) => setServiceAnalysisDraft({ ...serviceAnalysisDraft, serviceDate: value })}
                           />
                           <input
                             value={serviceAnalysisDraft.ministryName ?? ""}

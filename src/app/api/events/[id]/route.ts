@@ -65,6 +65,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           description: input.description === undefined ? undefined : input.description || null,
           venue: input.venue === undefined ? undefined : input.venue || null,
           isPublic: input.isPublic,
+          color: input.color,
           ...(schedule ? {
             repeatKind: schedule.repeatKind,
             repeatWeekdays: schedule.repeatWeekdays,

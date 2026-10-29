@@ -1,3 +1,4 @@
+import type { EventColor } from "./event-colors.ts";
 import { localTimeInZone, zonedLocalToUtc } from "./recurrence.ts";
 
 export type RepeatChoice = "NONE" | "DAILY" | "WEEKLY";
@@ -12,6 +13,7 @@ export type NewEventForm = {
   description: string;
   registrationUrl: string;
   isPublic: boolean;
+  color: EventColor;
   repeat: RepeatChoice;
   weekdays: number[];
   ends: "NEVER" | "ON_DATE";
@@ -26,7 +28,20 @@ export function weekdayOf(date: string) {
 export function initialForm(date: string): NewEventForm {
   return {
     title: "", date, startTime: "18:00", endTime: "19:00", endDate: date, venue: "", description: "", registrationUrl: "",
-    isPublic: false, repeat: "NONE", weekdays: [weekdayOf(date)], ends: "NEVER", until: "",
+    isPublic: false, color: "DEFAULT", repeat: "NONE", weekdays: [weekdayOf(date)], ends: "NEVER", until: "",
+  };
+}
+
+// Choosing another first date keeps the end date from falling behind it, and moves the weekday that was
+// ready for repeating (the old date's day, still the only one on) to the new date's day.
+export function changeDate(form: NewEventForm, date: string): NewEventForm {
+  if (!date) return { ...form, date };
+  const untouched = form.weekdays.length === 1 && form.weekdays[0] === weekdayOf(form.date);
+  return {
+    ...form,
+    date,
+    endDate: form.endDate < date ? date : form.endDate,
+    weekdays: untouched ? [weekdayOf(date)] : form.weekdays,
   };
 }
 
@@ -63,6 +78,7 @@ export function buildCreatePayload(form: NewEventForm, timezone: string) {
     timezone,
     registrationUrl: form.registrationUrl.trim() || undefined,
     isPublic: form.isPublic,
+    color: form.color,
     repeat: form.repeat === "NONE" ? undefined : {
       kind: form.repeat,
       weekdays: form.repeat === "WEEKLY" ? form.weekdays : [],

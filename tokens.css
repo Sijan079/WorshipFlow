@@ -266,6 +266,34 @@
   --dur-fast: 120ms;
   --dur-base: 180ms;
 
+  /* Event colours: the calendar chip colours an event can be given (see src/features/events/event-colors.ts).
+   * A soft tint behind strong text, so the text stays readable (at least 4.5 to 1), and a solid dot for the
+   * swatches. Blue is the default colour. */
+  --event-blue-bg: #e0f2fe;
+  --event-blue-ink: #075985;
+  --event-blue-dot: #0284c7;
+  --event-purple-bg: #ede9fe;
+  --event-purple-ink: #5b21b6;
+  --event-purple-dot: #7c3aed;
+  --event-green-bg: #dcfce7;
+  --event-green-ink: #166534;
+  --event-green-dot: #16a34a;
+  --event-orange-bg: #ffedd5;
+  --event-orange-ink: #9a3412;
+  --event-orange-dot: #ea580c;
+  --event-red-bg: #fee2e2;
+  --event-red-ink: #991b1b;
+  --event-red-dot: #dc2626;
+  --event-pink-bg: #fce7f3;
+  --event-pink-ink: #9d174d;
+  --event-pink-dot: #db2777;
+  --event-teal-bg: #ccfbf1;
+  --event-teal-ink: #115e59;
+  --event-teal-dot: #0d9488;
+  --event-gray-bg: #e2e8f0;
+  --event-gray-ink: #334155;
+  --event-gray-dot: #64748b;
+
   /* Back-compat aliases during migration */
   --color-paper: var(--surface-app);
   --color-paper-2: var(--surface-panel-alt);

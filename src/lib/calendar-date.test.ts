@@ -7,6 +7,7 @@ import {
   getCalendarDays,
   isCalendarDayDisabled,
   monthIsAfter,
+  monthIsBefore,
   moveMenuIndex,
   parseCalendarDate,
 } from "./calendar-date.ts";
@@ -33,6 +34,16 @@ export function runCalendarDateTests() {
   assert.equal(isCalendarDayDisabled("2026-10-27", "2026-10-26"), true);
   assert.equal(isCalendarDayDisabled("2026-10-26", "2026-10-26"), false);
   assert.equal(isCalendarDayDisabled("2099-01-01"), false);
+  // Days before the earliest allowed date cannot be chosen either (an end date never comes before its start).
+  assert.equal(isCalendarDayDisabled("2026-10-01", undefined, "2026-10-05"), true);
+  assert.equal(isCalendarDayDisabled("2026-10-05", undefined, "2026-10-05"), false);
+  assert.equal(isCalendarDayDisabled("2026-10-04", "2026-10-10", "2026-10-05"), true);
+  assert.equal(isCalendarDayDisabled("2026-10-11", "2026-10-10", "2026-10-05"), true);
+  assert.equal(isCalendarDayDisabled("2026-10-07", "2026-10-10", "2026-10-05"), false);
+  // The previous-month arrow stops at the month of the earliest allowed date.
+  assert.equal(monthIsBefore(new Date(2026, 8, 1), "2026-10-05"), true);
+  assert.equal(monthIsBefore(new Date(2026, 9, 1), "2026-10-05"), false);
+  assert.equal(monthIsBefore(new Date(2020, 0, 1)), false);
 
   // Keyboard movement in the month and year menus: stays inside the list.
   assert.equal(moveMenuIndex(2, "ArrowDown", 12), 3);

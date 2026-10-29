@@ -6,6 +6,8 @@ export type EventOccurrenceSummary = {
   venue: string | null;
   timezone: string;
   isPublic: boolean;
+  // The calendar colour name; see event-colors.ts.
+  color: string;
   repeats: boolean;
   edited: boolean;
   changeNote: string | null;

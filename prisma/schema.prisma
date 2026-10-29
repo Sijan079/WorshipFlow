@@ -969,6 +969,8 @@ model ChurchEvent {
   endLocal         String?
   spanDays         Int                 @default(0)
   isPublic         Boolean             @default(false)
+  // The calendar colour, one of the fixed names in src/features/events/event-colors.ts. DEFAULT is the usual blue.
+  color            String              @default("DEFAULT")
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 

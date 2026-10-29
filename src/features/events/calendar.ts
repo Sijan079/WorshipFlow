@@ -16,6 +16,12 @@ export function getMonthCells(year: number, monthIndex: number): MonthCell[] {
   });
 }
 
+// Whether the details card is shown beside the calendar. It opens when the person chooses an event (or a day
+// that has one) or starts a new event, and closes with its X; otherwise the calendar has the whole width.
+export function detailsCardOpen({ showForm, opened, hasSelection }: { showForm: boolean; opened: boolean; hasSelection: boolean }) {
+  return showForm || (opened && hasSelection);
+}
+
 export function groupByLocalDate<T extends { localDate: string }>(items: T[]): Map<string, T[]> {
   const grouped = new Map<string, T[]>();
   for (const item of items) {

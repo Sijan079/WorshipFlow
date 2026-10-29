@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { canMarkDone, canMarkNotDone, needsReview, reviewBannerText } from "./event-status.ts";
+import { attendanceShown, canMarkDone, canRecordAttendance, canMarkNotDone, needsReview, registrationShown, reviewBannerText } from "./event-status.ts";
 
 const read = (...segments: string[]) => readFileSync(join(process.cwd(), ...segments), "utf8");
 const now = new Date("2026-10-28T12:00:00Z");
@@ -32,6 +32,52 @@ test("a one-time event can be marked done once it has started, and undone afterw
   assert.equal(canMarkNotDone(date({ doneAt: "2026-10-27T12:00:00Z" })), true);
   assert.equal(canMarkNotDone(date()), false);
   assert.equal(canMarkNotDone(date({ repeats: true, doneAt: "2026-10-27T12:00:00Z" })), false);
+});
+
+test("Registration is shown only when there is a link or there are responses", () => {
+  assert.equal(registrationShown({ registrationUrl: null, responseCount: null }), false);
+  assert.equal(registrationShown({ registrationUrl: "https://forms.example/abc", responseCount: null }), true);
+  assert.equal(registrationShown({ registrationUrl: null, responseCount: 0 }), true, "a form that exists but has no answers yet");
+});
+
+test("After the event is shown only once an attendance number has been recorded", () => {
+  assert.equal(attendanceShown({ attendanceCount: null }), false);
+  assert.equal(attendanceShown({ attendanceCount: 0 }), true, "zero is a recorded number");
+  assert.equal(attendanceShown({ attendanceCount: 120 }), true);
+});
+
+test("a headcount can be recorded on any date that has started and is not cancelled, repeating or not, done or not", () => {
+  const now = new Date("2026-10-29T12:00:00Z");
+  const started = "2026-10-29T10:00:00Z";
+  const later = "2026-10-29T18:00:00Z";
+  assert.equal(canRecordAttendance({ status: "SCHEDULED", startsAt: started }, now), true);
+  assert.equal(canRecordAttendance({ status: "SCHEDULED", startsAt: later }, now), false, "it has not happened yet");
+  assert.equal(canRecordAttendance({ status: "CANCELLED", startsAt: started }, now), false, "it did not happen");
+  assert.equal(canRecordAttendance({ status: "SCHEDULED", startsAt: now.toISOString() }, now), true, "starting right now counts as started");
+});
+
+test("the card has an Attendance icon and an inline form for it, and the server holds the same rule", () => {
+  const details = readFileSync(join(process.cwd(), "src", "features", "events", "event-details.tsx"), "utf8");
+  assert.match(details, /<IconAction icon=\{Users\} label=\{item\.attendanceCount === null \? "Record attendance" : "Edit attendance"\}/);
+  assert.match(details, /canRecordAttendance\(item\)/);
+  assert.match(details, /function AttendanceForm/);
+  assert.match(details, /<Collapse show=\{canEdit && mode === "attendance"\}><AttendanceForm/);
+  assert.match(details, /const actionsVisible = mode === "view"/, "the icons are replaced by the form while it is open, like Edit");
+  assert.match(details, /attendanceCount: count\.trim\(\) === "" \? null : Number\(count\.trim\(\)\)/, "an empty box clears the number");
+  const route = readFileSync(join(process.cwd(), "src", "app", "api", "events", "occurrences", "[id]", "route.ts"), "utf8");
+  assert.match(route, /typeof input\.attendanceCount === "number"/);
+  assert.match(route, /This event has not started yet\./);
+});
+
+test("the Events card hides empty sections instead of explaining that they are empty", () => {
+  const details = readFileSync(join(process.cwd(), "src", "features", "events", "event-details.tsx"), "utf8");
+  assert.match(details, /registrationShown\(item\)/);
+  assert.match(details, /attendanceShown\(item\)/);
+  assert.doesNotMatch(details, /No registration link/);
+  assert.doesNotMatch(details, /Attendance has not been recorded/);
+  const fields = readFileSync(join(process.cwd(), "src", "features", "events", "event-form-fields.tsx"), "utf8");
+  const switchButton = fields.slice(fields.indexOf('role="switch"'), fields.indexOf("</button>", fields.indexOf('role="switch"')));
+  assert.doesNotMatch(switchButton, /border border-\[var\(--border-default\)\]/, "the website switch has no border");
 });
 
 test("the banner counts what needs review in plain words", () => {
@@ -73,7 +119,7 @@ test("the list says what needs review and offers a review list", () => {
   assert.match(route, /activeDates/);
   assert.match(route, /searchParams\.get\("review"\)/);
   const screen = ["events-page-client.tsx", "event-details.tsx"].map((file) => read("src", "features", "events", file)).join("\n");
-  for (const text of ["Mark done", "Mark not done", "Needs review", "Done", "Cancel all dates", "To delete this event, cancel it first."]) {
+  for (const text of ["Mark done", "Mark not done", "Needs review", "Done", "Cancel all dates"]) {
     assert.ok(screen.includes(text), text);
   }
 });

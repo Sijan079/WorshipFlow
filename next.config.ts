@@ -78,6 +78,19 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Everything behind /api is signed-in, private data (people, birthdates, services). Say so on every
+        // response, so no browser, proxy or CDN ever stores it and nothing depends on a framework default.
+        // The one exception is the public captions feed, which sets its own short caching and carries caption
+        // text only; the test in src/lib/api-cache-headers.test.ts fails if any other route does the same.
+        source: "/api/:path((?!captions/live/).*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
     ];
   },
 };

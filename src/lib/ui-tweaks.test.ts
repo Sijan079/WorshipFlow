@@ -35,8 +35,16 @@ export function runUiTweaksTests() {
   assert.match(picker, /collisionPadding/);
   // The calendar is portaled and mounts a render after it opens, so the wheel and touch guard
   // must attach through a callback ref (an effect would look for the element too early).
-  assert.match(picker, /const scrollGuardRef = useCallback\(/);
-  assert.match(picker, /ref=\{scrollGuardRef\}/);
+  // The guard now lives in one shared hook that both the date picker and the time picker use.
+  const guard = read("src", "components", "ui", "use-popover-scroll-guard.ts");
+  assert.match(guard, /return useCallback\(\(node: HTMLDivElement \| null\) =>/);
+  assert.match(guard, /addEventListener\("wheel"/);
+  assert.match(guard, /addEventListener\("touchmove"/);
+  const timePicker = read("src", "components", "ui", "production-time-picker.tsx");
+  for (const source of [picker, timePicker]) {
+    assert.match(source, /const scrollGuardRef = usePopoverScrollGuard\(\)/);
+    assert.match(source, /ref=\{scrollGuardRef\}/);
+  }
   assert.doesNotMatch(picker, /contentRef/);
   assert.match(read("src", "features", "people", "person-dialog.tsx"), /minYear=\{1900\}/);
   for (const source of [services, read("src", "features", "people", "person-dialog.tsx")]) {

@@ -1,25 +1,39 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
-import { getMonthCells, groupByLocalDate } from "./calendar";
+import { paginate } from "@/lib/list-pagination";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { ListPaginationFooter } from "@/components/ui/list-pagination-footer";
+import { detailsCardOpen, getMonthCells, groupByLocalDate } from "./calendar";
 import EventDetails from "./event-details";
-import EventFormFields from "./event-form-fields";
+import EventMonthGrid, { EventMonthSkeleton, datePrefix } from "./event-month-grid";
+import EventNewForm from "./event-new-form";
 import { buildCreatePayload, formProblem, initialForm, type NewEventForm } from "./event-form";
-import { fullDateLabel, monthLabel, timeLabel } from "./event-labels";
-import { needsReview, reviewBannerText } from "./event-status";
+import { eventColorTokens } from "./event-colors";
+import { monthLabel, timeLabel } from "./event-labels";
+import { reviewBannerText } from "./event-status";
 import type { EventListResponse, EventOccurrenceSummary } from "./event-types";
 
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const ICON_BUTTON = "inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-accent)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]";
 
-// A short word before the title when a date is not simply scheduled.
-function datePrefix(item: EventOccurrenceSummary) {
-  if (item.status === "CANCELLED") return "Cancelled · ";
-  if (item.doneAt) return "Done · ";
-  if (needsReview(item)) return "Needs review · ";
-  return item.conflict ? "Overlap · " : "";
+function EventsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading events" className="divide-y divide-[var(--rule-default)]">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4 px-4 py-4">
+          <div className="h-5 w-14 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+          <div className="space-y-2">
+            <div className="h-5 w-48 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+            <div className="h-4 w-28 animate-pulse rounded bg-[var(--surface-panel-strong)]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function EventsPageClient({ initialDate }: { initialDate: string }) {
@@ -31,9 +45,14 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
   const [view, setView] = useState<"month" | "list">("month");
   const [reviewMode, setReviewMode] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  // The details card beside the calendar starts closed and opens when an event or a day with events is chosen.
+  const [opened, setOpened] = useState(false);
+  const [listPage, setListPage] = useState(1);
   const [form, setForm] = useState<NewEventForm>(() => initialForm(initialDate));
   const [formProblemText, setFormProblemText] = useState("");
   const queryClient = useQueryClient();
+  const wide = useMediaQuery("(min-width: 768px)");
+  const xl = useMediaQuery("(min-width: 1280px)");
   const cells = useMemo(() => getMonthCells(month.year, month.index), [month]);
   const from = cells[0]?.date;
   const to = cells.at(-1)?.date;
@@ -41,6 +60,7 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
     queryKey: ["events", from, to],
     queryFn: () => apiFetch<EventListResponse>(`/api/events?from=${from}&to=${to}`),
     enabled: Boolean(from && to),
+    placeholderData: keepPreviousData,
   });
   const reviewQuery = useQuery({
     queryKey: ["events", "review"],
@@ -52,8 +72,22 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
   // In review mode the list is the one-time events that ended without being marked done or cancelled.
   const items = reviewMode ? reviewItems : calendarItems;
   const byDate = useMemo(() => groupByLocalDate(calendarItems), [calendarItems]);
-  const selected = items.find((item) => item.id === selectedId) ?? (reviewMode ? undefined : byDate.get(selectedDate)?.[0]);
+  // The month grid keeps a side panel on a wide screen. A list, and any phone, opens an event under its own row.
+  const inline = !wide;
+  const listMode = inline || reviewMode || view === "list";
+  const selected = items.find((item) => item.id === selectedId) ?? (listMode ? undefined : byDate.get(selectedDate)?.[0]);
+  const listing = paginate(items, listPage);
   const bannerText = reviewBannerText(eventQuery.data?.needsReviewCount ?? 0);
+  const data = eventQuery.data;
+  // The review list loads on its own, after Review is pressed. Until it has really loaded, show that it is
+  // loading (or that it failed), instead of the "Nothing to review" message, which would be wrong.
+  // Changing month keeps the previous month's data only as a placeholder underneath, so the page's flags and
+  // buttons keep working. It is not shown: the new month shows a skeleton until it has loaded, so the old
+  // events can never be mistaken for the new month's.
+  const monthLoading = !reviewMode && (eventQuery.isPending || eventQuery.isPlaceholderData);
+  const reviewLoading = reviewMode && reviewQuery.isPending;
+  const reviewFailed = reviewMode && reviewQuery.isError;
+  const cardOpen = !inline && detailsCardOpen({ showForm, opened, hasSelection: Boolean(selected) });
   const createEvent = useMutation({
     mutationFn: (value: NewEventForm) => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -64,16 +98,43 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
       setSelectedDate(form.date);
       setMonth({ year: Number(form.date.slice(0, 4)), index: Number(form.date.slice(5, 7)) - 1 });
       setSelectedId(null);
+      setListPage(1);
       setShowForm(false);
+      setOpened(false);
     },
   });
+
+  function closeCard() {
+    setOpened(false);
+    setShowForm(false);
+    setSelectedId(null);
+  }
 
   function moveMonth(delta: number) {
     const date = new Date(Date.UTC(month.year, month.index + delta, 1));
     setMonth({ year: date.getUTCFullYear(), index: date.getUTCMonth() });
     setSelectedDate(date.toISOString().slice(0, 10));
     setSelectedId(null);
+    setListPage(1);
     setShowForm(false);
+    setOpened(false);
+  }
+
+  function goToToday() {
+    const today = new Date();
+    setMonth({ year: today.getFullYear(), index: today.getMonth() });
+    setSelectedDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
+    setSelectedId(null);
+    setListPage(1);
+    setShowForm(false);
+    setOpened(false);
+  }
+
+  function chooseView(next: "month" | "list") {
+    setView(next);
+    setSelectedId(null);
+    setListPage(1);
+    setOpened(false);
   }
 
   function openNewEvent(date = selectedDate) {
@@ -94,84 +155,148 @@ export default function EventsPageClient({ initialDate }: { initialDate: string 
     createEvent.mutate(form);
   }
 
+  const newForm = (
+    <EventNewForm
+      form={form}
+      setForm={setForm}
+      problem={formProblemText}
+      error={createEvent.isError ? (createEvent.error instanceof Error ? createEvent.error.message : "Unable to save event.") : ""}
+      saving={createEvent.isPending}
+      onSubmit={submit}
+      onCancel={() => setShowForm(false)}
+    />
+  );
+  const details = (item: EventOccurrenceSummary) => data ? <EventDetails key={item.id} item={item} canEdit={data.canEdit} canDelete={data.canDelete} canAnnounce={data.canCreateAnnouncement} /> : null;
+
+  // Side by side on a wide screen, the details column grows from nothing and shrinks back, so the calendar or
+  // list glides to its new width instead of jumping. Below that the card stacks under the register.
+  const columns = xl ? {
+    display: "grid",
+    alignItems: "start",
+    gridTemplateColumns: cardOpen ? "minmax(0,1fr) 360px" : "minmax(0,1fr) 0px",
+    columnGap: cardOpen ? 16 : 0,
+    transition: "grid-template-columns 260ms var(--ease-out), column-gap 260ms var(--ease-out)",
+  } as const : undefined;
+
   return (
-    <section className="min-h-[calc(100vh-8rem)] text-[var(--text-primary)]">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Events</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">See and plan church events on a calendar, with a registration link when one is needed.</p>
+    <MotionConfig reducedMotion="user">
+    <section className="min-h-[calc(100vh-8rem)] space-y-6 text-[var(--text-primary)]">
+      <header className="ui-page-header flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <h1 className="ui-page-title text-3xl font-semibold leading-10">Events</h1>
+          <p className="ui-page-description">See and plan church events on a calendar, with a registration link when one is needed.</p>
         </div>
-        {eventQuery.data?.canCreate ? <button type="button" onClick={() => openNewEvent()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] hover:bg-[var(--action-primary-bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"><Plus aria-hidden="true" className="h-4 w-4" /> New event</button> : null}
+        {data?.canCreate ? <button type="button" onClick={() => openNewEvent()} className="ui-btn-primary pressable inline-flex items-center justify-center gap-2 self-start px-4 py-2.5 text-sm font-semibold sm:self-auto"><Plus aria-hidden="true" className="h-4 w-4" />New event</button> : null}
       </header>
 
-      {reviewMode ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">Past events to review</h2>
-          <button type="button" onClick={() => { setReviewMode(false); setSelectedId(null); }} className="inline-flex min-h-11 items-center rounded-md border border-[var(--border-default)] px-4 text-sm font-semibold hover:bg-[var(--surface-panel-alt)]">Back to calendar</button>
-        </div>
-      ) : bannerText ? (
-        <button type="button" onClick={() => { setReviewMode(true); setSelectedId(null); setShowForm(false); }} className="mb-4 flex min-h-11 w-full items-center justify-between gap-3 rounded-md bg-[var(--state-warning-soft)] px-4 text-left text-sm font-medium text-[var(--state-warning)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
+      {!reviewMode && bannerText ? (
+        <button type="button" onClick={() => { setReviewMode(true); setSelectedId(null); setOpened(false); setListPage(1); setShowForm(false); }} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md bg-[var(--state-warning-soft)] px-4 text-left text-sm font-medium text-[var(--state-warning)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
           <span>{bannerText}</span>
           <span className="shrink-0 underline underline-offset-2">Review</span>
         </button>
       ) : null}
 
-      <div className={reviewMode ? "hidden" : "mb-4 flex flex-wrap items-center justify-between gap-3"}>
-        <div className="flex min-h-11 items-center gap-2">
-          <h2 className="min-w-44 text-xl font-semibold">{monthLabel(month.year, month.index)}</h2>
-          <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>
-          <button type="button" onClick={() => moveMonth(1)} aria-label="Next month" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border-default)] hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-[var(--border-default)] p-1" role="group" aria-label="Calendar view">
-            <button type="button" onClick={() => setView("month")} aria-pressed={view === "month"} className={`min-h-9 rounded px-3 text-sm ${view === "month" ? "bg-[var(--surface-panel-strong)] font-semibold text-[var(--text-accent)]" : "text-[var(--text-secondary)]"}`}>Month</button>
-            <button type="button" onClick={() => setView("list")} aria-pressed={view === "list"} className={`min-h-9 rounded px-3 text-sm ${view === "list" ? "bg-[var(--surface-panel-strong)] font-semibold text-[var(--text-accent)]" : "text-[var(--text-secondary)]"}`}>List</button>
-          </div>
-          <button type="button" onClick={() => { const today = new Date(); setMonth({ year: today.getFullYear(), index: today.getMonth() }); setSelectedDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`); setSelectedId(null); setShowForm(false); }} className="min-h-11 rounded-md border border-[var(--border-default)] px-3 text-sm font-medium hover:bg-[var(--surface-panel-alt)]">Today</button>
-        </div>
-      </div>
-
-      {eventQuery.isPending ? <p role="status" className="py-12 text-sm text-[var(--text-muted)]">Loading events…</p> : null}
-      {eventQuery.isError ? <div role="alert" className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 text-sm"><p>Events could not be loaded. {eventQuery.error instanceof Error ? eventQuery.error.message : ""}</p><button type="button" onClick={() => void eventQuery.refetch()} className="mt-3 font-semibold text-[var(--text-accent)] underline">Try again</button></div> : null}
-      {eventQuery.isSuccess ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-            {!reviewMode && view === "month" ? (
-              <>
-                <div className="hidden grid-cols-7 border-b border-[var(--border-default)] md:grid">{weekDays.map((day) => <span key={day} className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{day}</span>)}</div>
-                <div className="hidden grid-cols-7 md:grid">
-                  {cells.map((cell) => {
-                    const dayItems = byDate.get(cell.date) ?? [];
-                    return <div key={cell.date} onClick={() => { setSelectedDate(cell.date); setSelectedId(null); setShowForm(false); }} className={`min-h-28 cursor-pointer border-b border-r border-[var(--border-default)] p-1.5 hover:bg-[var(--surface-panel-alt)] ${selectedDate === cell.date ? "bg-[var(--surface-panel-strong)]" : cell.inMonth ? "" : "bg-[var(--surface-panel-alt)]"}`}>
-                      <button type="button" onClick={() => { setSelectedDate(cell.date); setSelectedId(null); setShowForm(false); }} aria-label={fullDateLabel(cell.date)} aria-pressed={selectedDate === cell.date} className={`mb-1 flex h-8 w-8 items-center justify-center rounded-md text-xs font-semibold focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${selectedDate === cell.date ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-ink)]" : cell.inMonth ? "text-[var(--text-primary)] hover:bg-[var(--surface-panel-strong)]" : "text-[var(--text-muted)]"}`}>{Number(cell.date.slice(-2))}</button>
-                      {dayItems.slice(0, 3).map((item) => <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); setSelectedDate(cell.date); setSelectedId(item.id); setShowForm(false); }} className={`mb-1 block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${item.status === "CANCELLED" ? "bg-[var(--surface-panel-alt)] text-[var(--text-muted)] line-through" : item.conflict ? "bg-[var(--state-warning-soft)] text-[var(--state-warning)]" : "bg-[var(--surface-panel-strong)] text-[var(--text-accent)]"}`}>{datePrefix(item)}{item.title}</button>)}
-                      {dayItems.length > 3 ? <span className="px-1 text-xs text-[var(--text-muted)]">+{dayItems.length - 3} more</span> : null}
-                    </div>;
-                  })}
-                </div>
-                {items.length === 0 ? <p className="hidden border-t border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-muted)] md:block">No events in this month. Scheduled events will appear on these dates.</p> : null}
-              </>
-            ) : null}
-            <div className={!reviewMode && view === "month" ? "p-3 md:hidden" : "p-3"}>
-              {items.length === 0 ? <div className="flex min-h-48 flex-col items-center justify-center px-4 text-center"><CalendarDays aria-hidden="true" className="mb-3 h-7 w-7 text-[var(--text-muted)]" /><p className="font-medium">No events in this month</p><p className="mt-1 text-sm text-[var(--text-muted)]">Scheduled events will appear here.</p></div> : (
-                <div className="divide-y divide-[var(--border-default)]">
-                  {items.map((item) => <button type="button" key={item.id} onClick={() => { setSelectedDate(item.localDate); setSelectedId(item.id); setShowForm(false); }} className="flex min-h-16 w-full items-center gap-4 px-2 py-3 text-left hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"><span className="w-14 shrink-0 text-sm font-semibold text-[var(--text-secondary)]">{item.localDate.slice(5)}</span><span className="min-w-0 flex-1"><span className={`block truncate text-sm font-semibold ${item.status === "CANCELLED" ? "text-[var(--text-muted)] line-through" : ""}`}>{datePrefix(item)}{item.title}</span><span className="block truncate text-xs text-[var(--text-muted)]">{timeLabel(item.startsAt, item.timezone)}{item.venue ? ` · ${item.venue}` : ""}</span></span>{item.conflict ? <span className="text-xs font-semibold text-[var(--state-warning)]">Overlap</span> : null}</button>)}
-                </div>
-              )}
+      <div style={columns} className={xl ? "motion-reduce:!transition-none" : "space-y-4"}>
+      <section className="ui-surface-elevated ui-operational-register min-w-0">
+        <div className="ui-register-toolbar">
+          {reviewMode ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Past Events to Review</h2>
+              <button type="button" onClick={() => { setReviewMode(false); setSelectedId(null); setOpened(false); setListPage(1); }} aria-label="Back to calendar" title="Back to calendar" className={ICON_BUTTON}><ArrowLeft aria-hidden="true" className="h-4 w-4" /></button>
             </div>
-          </div>
-
-          <aside className="min-h-64 rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 shadow-[var(--elevation-subtle)]" aria-label="Event details">
-            {showForm ? <form onSubmit={submit} className="space-y-4">
-              <div className="flex items-start justify-between gap-3"><h2 className="text-lg font-semibold">New event</h2><button type="button" onClick={() => setShowForm(false)} className="text-sm text-[var(--text-secondary)] underline">Cancel</button></div>
-              <EventFormFields form={form} setForm={setForm} />
-              {formProblemText ? <p role="alert" className="text-sm text-[var(--state-danger)]">{formProblemText}</p> : null}
-              {createEvent.isError ? <p role="alert" className="text-sm text-[var(--state-danger)]">{createEvent.error instanceof Error ? createEvent.error.message : "Unable to save event."}</p> : null}
-              <button type="submit" disabled={createEvent.isPending} className="min-h-11 w-full rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-ink)] disabled:opacity-60">{createEvent.isPending ? "Saving…" : "Create event"}</button>
-            </form> : selected ? <EventDetails key={selected.id} item={selected} canEdit={eventQuery.data.canEdit} canDelete={eventQuery.data.canDelete} canAnnounce={eventQuery.data.canCreateAnnouncement} /> : <div><p className="text-sm font-semibold text-[var(--text-secondary)]">{fullDateLabel(selectedDate)}</p><h2 className="mt-3 text-lg font-semibold">No event selected</h2><p className="mt-2 text-sm text-[var(--text-muted)]">Choose an event on the calendar to see its details.</p>{eventQuery.data.canCreate ? <button type="button" onClick={() => openNewEvent(selectedDate)} className="mt-4 text-sm font-semibold text-[var(--text-accent)] underline">Add an event on this date</button> : null}</div>}
-          </aside>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1">
+                <h2 className="min-w-40 text-lg font-semibold">{monthLabel(month.year, month.index)}</h2>
+                <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month" title="Previous month" className={ICON_BUTTON}><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>
+                <button type="button" onClick={() => moveMonth(1)} aria-label="Next month" title="Next month" className={ICON_BUTTON}><ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
+                <button type="button" onClick={goToToday} className="ui-btn-secondary pressable ml-2 inline-flex items-center px-3 text-sm font-semibold">Today</button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-md border border-[var(--border-default)] p-0.5" role="group" aria-label="Calendar view">
+                  <button type="button" onClick={() => chooseView("month")} aria-pressed={view === "month"} className={`min-h-10 rounded px-3 text-sm ${view === "month" ? "bg-[var(--surface-panel-strong)] font-semibold text-[var(--text-accent)]" : "text-[var(--text-secondary)]"}`}>Month</button>
+                  <button type="button" onClick={() => chooseView("list")} aria-pressed={view === "list"} className={`min-h-10 rounded px-3 text-sm ${view === "list" ? "bg-[var(--surface-panel-strong)] font-semibold text-[var(--text-accent)]" : "text-[var(--text-secondary)]"}`}>List</button>
+                </div>
+                <button type="button" onClick={() => void eventQuery.refetch()} aria-label="Refresh events" title="Refresh events" className={ICON_BUTTON}><RefreshCw aria-hidden="true" className={eventQuery.isFetching ? "h-4 w-4 animate-spin" : "h-4 w-4"} /></button>
+              </div>
+            </div>
+          )}
         </div>
-      ) : null}
+
+        {monthLoading || reviewLoading ? (
+          !reviewMode && !listMode ? <EventMonthSkeleton cells={cells} /> : <EventsSkeleton />
+        ) : null}
+        {eventQuery.isError || reviewFailed ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 bg-[var(--state-danger-soft)] px-4 py-3 text-sm text-[var(--state-danger)]">
+            <p>{reviewFailed ? "The events to review" : "Events"} could not be loaded. {(reviewFailed ? reviewQuery : eventQuery).error instanceof Error ? (reviewFailed ? reviewQuery : eventQuery).error?.message : ""}</p>
+            <button type="button" onClick={() => void (reviewFailed ? reviewQuery : eventQuery).refetch()} className="ui-btn-secondary pressable inline-flex items-center px-4 text-sm font-semibold">Retry</button>
+          </div>
+        ) : null}
+
+        {data && !monthLoading && !reviewLoading && !reviewFailed ? (listMode ? (
+          <div>
+            {showForm && inline ? <div className="border-b border-[var(--rule-default)] p-4 lg:px-6"><div className="max-w-xl">{newForm}</div></div> : null}
+            {items.length === 0 ? (
+              <div className="flex min-h-48 flex-col items-center justify-center px-4 text-center"><CalendarDays aria-hidden="true" className="mb-3 h-7 w-7 text-[var(--text-muted)]" /><p className="font-medium">{reviewMode ? "Nothing to review" : "No events in this month"}</p><p className="mt-1 text-sm text-[var(--text-muted)]">{reviewMode ? "Past events that were not marked done or cancelled show here." : "Scheduled events will appear here."}</p></div>
+            ) : (
+              <>
+                <ul>
+                  {listing.items.map((item, row) => {
+                    // On a phone a chosen row stays chosen; on a wide screen it is chosen only while the card is open.
+                    const open = item.id === selected?.id && (inline || cardOpen);
+                    return (
+                      <motion.li key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(row * 0.03, 0.2) }} className={`border-b border-[var(--rule-default)] ${open ? "relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-[var(--action-primary-bg)]" : ""}`}>
+                        <button type="button" aria-expanded={open} onClick={() => { setSelectedDate(item.localDate); setSelectedId(open ? null : item.id); setOpened(!open); setShowForm(false); }} className="flex min-h-16 w-full items-center gap-4 px-4 py-3 text-left hover:bg-[var(--surface-panel-alt)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
+                          <span className="w-14 shrink-0 text-sm font-semibold text-[var(--text-secondary)]">{item.localDate.slice(5)}</span>
+                          <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.status === "CANCELLED" ? "var(--text-muted)" : eventColorTokens(item.color).dot }} />
+                          <span className="min-w-0 flex-1">
+                            <span className={`block truncate text-sm font-semibold ${item.status === "CANCELLED" ? "text-[var(--text-muted)] line-through" : ""}`}>{datePrefix(item)}{item.title}</span>
+                            <span className="block truncate text-xs text-[var(--text-muted)]">{timeLabel(item.startsAt, item.timezone)}{item.venue ? ` · ${item.venue}` : ""}</span>
+                          </span>
+                          {item.conflict ? <span className="text-xs font-semibold text-[var(--state-warning)]">Overlap</span> : null}
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {open && inline ? (
+                            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+                              <section aria-label="Event details" className="max-w-2xl px-4 pb-5 pt-1 lg:px-6">{details(item)}</section>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </motion.li>
+                    );
+                  })}
+                </ul>
+                <ListPaginationFooter {...listing} noun="events" onPageChange={setListPage} />
+              </>
+            )}
+          </div>
+        ) : (
+          <motion.div key={`${month.year}-${month.index}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="min-w-0">
+            <EventMonthGrid
+              cells={cells}
+              byDate={byDate}
+              selectedDate={selectedDate}
+              onSelectDate={(date) => { setSelectedDate(date); setSelectedId(null); setShowForm(false); setOpened((byDate.get(date)?.length ?? 0) > 0); }}
+              onSelectEvent={(date, id) => { setSelectedDate(date); setSelectedId(id); setShowForm(false); setOpened(true); }}
+            />
+            {calendarItems.length === 0 ? <p className="border-t border-[var(--rule-default)] px-4 py-3 text-sm text-[var(--text-muted)]">No events in this month. Scheduled events will appear on these dates.</p> : null}
+          </motion.div>
+        )) : null}
+      </section>
+
+      {/* The column clips the card while it is wider than its track, but leaves room for its shadow. */}
+      <div className={xl ? "min-w-0 [overflow-clip-margin:24px] [overflow:clip]" : undefined}>
+        <AnimatePresence>
+          {cardOpen ? <motion.aside key="card" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.22, ease: "easeOut" }} className="ui-surface-elevated relative min-w-0 p-5 pt-12 xl:w-[360px]" aria-label="Event details">
+            <button type="button" onClick={closeCard} aria-label="Close event details" title="Close" className={`${ICON_BUTTON} absolute right-2 top-2`}><X aria-hidden="true" className="h-4 w-4" /></button>
+            <motion.div key={showForm ? "form" : selected?.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+              {showForm ? newForm : selected ? details(selected) : null}
+            </motion.div>
+          </motion.aside> : null}
+        </AnimatePresence>
+      </div>
+      </div>
     </section>
+    </MotionConfig>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -40,8 +41,13 @@ function Group({ title, items, selectedId, onSelect, note }: { title: string; it
 }
 
 export default function AnnouncementsPageClient() {
-  // ?post=ID opens that announcement, for example right after "Announce this event".
-  const [selectedId, setSelectedId] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("post")));
+  // ?post=ID opens that announcement, for example right after "Announce this event". It is read from the
+  // router, not window.location, because window.location still has the old address while this page first
+  // renders after a client navigation. Choosing a row, or New announcement, takes over from the address.
+  const postFromAddress = useSearchParams().get("post");
+  const [chosenId, setChosenId] = useState<string | null | undefined>(undefined);
+  const selectedId = chosenId === undefined ? postFromAddress : chosenId;
+  const setSelectedId = setChosenId;
   const [creating, setCreating] = useState(false);
   const [showEnded, setShowEnded] = useState(false);
   const query = useQuery({ queryKey: ["announcements"], queryFn: () => apiFetch<AnnouncementListResponse>("/api/announcements") });
