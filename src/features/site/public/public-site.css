@@ -99,7 +99,11 @@
 .public-site .site-header-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; padding-block: 0.5rem; }
 .public-site .site-brand { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
 .public-site .site-brand-name { font-size: 1.25rem; font-weight: 700; }
-.public-site .site-logo { height: 2.5rem; width: auto; max-width: 14rem; object-fit: contain; }
+/* A logo that includes the church name has small letters, so it gets more height than a small mark would. */
+.public-site .site-logo { height: 3.25rem; width: auto; max-width: 16rem; object-fit: contain; }
+@container (min-width: 672px) {
+  .public-site .site-logo { height: 4rem; max-width: 20rem; }
+}
 .public-site .site-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-left: auto; }
 .public-site .site-nav-wide { display: none; }
 .public-site .site-nav-wide ul { display: flex; flex-wrap: wrap; gap: 0 0.5rem; margin: 0; padding: 0; list-style: none; }
