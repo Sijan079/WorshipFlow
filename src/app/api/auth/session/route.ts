@@ -18,15 +18,17 @@ export async function GET(request: NextRequest) {
   let canViewCaptions = false;
   let canViewPeople = false;
   let canViewAnnouncements = false;
+  let canViewSite = false;
   if (data.user && workspaceSlug) {
     try {
       const context = await requireWorkspaceContext(workspaceSlug);
       role = context.role;
-      [canViewEvents, canViewCaptions, canViewPeople, canViewAnnouncements] = await Promise.all([
+      [canViewEvents, canViewCaptions, canViewPeople, canViewAnnouncements, canViewSite] = await Promise.all([
         hasModuleAction(context, "EVENTS", "VIEW"),
         hasModuleAction(context, "CAPTIONS", "VIEW"),
         hasModuleAction(context, "PEOPLE", "VIEW"),
         hasModuleAction(context, "ANNOUNCEMENTS", "VIEW"),
+        hasModuleAction(context, "SITE", "VIEW"),
       ]);
     } catch (error) {
       if (!(error instanceof WorkspaceAuthorizationError)) {
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
       canViewCaptions,
       canViewPeople,
       canViewAnnouncements,
+      canViewSite,
     } : null,
   });
 }

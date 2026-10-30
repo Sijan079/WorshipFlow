@@ -28,6 +28,7 @@ import {
   CalendarRange,
   Captions,
   ChevronDown,
+  Globe,
   CircleUserRound,
   Layers,
   ListMusic,
@@ -49,6 +50,7 @@ const SERVICE_NAV_ITEMS = [
   { href: "/services", label: "Services", shortLabel: "Services", icon: CalendarDays },
   { href: "/events", label: "Events", shortLabel: "Events", icon: CalendarRange },
   { href: "/announcements", label: "Announcements", shortLabel: "Notices", icon: Megaphone },
+  { href: "/site", label: "Page Builder", shortLabel: "Website", icon: Globe },
 ] as const;
 
 const PRODUCTION_NAV_ITEMS = [
@@ -107,7 +109,7 @@ function SettingsSubnav({ localPathname, workspaceBasePath, onNavigate, canViewU
   });
 }
 
-type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null; canViewEvents?: boolean; canViewCaptions?: boolean; canViewPeople?: boolean; canViewAnnouncements?: boolean } | null };
+type SessionResponse = { authenticated: boolean; user: { id: string; email?: string | null; displayName?: string | null; avatarUrl?: string | null; role?: string | null; canViewEvents?: boolean; canViewCaptions?: boolean; canViewPeople?: boolean; canViewAnnouncements?: boolean; canViewSite?: boolean } | null };
 function isActivePath(pathname: string, href: string) {
   const [hrefPath] = href.split("#");
 
@@ -408,7 +410,7 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
                 {group.label}
               </p>
               <div className="mt-1.5 flex flex-col gap-1">
-                {group.items.filter((item) => canShowModuleNavigation(item.href, sessionQuery.data?.user?.canViewEvents ?? false, sessionQuery.data?.user?.canViewCaptions ?? false, sessionQuery.data?.user?.canViewPeople ?? false, sessionQuery.data?.user?.canViewAnnouncements ?? false)).map(({ href, label, icon: Icon }) => {
+                {group.items.filter((item) => canShowModuleNavigation(item.href, sessionQuery.data?.user?.canViewEvents ?? false, sessionQuery.data?.user?.canViewCaptions ?? false, sessionQuery.data?.user?.canViewPeople ?? false, sessionQuery.data?.user?.canViewAnnouncements ?? false, sessionQuery.data?.user?.canViewSite ?? false)).map(({ href, label, icon: Icon }) => {
                   const resolvedHref = toWorkspacePath(href);
                   const active =
                     href === "/services"

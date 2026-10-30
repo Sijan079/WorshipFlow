@@ -7,7 +7,7 @@ function when(startsAt: string, timezone: string) {
 }
 
 function hrefOf(link: SiteLink, churchSlug: string) {
-  return link.kind === "page" ? `/c/${churchSlug}/${link.slug}` : link.url;
+  return link.kind === "page" ? (link.slug === "home" ? `/c/${churchSlug}` : `/c/${churchSlug}/${link.slug}`) : link.url;
 }
 
 function isOutside(link: SiteLink) {
@@ -43,7 +43,7 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
       const Tag = block.content.ordered ? "ol" : "ul";
       return (
         <Tag className={`my-4 ml-6 space-y-1 text-lg ${block.content.ordered ? "list-decimal" : "list-disc"}`}>
-          {block.content.items.map((item, index) => <li key={index}>{item}</li>)}
+          {block.content.items.filter((item) => item.trim() !== "").map((item, index) => <li key={index}>{item}</li>)}
         </Tag>
       );
     }
@@ -72,7 +72,7 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
       return (
         <section className="my-6 rounded-lg bg-[var(--site-soft)] px-6 py-5">
           <h2 className="mb-2 text-2xl font-semibold">Service times</h2>
-          {block.content.lines.map((line) => <p key={line} className="text-lg">{line}</p>)}
+          {block.content.lines.filter((line) => line.trim() !== "").map((line, index) => <p key={index} className="text-lg">{line}</p>)}
         </section>
       );
     case "ANNOUNCEMENTS_LIST":

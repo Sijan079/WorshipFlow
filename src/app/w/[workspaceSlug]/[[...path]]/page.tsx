@@ -16,6 +16,7 @@ import SermonCaptionsPage from "@/features/sermon-captions/sermon-captions-page"
 import PeoplePageClient from "@/features/people/people-page-client";
 import MinistriesPageClient from "@/features/ministries/ministries-page-client";
 import AnnouncementsPageClient from "@/features/posts/announcements-page-client";
+import SitePagesClient from "@/features/site/editor/site-pages-client";
 
 type PageProps = {
   params: Promise<{ workspaceSlug: string; path?: string[] }>;
@@ -67,6 +68,11 @@ export default async function WorkspacePathPage({ params }: PageProps) {
       const context = await requireWorkspaceContext(workspaceSlug);
       if (!(await hasModuleAction(context, "ANNOUNCEMENTS", "VIEW"))) notFound();
       return <AnnouncementsPageClient />;
+    }
+    case "site": {
+      const context = await requireWorkspaceContext(workspaceSlug);
+      if (!(await hasModuleAction(context, "SITE", "VIEW"))) notFound();
+      return <SitePagesClient />;
     }
     case "captions": {
       const context = await requireWorkspaceContext(workspaceSlug);

@@ -52,9 +52,10 @@ export function resolveModuleAction(role: string, defaultEnabled: boolean, perso
   return personalOverride ?? defaultEnabled;
 }
 
-export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false, canViewPeople = false, canViewAnnouncements = false) {
+export function canShowModuleNavigation(href: string, canViewEvents: boolean, canViewCaptions = false, canViewPeople = false, canViewAnnouncements = false, canViewSite = false) {
   if (href === "/events") return canViewEvents;
   if (href === "/announcements") return canViewAnnouncements;
+  if (href === "/site") return canViewSite;
   if (href === "/captions") return canViewCaptions;
   if (href === "/people" || href === "/ministries") return canViewPeople;
   return true;
