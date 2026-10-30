@@ -57,10 +57,15 @@ Each links into its module. No charts or trends until there is enough data.
 - Pages are edited in a WordPress-style stack-of-blocks editor: text is typed directly on the page, other
   blocks open a settings panel (a bottom sheet on phones), with autosave, undo and redo, and a Preview with
   phone, tablet and desktop widths. Blocks: paragraph, heading, list, quote, image, button, spacer,
-  announcements list, events list, service times, contact. Options are only left or centre alignment and
+  announcements list, events list, service times, contact, and layout blocks: Section (a full-width band with a
+  background that holds blocks), Cover (a hero picture with text and buttons on top) and Columns (2 to 4, stacked
+  on phones). Blocks can be content width (720 px), wide (1200 px) or full width. A fixed site header and footer
+  with a call-to-action button, a Look section in Website settings (5 colour sets, 2 font styles, a logo), a "show
+  the page title" switch, "make this the home page", and starter pages (Blank, Homepage, Plan your visit, About
+  us). See `docs/changes/20261030.md` items 16 to 19. Options are only left or centre alignment and
   normal or large text. Posts are a content type (see Announcements above) with title, body, publish date,
   and a public flag; Articles are a separate step after the editor.
-- A church has many pages (at most 20, with at most 60 blocks each) and a header menu built from its
+- A church has many pages (at most 20, with at most 100 blocks each, nested ones included) and a header menu built from its
   published pages in an order the church sets. Addresses come from page titles. The first page is the home
   page and cannot be deleted; other pages are deleted only as drafts. Each page has an optional search
   description. A second person opening a page being edited gets view-only.
@@ -109,7 +114,7 @@ Worship; they are not standalone modules.
 Giving/finance, pastoral care, small groups, named check-in for worship services,
 visitor follow-up workflows, monthly repeat, "this and all following" editing,
 congregant logins and profiles, event RSVP, auto-publishing to social media,
-custom domains for the public site, a free-form or custom-code page builder (the WordPress-style block editor is in scope), columns and nested blocks, galleries, video and embeds, revision history,
+custom domains for the public site, a free-form or custom-code page builder (the WordPress-style block editor is in scope), galleries, video and embeds, revision history,
 self-serve church signup and billing, AI background generation, charts and
 trends on the Dashboard, the desktop (Tauri) app and any local SQLite sync path.
 

@@ -54,8 +54,13 @@ intent and the decisions behind schema changes.
 - `SitePage`: title, slug unique per workspace, status (DRAFT, PUBLISHED),
   `isPublic`, sort order for the menu. At most 20 per workspace.
 - `SitePageBlock`: belongs to a page, ordered, typed (`SiteBlockType`: paragraph, heading, list, quote, image,
-  button, spacer, announcements list, events list, service times, contact). Content is
-  structured JSON, never raw HTML; text styling is a small allowed set (bold, italic, link). At most 60 per page.
+  button, spacer, announcements list, events list, service times, contact, and the layout blocks section, columns
+  and cover). Content is structured JSON, never raw HTML; text styling is a small allowed set (bold, italic, link).
+  A layout block keeps its child blocks inside its own JSON (a Section holds blocks and Columns, a Column holds
+  blocks, no Section inside a Section): at most three levels, 100 blocks per page counting nested ones, 30 in a
+  Section, 15 in a Column. Some blocks have a `width`: content (720 px), wide (1200 px) or full. See
+  `docs/changes/20261030.md` items 16 to 19. `SitePage` also has a "show the page title" switch, and
+  `SiteSettings` the colour set, font style, logo and header button.
 - `Post` (shared with Announcements, see above): as an `ARTICLE` it adds slug, publish date and a rich-text body.
 - Image blocks reference files in Supabase Storage and count toward the
   workspace storage meter. Uploads are converted to WebP, at most 1600 px wide, 10 MB before conversion, with alt text.

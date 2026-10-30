@@ -78,7 +78,9 @@ write the failing check first, build, verify, document.
    **Progress (2026-10-30):** built and tried in the browser: the schema, the public pages and menu, the privacy
    test, the page API, the editor (autosave, undo, publish, preview, one editor at a time), pictures with WebP
    conversion, and the website settings. See `docs/changes/20261030.md` item 14. Remaining: bold, italic and links
-   inside text, the logo and colour and font presets, Articles, a storage meter, and the design look of the public site.
+   inside text, Articles, a storage meter. **Layout blocks decided 2026-10-30** (`docs/changes/20261030.md` items 16
+   to 20), built in this order: (1) widths and the Section block, (2) the Cover hero, (3) Columns, (4) the site header,
+   footer and look (colour sets, font styles, logo). The Posts page and Articles resume after that.
    Check: a test proves public routes cannot read People, Ministry, or
    attendance data; unlisted sends `noindex`; only items marked public appear.
 9. **Dashboard** with four summary cards.
