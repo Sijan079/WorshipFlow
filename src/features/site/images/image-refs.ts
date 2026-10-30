@@ -25,6 +25,7 @@ export function imageIdsIn(blocks: AnyBlock[]) {
     for (const block of list) {
       const content = block.content as { path?: unknown; picture?: unknown; blocks?: unknown } | null;
       if (block.type === "IMAGE") add(content?.path);
+      if (block.type === "COVER") add(content?.picture);
       if (block.type === "SECTION") {
         add(content?.picture);
         if (Array.isArray(content?.blocks)) visit(content.blocks as AnyBlock[]);

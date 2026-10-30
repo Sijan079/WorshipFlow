@@ -36,6 +36,12 @@ test("pictures inside a Section, and a Section's background picture, are listed 
   assert.deepEqual(imageIdsIn(blocks), [a, b, c]);
 });
 
+test("a Cover's picture is listed too", () => {
+  const a = "11111111-2222-4333-8444-555555555555";
+  const cover = { type: "COVER", content: { headline: "Hi", picture: imagePathFor(a), overlay: "medium", height: "tall", align: "center", focus: "center", width: "full", buttons: [] } };
+  assert.deepEqual(imageIdsIn([cover]), [a]);
+});
+
 test("a page cannot use an image that the church does not own", () => {
   const mine = "11111111-2222-4333-8444-555555555555";
   assert.deepEqual(missingImageIds([id, mine], new Set([mine])), [id]);

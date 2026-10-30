@@ -11,6 +11,7 @@
   --site-btn-text: var(--site-accent-text);
   --site-content: 720px;
   --site-wide: 1200px;
+  container-type: inline-size;
   background-color: #ffffff;
   color: #1f2430;
 }
@@ -39,3 +40,34 @@
   --site-btn-bg: #ffffff;
   --site-btn-text: var(--site-dark);
 }
+
+/* A Cover: a hero with words on top of a picture. With no picture it is the church colour. */
+.public-site .site-cover {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: #ffffff;
+  background-color: var(--site-accent);
+}
+.public-site .site-cover[data-height="medium"] { min-height: 360px; }
+.public-site .site-cover[data-height="tall"] { min-height: 480px; }
+.public-site .site-cover[data-height="screen"] { min-height: max(420px, 100svh); }
+/* Sizes follow the width of the page's own box, not the browser window, so the phone and tablet previews in the
+   editor behave like real phones and tablets. */
+@container (min-width: 672px) {
+  .public-site .site-cover[data-height="medium"] { min-height: 420px; }
+  .public-site .site-cover[data-height="tall"] { min-height: 600px; }
+}
+.public-site .site-cover h2, .public-site .site-cover p { text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); }
+.public-site .site-cover-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-shadow: none;
+}
+.public-site .site-cover-button-filled { background-color: #ffffff; color: var(--site-dark); }
+.public-site .site-cover-button-outline { border: 2px solid #ffffff; color: #ffffff; background-color: transparent; }

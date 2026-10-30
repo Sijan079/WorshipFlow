@@ -10,12 +10,16 @@ import { pageDescription } from "./page-description";
 // never touches People, Ministry, attendance or service-assignment data. The privacy test checks this folder.
 
 type Listed = "ANNOUNCEMENTS_LIST" | "EVENTS_LIST" | "CONTACT";
-type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" }>;
+type CoverInput = Extract<SiteBlockInput, { type: "COVER" }>["content"];
+export type CoverFocus = CoverInput["focus"];
+export type CoverButton = CoverInput["buttons"][number];
+type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" | "COVER" }>;
 
 export type PublicBlock =
   | (Shown & { id: string })
   | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: "content" | "wide" | "full"; naturalWidth: number; naturalHeight: number }
   | { id: string; type: "SECTION"; background: "none" | "tinted" | "dark" | "accent" | "picture"; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; padding: "small" | "medium" | "large"; inner: "content" | "wide"; width: "wide" | "full"; blocks: PublicBlock[] }
+  | { id: string; type: "COVER"; headline: string; text: string | null; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; height: "medium" | "tall" | "screen"; align: "left" | "center"; focus: CoverFocus; width: "wide" | "full"; buttons: CoverButton[] }
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
   | { id: string; type: "CONTACT"; email: string | null; phone: string | null; address: string | null };
@@ -138,6 +142,12 @@ async function buildPage({ workspaceId, rows, settings, now, imageSrc }: { works
   }
 
   async function resolve(block: SiteBlockInput, id: string): Promise<PublicBlock | null> {
+    if (block.type === "COVER") {
+      // A cover whose picture is gone, or that never had one, uses the church colour, so its words stay readable.
+      const picture = pictureFor(block.content.picture);
+      const { headline, text, overlay, height, align, focus, width, buttons } = block.content;
+      return { id, type: "COVER", headline, text: text?.trim() || null, pictureSrc: picture ? imageSrc(picture.imageId) : null, overlay, height, align, focus, width, buttons };
+    }
     if (block.type !== "SECTION") return resolveBase(block, id);
     const inner: PublicBlock[] = [];
     for (const [index, child] of block.content.blocks.entries()) {

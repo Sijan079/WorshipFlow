@@ -10,7 +10,8 @@ export function blockProblems(blocks: EditorBlock[]) {
   const report = (key: string, result: ReturnType<typeof SiteBlockSchema.safeParse>) => {
     if (result.success) return;
     const path = result.error.issues[0]?.path.join(".") ?? "";
-    if (path.includes("picture")) problems.set(key, "Choose a picture for the background.");
+    if (path.includes("headline")) problems.set(key, "Write a headline for the cover.");
+    else if (path.includes("picture")) problems.set(key, "Choose a picture for the background.");
     else if (path.includes("path")) problems.set(key, "Choose a picture.");
     else if (path.includes("alt")) problems.set(key, "Describe the image so screen readers can read it.");
     else if (path.includes("url")) problems.set(key, "Enter a web address that starts with https://, a phone number, or an email address.");

@@ -77,6 +77,7 @@ import "./features/site/editor/editor-state.test.ts";
 import "./features/site/editor/block-problems.test.ts";
 import "./features/site/editor/editor-state-nested.test.ts";
 import "./features/site/blocks/layout-blocks.test.ts";
+import "./features/site/blocks/cover-block.test.ts";
 import "./features/site/public/public-events.test.ts";
 import "./features/site/public/page-description.test.ts";
 import "./features/site/images/image-refs.test.ts";

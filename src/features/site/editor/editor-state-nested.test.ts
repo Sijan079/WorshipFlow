@@ -108,3 +108,30 @@ test("keys are added at every level when a saved page is loaded, and stripped ag
   assert.ok(section.type === "SECTION" && section.content.blocks[0].key, "the block inside has a key too");
   assert.deepEqual(stripKeys(keyed), saved);
 });
+
+test("a new Cover starts with no words, a medium overlay and a full-width tall look", () => {
+  const cover = newBlock("COVER");
+  assert.equal(cover.type, "COVER");
+  if (cover.type === "COVER") {
+    assert.equal(cover.content.headline, "");
+    assert.equal(cover.content.overlay, "medium");
+    assert.equal(cover.content.width, "full");
+    assert.deepEqual(cover.content.buttons, []);
+  }
+});
+
+test("a Cover goes on the page, can be edited and moved, and cannot go inside a Section", () => {
+  let state = withSection();
+  state = editorReducer(state, { type: "add", block: newBlock("COVER") });
+  assert.deepEqual(types(state), ["HEADING", "SECTION", "COVER"]);
+  const cover = state.blocks[2];
+  if (cover.type !== "COVER") throw new Error("expected a Cover");
+  state = editorReducer(state, { type: "update", key: cover.key, content: { ...cover.content, headline: "Welcome" } });
+  const edited = state.blocks[2];
+  assert.equal(edited.type === "COVER" ? edited.content.headline : "", "Welcome");
+  state = editorReducer(state, { type: "move", key: cover.key, direction: "up" });
+  assert.deepEqual(types(state), ["HEADING", "COVER", "SECTION"]);
+  const before = state;
+  const sectionKey = state.blocks[2].key;
+  assert.equal(editorReducer(state, { type: "add", block: newBlock("COVER"), parentKey: sectionKey }), before, "no Cover inside a Section");
+});

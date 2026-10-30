@@ -10,8 +10,8 @@ export function pageDescription({ description, blocks }: { description: string |
   // The first paragraph anywhere on the page, including inside a Section.
   const paragraphs = blocks.flatMap((block) => (block.type === "SECTION" ? block.content.blocks : [block]));
   for (const block of paragraphs) {
-    if (block.type !== "PARAGRAPH") continue;
-    const text = block.content.runs.map((run) => run.text).join("").replace(/\s+/g, " ").trim();
+    if (block.type !== "PARAGRAPH" && block.type !== "COVER") continue;
+    const text = (block.type === "COVER" ? (block.content.text ?? "") : block.content.runs.map((run) => run.text).join("")).replace(/\s+/g, " ").trim();
     if (!text) continue;
     if (text.length <= MAX_LENGTH) return text;
     return `${text.slice(0, MAX_LENGTH).replace(/\s+\S*$/, "").replace(/[\s,.;:]+$/, "")}…`;

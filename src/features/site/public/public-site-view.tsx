@@ -1,5 +1,6 @@
 import type { PublicBlock, PublicSite } from "./public-site-data";
 import type { SiteLink, TextRun } from "@/features/site/blocks/block-validation";
+import { COVER_OVERLAY, coverFocusPosition } from "@/features/site/blocks/cover-style";
 import "./public-site.css";
 
 function when(startsAt: string, timezone: string) {
@@ -60,6 +61,8 @@ function Block({ block, churchSlug, nested = false }: { block: PublicBlock; chur
     }
     case "SECTION":
       return <SectionView block={block} churchSlug={churchSlug} />;
+    case "COVER":
+      return <CoverView block={block} churchSlug={churchSlug} />;
     case "QUOTE":
       return (
         <blockquote className="my-6 border-l-4 border-[var(--site-line)] pl-5 text-xl italic">
@@ -129,6 +132,38 @@ function Block({ block, churchSlug, nested = false }: { block: PublicBlock; chur
 
 const OVERLAY = { light: 0.25, medium: 0.45, strong: 0.65 } as const;
 
+// A hero: a picture (or the church colour) with a headline, a line of words and up to two buttons on top. The picture
+// is always darkened, so the white words stay readable on a bright photo.
+function CoverView({ block, churchSlug }: { block: Extract<PublicBlock, { type: "COVER" }>; churchSlug: string }) {
+  const shade = `rgba(10, 12, 30, ${COVER_OVERLAY[block.overlay]})`;
+  const style = block.pictureSrc
+    ? { backgroundImage: `linear-gradient(${shade}, ${shade}), url("${block.pictureSrc}")`, backgroundPosition: `center, ${coverFocusPosition(block.focus)}`, backgroundSize: "cover" }
+    : undefined;
+  const centred = block.align === "center";
+  return (
+    <section className={`site-cover ${block.width === "wide" ? "rounded-lg" : ""}`} data-height={block.height} style={style}>
+      <div className={`site-content site-gutter w-full py-12 ${centred ? "text-center" : "text-left"}`}>
+        <h2 className="text-4xl font-bold leading-tight @2xl:text-5xl">{block.headline}</h2>
+        {block.text ? <p className="mt-4 whitespace-pre-line text-xl leading-relaxed @2xl:text-2xl">{block.text}</p> : null}
+        {block.buttons.length > 0 ? (
+          <p className={`mt-8 flex flex-wrap gap-3 ${centred ? "justify-center" : "justify-start"}`}>
+            {block.buttons.map((button, index) => (
+              <a
+                key={index}
+                className={`site-cover-button ${button.style === "filled" ? "site-cover-button-filled" : "site-cover-button-outline"}`}
+                href={hrefOf(button.link, churchSlug)}
+                {...(isOutside(button.link) ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
+                {button.label}
+              </a>
+            ))}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 // A band with its own background. Its blocks sit in an inner column at the reading width or the wide width.
 function SectionView({ block, churchSlug }: { block: Extract<PublicBlock, { type: "SECTION" }>; churchSlug: string }) {
   const tone = block.background === "dark" || block.background === "accent" || block.background === "picture" ? "dark" : "light";
@@ -146,7 +181,7 @@ function SectionView({ block, churchSlug }: { block: Extract<PublicBlock, { type
 
 // Each block on the page sits at its own width: the reading width, wide, or the full screen.
 function widthOf(block: PublicBlock): "content" | "wide" | "full" {
-  if (block.type === "SECTION") return block.width;
+  if (block.type === "SECTION" || block.type === "COVER") return block.width;
   if (block.type === "IMAGE") return block.width;
   return "content";
 }
@@ -165,7 +200,7 @@ function pageHref(churchSlug: string, pageSlug: string) {
 export function PublicSiteView({ site, churchSlug, preview = false }: { site: PublicSite; churchSlug: string; preview?: boolean }) {
   const linkClass = "inline-flex min-h-11 items-center px-1 text-lg";
   return (
-    <div className="public-site min-h-screen">
+    <div className="public-site @container min-h-screen">
       <header className="border-b border-[var(--site-line)] px-6 py-3">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1">
           <span className="text-xl font-bold">{site.churchName}</span>

@@ -1137,6 +1137,7 @@ enum SiteBlockType {
   SERVICE_TIMES
   CONTACT
   SECTION
+  COVER
 }
 
 model SiteSettings {

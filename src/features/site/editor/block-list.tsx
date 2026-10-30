@@ -13,8 +13,8 @@ const ADDABLE: Array<[NewBlockKind, string]> = [
   ["PARAGRAPH", "Text"], ["HEADING", "Heading"], ["IMAGE", "Picture"], ["LIST", "List"], ["QUOTE", "Quote"], ["BUTTON", "Button"], ["SPACER", "Space"],
   ["SERVICE_TIMES", "Service times"], ["ANNOUNCEMENTS_LIST", "Announcements"], ["EVENTS_LIST", "Upcoming events"], ["CONTACT", "Contact details"],
 ];
-// A Section can only be added on the page itself, never inside another Section.
-const ADDABLE_ON_PAGE: Array<[NewBlockKind, string]> = [...ADDABLE, ["SECTION", "Section"]];
+// A Section or a Cover can only be added on the page itself, never inside a Section.
+const ADDABLE_ON_PAGE: Array<[NewBlockKind, string]> = [["COVER", "Cover (big picture with words)"], ...ADDABLE, ["SECTION", "Section"]];
 
 export type ListContext = {
   dispatch: Dispatch<EditorAction>;

@@ -1,4 +1,4 @@
-import { SITE_LIMITS, type BaseBlockInput, type SectionBlockInput, type SiteBlockInput } from "../blocks/block-validation.ts";
+import { SITE_LIMITS, type BaseBlockInput, type CoverBlockInput, type SectionBlockInput, type SiteBlockInput } from "../blocks/block-validation.ts";
 
 // The editor's blocks while a page is open: the stored block plus a key that stays the same while it is edited,
 // moved or undone. A Section keeps its blocks inside its own content, and they have keys too. Undo and redo are
@@ -6,7 +6,9 @@ import { SITE_LIMITS, type BaseBlockInput, type SectionBlockInput, type SiteBloc
 
 export type KeyedBase = BaseBlockInput & { key: string };
 export type KeyedSection = { key: string; type: "SECTION"; content: Omit<SectionBlockInput["content"], "blocks"> & { blocks: KeyedBase[] } };
-export type EditorBlock = KeyedBase | KeyedSection;
+// A Cover has no blocks inside it, but like a Section it can only sit on the page itself.
+export type KeyedCover = CoverBlockInput & { key: string };
+export type EditorBlock = KeyedBase | KeyedSection | KeyedCover;
 export type NewBlockKind = SiteBlockInput["type"];
 
 export type EditorState = {
@@ -69,6 +71,7 @@ export function newBlock(kind: NewBlockKind): EditorBlock {
     case "EVENTS_LIST":
     case "CONTACT": return { key, type: kind, content: {} };
     case "SECTION": return { key, type: kind, content: { background: "tinted", overlay: "medium", padding: "medium", inner: "content", width: "full", blocks: [] } };
+    case "COVER": return { key, type: kind, content: { headline: "", overlay: "medium", height: "tall", align: "center", focus: "center", width: "full", buttons: [] } };
   }
 }
 
@@ -125,7 +128,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!action.parentKey) return changed(state, insertAfter(state.blocks, action.block, action.afterKey));
       const parent = state.blocks.find((block) => block.key === action.parentKey);
       // A Section holds blocks only: no Section inside a Section, and no more than its limit.
-      if (!parent || parent.type !== "SECTION" || action.block.type === "SECTION") return state;
+      if (!parent || parent.type !== "SECTION" || action.block.type === "SECTION" || action.block.type === "COVER") return state;
       if (parent.content.blocks.length >= SITE_LIMITS.sectionBlocks) return state;
       const child = action.block as KeyedBase;
       return changed(state, state.blocks.map((block) => (block.key === parent.key && block.type === "SECTION" ? { ...block, content: { ...block.content, blocks: insertAfter(block.content.blocks, child, action.afterKey) } } : block)));

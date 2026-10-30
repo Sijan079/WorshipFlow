@@ -97,9 +97,30 @@ const section = z.strictObject({
     .refine((content) => content.background !== "picture" || Boolean(content.picture), { message: "Choose a picture for the background.", path: ["picture"] }),
 });
 
-export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section]);
+// The nine places a picture can be anchored when it is cropped to fit.
+export const COVER_FOCUS_POINTS = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"] as const;
+
+// A hero: a picture (or the church colour) with a headline, a line of text and up to two buttons on top. It sits on
+// the page itself, never inside a Section. The overlay can never be switched off, so white words stay readable.
+const cover = z.strictObject({
+  type: z.literal("COVER"),
+  content: z.strictObject({
+    headline: z.string().trim().min(1, "Write a headline for the cover.").max(120),
+    text: plain(300).optional(),
+    picture: imagePath.optional(),
+    overlay: z.enum(["light", "medium", "strong"]),
+    height: z.enum(["medium", "tall", "screen"]),
+    align: align,
+    focus: z.enum(COVER_FOCUS_POINTS),
+    width: z.enum(["wide", "full"]),
+    buttons: z.array(z.strictObject({ label: z.string().trim().min(1).max(60), link: LinkSchema, style: z.enum(["filled", "outline"]) })).max(2),
+  }),
+});
+
+export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section, cover]);
 export type SiteBlockInput = z.infer<typeof SiteBlockSchema>;
 export type SectionBlockInput = z.infer<typeof section>;
+export type CoverBlockInput = z.infer<typeof cover>;
 
 // Blocks at every level, a layout block counting once itself and once for each block inside it.
 export function countBlocks(blocks: Array<{ type: string; content: unknown }>): number {

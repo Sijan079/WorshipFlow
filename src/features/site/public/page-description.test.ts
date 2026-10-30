@@ -25,6 +25,11 @@ test("the first paragraph inside a Section counts too", () => {
   assert.equal(pageDescription({ description: null, blocks: [section] }), "Come as you are.");
 });
 
+test("a Cover's line of text can supply the description, when it comes first", () => {
+  const cover = { type: "COVER" as const, content: { headline: "Welcome", text: "A place to belong.", overlay: "medium" as const, height: "tall" as const, align: "center" as const, focus: "center" as const, width: "full" as const, buttons: [] } };
+  assert.equal(pageDescription({ description: null, blocks: [cover, paragraph("Later paragraph")] }), "A place to belong.");
+});
+
 test("an empty paragraph is skipped, and no text at all gives nothing", () => {
   assert.equal(pageDescription({ description: "  ", blocks: [paragraph("   "), paragraph("Hello")] }), "Hello");
   assert.equal(pageDescription({ description: null, blocks: [] }), null);

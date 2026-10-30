@@ -35,6 +35,15 @@ test("a problem inside a Section is reported on the block inside, and a picture 
   assert.match(blockProblems([noPicture]).get("section-2") ?? "", /picture/i);
 });
 
+test("a Cover asks for a headline, and names a button that has no words or a bad link", () => {
+  const cover = { key: "cover-1", type: "COVER" as const, content: { headline: "", overlay: "medium" as const, height: "tall" as const, align: "center" as const, focus: "center" as const, width: "full" as const, buttons: [] } };
+  assert.match(blockProblems([cover]).get("cover-1") ?? "", /headline/i);
+  const badLink = { ...cover, key: "cover-2", content: { ...cover.content, headline: "Hi", buttons: [{ label: "Go", link: { kind: "url" as const, url: "https://" }, style: "filled" as const }] } };
+  assert.match(blockProblems([badLink]).get("cover-2") ?? "", /web address/i);
+  const fine = { ...cover, key: "cover-3", content: { ...cover.content, headline: "Welcome" } };
+  assert.equal(blockProblems([fine]).size, 0);
+});
+
 test("a new picture block asks for a picture before anything else", () => {
   const image = newBlock("IMAGE");
   assert.match(blockProblems([image]).get(image.key) ?? "", /choose a picture/i);

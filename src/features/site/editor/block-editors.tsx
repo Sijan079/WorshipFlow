@@ -6,6 +6,7 @@ import type { SiteBlockInput } from "../blocks/block-validation";
 import type { EditorBlock } from "./editor-state";
 import ImageField from "./image-field";
 import LinkField from "./link-field";
+import CoverFields from "./cover-fields";
 import SectionFields from "./section-fields";
 
 export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
@@ -21,6 +22,7 @@ export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   EVENTS_LIST: "Upcoming events",
   CONTACT: "Contact details",
   SECTION: "Section",
+  COVER: "Cover",
 };
 
 type Props = {
@@ -154,5 +156,7 @@ export default function BlockBody({ block, pages, disabled, onChange }: Props) {
       return <ImageField content={block.content} disabled={disabled} onChange={onChange} />;
     case "SECTION":
       return <SectionFields content={block.content} disabled={disabled} onChange={onChange} />;
+    case "COVER":
+      return <CoverFields content={block.content} pages={pages} disabled={disabled} onChange={onChange} />;
   }
 }
