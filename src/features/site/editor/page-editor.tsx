@@ -4,12 +4,13 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Check, Plus, Redo2, Trash2, Undo2, X } from "lucide-react";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, workspaceApiPath } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import { SITE_LIMITS, SiteBlockSchema, type SiteBlockInput } from "../blocks/block-validation";
 import BlockBody, { BLOCK_LABELS } from "./block-editors";
 import { blockProblems } from "./block-problems";
+import { LOCK_RENEW_SECONDS } from "../pages/page-lock";
 import PreviewPanel from "./preview-panel";
 import { canRedo, canUndo, editorReducer, initialEditorState, newBlock, withKeys, type EditorBlock, type NewBlockKind } from "./editor-state";
 import type { PageDetail, PageListItem } from "./editor-types";
@@ -78,8 +79,32 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
   const current = snapshot(title, description, editor.blocks);
   const dirty = current !== saved;
   const problems = useMemo(() => blockProblems(editor.blocks), [editor.blocks]);
-  const canSave = flags.canEdit && problems.size === 0 && title.trim() !== "";
-  const readOnly = !flags.canEdit;
+  // Only one person edits a page at a time. Opening the page claims it, and asking again every 20 seconds
+  // renews the claim. If the question itself fails, staying view-only is safer than risking an overwrite.
+  const claim = useQuery({
+    queryKey: ["site-page-lock", page.id],
+    queryFn: () => apiFetch<{ mine: boolean; by: string | null }>(`/api/site/pages/${page.id}/lock`, { method: "POST" }),
+    enabled: flags.canEdit,
+    refetchInterval: LOCK_RENEW_SECONDS * 1000,
+    refetchIntervalInBackground: true,
+    retry: false,
+    gcTime: 0,
+  });
+  const lock: "checking" | "mine" | "other" = !flags.canEdit ? "other" : claim.data ? (claim.data.mine ? "mine" : "other") : claim.isError ? "other" : "checking";
+  const holder = claim.data && !claim.data.mine ? claim.data.by : null;
+  const canSave = flags.canEdit && lock === "mine" && problems.size === 0 && title.trim() !== "";
+  const readOnly = !flags.canEdit || lock !== "mine";
+
+  // Give the page back when the editor closes, so the next person does not wait for the claim to run out.
+  useEffect(() => {
+    if (!flags.canEdit) return;
+    const release = () => { void fetch(workspaceApiPath(`/api/site/pages/${page.id}/lock`), { method: "DELETE", keepalive: true }); };
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.removeEventListener("pagehide", release);
+      release();
+    };
+  }, [page.id, flags.canEdit]);
 
   const save = useMutation({
     mutationFn: (extra?: { status?: "DRAFT" | "PUBLISHED"; isPublic?: boolean }) => {
@@ -167,6 +192,12 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
         </div>
       </div>
 
+      {lock === "other" && flags.canEdit ? (
+        <p role="status" className="border-l-2 border-[var(--border-focus)] pl-3 text-sm">
+          {holder ? `${holder} is editing this page.` : "Someone else is editing this page."} You can look at it, but you cannot change it until they are done.{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void claim.refetch()}>Check again</button>
+        </p>
+      ) : null}
       {notice ? <p role="status" className="border-l-2 border-[var(--border-focus)] pl-3 text-sm">{notice}</p> : null}
       {skipped > 0 ? <p role="alert" className="border-l-2 border-[var(--state-warning)] pl-3 text-sm">{skipped} block{skipped === 1 ? "" : "s"} on this page could not be read and {skipped === 1 ? "is" : "are"} hidden. Saving will remove {skipped === 1 ? "it" : "them"}.</p> : null}
       {save.isError ? <p role="alert" className="border-l-2 border-[var(--state-danger)] pl-3 text-sm">{save.error instanceof Error ? save.error.message : "The page could not be saved."} <button type="button" className="font-semibold underline" onClick={() => save.mutate(undefined)}>Try again</button></p> : null}
@@ -230,7 +261,7 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
               </>
             )}
           </div>
-        ) : <p className="text-sm text-[var(--text-muted)]">You can look at this page but not change it.</p>}
+        ) : <p className="text-sm text-[var(--text-muted)]">{lock === "checking" ? "Checking whether anyone else is editing this page…" : "You can look at this page but not change it."}</p>}
 
         {flags.canDelete && !isHome && status === "DRAFT" ? (
           <div className="border-t border-[var(--rule-default)] pt-4">

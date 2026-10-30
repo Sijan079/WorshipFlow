@@ -6,6 +6,7 @@ import { reportRouteFailure } from "@/lib/observability";
 import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { canPublishSite, requireSiteAction } from "@/features/site/site-access";
 import { canDeletePage, decidePageUpdate } from "@/features/site/pages/page-rules";
+import { lockStatus } from "@/features/site/pages/page-lock";
 import { UpdatePageSchema } from "@/features/site/pages/page-validation";
 import { unavailableImagesIn } from "@/features/site/images/image-ownership";
 
@@ -51,8 +52,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     const input = parsed.data;
 
-    const existing = await prisma.sitePage.findFirst({ where: { id, workspaceId: context.workspaceId }, select: { status: true, isPublic: true } });
+    const existing = await prisma.sitePage.findFirst({ where: { id, workspaceId: context.workspaceId }, select: { status: true, isPublic: true, lockedById: true, lockedAt: true } });
     if (!existing) return notFound();
+
+    // Someone else has the page open for editing: saving over their work is refused until they are done.
+    if (lockStatus(existing, context.userId, new Date()) === "other") {
+      return NextResponse.json({ error: "Someone else is editing this page right now. Your changes were not saved." }, { status: 409 });
+    }
 
     if (input.blocks && (await unavailableImagesIn(context.workspaceId, input.blocks)).length > 0) {
       return NextResponse.json({ error: "One of the pictures is no longer available. Add it again." }, { status: 400 });

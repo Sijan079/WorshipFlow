@@ -52,3 +52,12 @@ test("the preview route needs View, reads only this church's page, and is never 
   assert.match(route, /getPreviewSite\(context\.workspaceId, id, context\.workspaceSlug\)/);
   assert.match(route, /"Cache-Control": "no-store"/);
 });
+
+test("claiming a page is one database update, saving over someone else's claim is refused, and the claim is given back on close", () => {
+  const lock = read("src", "app", "api", "site", "pages", "[id]", "lock", "route.ts");
+  assert.match(lock, /export async function POST[\s\S]*?requireSiteAction\("EDIT"\)/);
+  assert.match(lock, /updateMany\(\{\s*where: \{ id, workspaceId: context\.workspaceId, OR: \[/, "claim and check are one update");
+  assert.match(lock, /export async function DELETE[\s\S]*?lockedById: context\.userId/, "only your own claim can be given back");
+  assert.match(one(), /lockStatus\(existing, context\.userId, new Date\(\)\) === "other"[\s\S]*?status: 409/);
+  assert.match(read("src", "features", "site", "editor", "page-editor.tsx"), /method: "DELETE", keepalive: true/);
+});

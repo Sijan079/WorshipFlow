@@ -71,6 +71,7 @@ import "./features/site/public-site-privacy.test.ts";
 import "./features/site/blocks/block-validation.test.ts";
 import "./features/site/pages/page-rules.test.ts";
 import "./features/site/pages/starter-home.test.ts";
+import "./features/site/pages/page-lock.test.ts";
 import "./features/site/site-api.test.ts";
 import "./features/site/editor/editor-state.test.ts";
 import "./features/site/editor/block-problems.test.ts";
