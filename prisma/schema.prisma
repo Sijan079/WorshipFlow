@@ -1145,6 +1145,14 @@ model SiteSettings {
   id           String   @id @default(uuid())
   workspaceId  String   @unique
   indexable    Boolean  @default(false)
+  // The look: one of the five colour sets and one of the two font styles (see src/features/site/look/look.ts).
+  colorSet     String   @default("dawn")
+  fontStyle    String   @default("clean")
+  // The logo (a stored picture, site/<id>.webp), the header's call-to-action button, and the service times in the footer.
+  logoPath          String?
+  headerButtonLabel String?
+  headerButtonSlug  String?
+  serviceTimes      String?  @db.Text
   contactEmail String?
   contactPhone String?
   address      String?  @db.Text
@@ -1163,6 +1171,8 @@ model SitePage {
   status      PostStatus @default(DRAFT)
   isPublic    Boolean    @default(false)
   sortOrder   Int        @default(0)
+  // Whether the page shows its title as a large heading. A homepage that starts with a Cover turns it off.
+  showTitle   Boolean    @default(true)
   // Who is editing the page right now, and when they last renewed their claim (see page-lock.ts).
   lockedById  String?
   lockedAt    DateTime?

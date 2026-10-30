@@ -27,6 +27,7 @@ export type PageDetail = {
   title: string;
   slug: string;
   description: string | null;
+  showTitle: boolean;
   status: PageStatus;
   isPublic: boolean;
   sortOrder: number;

@@ -31,7 +31,7 @@ export type PublicSite = {
   indexable: boolean;
   // The pages in the menu bar: published and public, home first.
   menu: Array<{ slug: string; title: string }>;
-  page: { slug: string; title: string; description: string | null; blocks: PublicBlock[] };
+  page: { slug: string; title: string; description: string | null; showTitle: boolean; blocks: PublicBlock[] };
 };
 
 const LIST_LIMIT = 10;
@@ -60,7 +60,7 @@ export async function getPublicSite(workspaceSlug: string, pageSlug: string = HO
 
   const page = await prisma.sitePage.findFirst({
     where: { workspaceId: workspace.id, slug: pageSlug, status: "PUBLISHED", isPublic: true },
-    select: { slug: true, title: true, description: true, blocks: blockRows },
+    select: { slug: true, title: true, description: true, showTitle: true, blocks: blockRows },
   });
   if (!page) return null;
 
@@ -73,7 +73,7 @@ export async function getPublicSite(workspaceSlug: string, pageSlug: string = HO
     churchSlug: workspaceSlug,
     indexable: workspace.siteSettings?.indexable ?? false,
     menu,
-    page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), blocks: built.blocks },
+    page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), showTitle: page.showTitle, blocks: built.blocks },
   };
 }
 
@@ -88,7 +88,7 @@ export async function getPreviewSite(workspaceId: string, pageId: string, worksp
   if (!workspace) return null;
   const page = await prisma.sitePage.findFirst({
     where: { id: pageId, workspaceId },
-    select: { slug: true, title: true, description: true, blocks: blockRows },
+    select: { slug: true, title: true, description: true, showTitle: true, blocks: blockRows },
   });
   if (!page) return null;
   const [menu, built] = await Promise.all([
@@ -100,7 +100,7 @@ export async function getPreviewSite(workspaceId: string, pageId: string, worksp
     churchSlug: workspaceSlug,
     indexable: workspace.siteSettings?.indexable ?? false,
     menu,
-    page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), blocks: built.blocks },
+    page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), showTitle: page.showTitle, blocks: built.blocks },
   };
 }
 

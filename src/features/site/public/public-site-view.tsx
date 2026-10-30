@@ -28,7 +28,7 @@ function Run({ run, churchSlug }: { run: TextRun; churchSlug: string }) {
 const alignClass = { left: "text-left", center: "text-center" } as const;
 const spacerClass = { small: "h-4", medium: "h-8", large: "h-16" } as const;
 
-function Block({ block, churchSlug, nested = false }: { block: PublicBlock; churchSlug: string; nested?: boolean }) {
+function Block({ block, churchSlug, nested = false, asH1 = false }: { block: PublicBlock; churchSlug: string; nested?: boolean; asH1?: boolean }) {
   switch (block.type) {
     case "PARAGRAPH":
       return (
@@ -62,7 +62,7 @@ function Block({ block, churchSlug, nested = false }: { block: PublicBlock; chur
     case "SECTION":
       return <SectionView block={block} churchSlug={churchSlug} />;
     case "COVER":
-      return <CoverView block={block} churchSlug={churchSlug} />;
+      return <CoverView block={block} churchSlug={churchSlug} asH1={asH1} />;
     case "COLUMNS":
       return (
         <div className={`site-columns ${block.cards ? "site-columns-cards" : ""}`} data-count={block.columns.length} data-valign={block.valign}>
@@ -144,7 +144,8 @@ const OVERLAY = { light: 0.25, medium: 0.45, strong: 0.65 } as const;
 
 // A hero: a picture (or the church colour) with a headline, a line of words and up to two buttons on top. The picture
 // is always darkened, so the white words stay readable on a bright photo.
-function CoverView({ block, churchSlug }: { block: Extract<PublicBlock, { type: "COVER" }>; churchSlug: string }) {
+function CoverView({ block, churchSlug, asH1 = false }: { block: Extract<PublicBlock, { type: "COVER" }>; churchSlug: string; asH1?: boolean }) {
+  const Heading = asH1 ? "h1" : "h2";
   const shade = `rgba(10, 12, 30, ${COVER_OVERLAY[block.overlay]})`;
   const style = block.pictureSrc
     ? { backgroundImage: `linear-gradient(${shade}, ${shade}), url("${block.pictureSrc}")`, backgroundPosition: `center, ${coverFocusPosition(block.focus)}`, backgroundSize: "cover" }
@@ -153,7 +154,7 @@ function CoverView({ block, churchSlug }: { block: Extract<PublicBlock, { type: 
   return (
     <section className={`site-cover ${block.width === "wide" ? "rounded-lg" : ""}`} data-height={block.height} style={style}>
       <div className={`site-content site-gutter w-full py-12 ${centred ? "text-center" : "text-left"}`}>
-        <h2 className="text-4xl font-bold leading-tight @2xl:text-5xl">{block.headline}</h2>
+        <Heading className="text-4xl font-bold leading-tight @2xl:text-5xl">{block.headline}</Heading>
         {block.text ? <p className="mt-4 whitespace-pre-line text-xl leading-relaxed @2xl:text-2xl">{block.text}</p> : null}
         {block.buttons.length > 0 ? (
           <p className={`mt-8 flex flex-wrap gap-3 ${centred ? "justify-center" : "justify-start"}`}>
@@ -208,6 +209,8 @@ function pageHref(churchSlug: string, pageSlug: string) {
 
 // In the editor's preview the menu is shown but does not leave the editor.
 export function PublicSiteView({ site, churchSlug, preview = false }: { site: PublicSite; churchSlug: string; preview?: boolean }) {
+  // When the page title is hidden, the first Cover's headline is the page's one main heading.
+  const mainCoverId = site.page.showTitle ? undefined : site.page.blocks.find((block) => block.type === "COVER")?.id;
   const linkClass = "inline-flex min-h-11 items-center px-1 text-lg";
   return (
     <div className="public-site @container min-h-screen">
@@ -231,9 +234,9 @@ export function PublicSiteView({ site, churchSlug, preview = false }: { site: Pu
           ) : null}
         </div>
       </header>
-      <main className="py-10">
-        <Row width="content"><h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1></Row>
-        {site.page.blocks.map((block) => <Row key={block.id} width={widthOf(block)}><Block block={block} churchSlug={churchSlug} /></Row>)}
+      <main className={site.page.showTitle ? "py-10" : "pb-10"}>
+        {site.page.showTitle ? <Row width="content"><h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1></Row> : null}
+        {site.page.blocks.map((block) => <Row key={block.id} width={widthOf(block)}><Block block={block} churchSlug={churchSlug} asH1={block.id === mainCoverId} /></Row>)}
       </main>
       <footer className="mt-12 border-t border-[var(--site-line)] px-6 py-6 text-center text-base text-[var(--site-muted)]">© {site.churchName}</footer>
     </div>

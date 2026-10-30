@@ -22,7 +22,7 @@ const noStore = { "Cache-Control": "no-store" };
 const notFound = () => NextResponse.json({ error: "Page not found." }, { status: 404 });
 
 const pageSelect = {
-  id: true, title: true, slug: true, description: true, status: true, isPublic: true, sortOrder: true, updatedAt: true,
+  id: true, title: true, slug: true, description: true, showTitle: true, status: true, isPublic: true, sortOrder: true, updatedAt: true,
   blocks: { orderBy: { sortOrder: "asc" as const }, select: { id: true, type: true, content: true } },
 };
 
@@ -77,7 +77,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
       await tx.sitePage.updateMany({
         where: { id, workspaceId: context.workspaceId },
-        data: { title: input.title, description: input.description, isPublic: input.isPublic, status: decision.status ?? input.status },
+        data: { title: input.title, description: input.description, showTitle: input.showTitle, isPublic: input.isPublic, status: decision.status ?? input.status },
       });
       return tx.sitePage.findFirstOrThrow({ where: { id, workspaceId: context.workspaceId }, select: pageSelect });
     });

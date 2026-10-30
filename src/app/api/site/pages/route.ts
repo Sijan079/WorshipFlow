@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         title: input.title,
         slug,
         description: input.description ?? null,
+        showTitle: input.showTitle ?? true,
         sortOrder: nextSortOrder(existing.map((page) => page.sortOrder)),
         blocks: { create: blocks.map((block, index) => ({ type: block.type, sortOrder: index, content: block.content as Prisma.InputJsonValue })) },
       },

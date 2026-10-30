@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, Redo2, Trash2, Undo2, X } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Home, Redo2, Trash2, Undo2, X } from "lucide-react";
 import { apiFetch, workspaceApiPath } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
@@ -11,6 +11,7 @@ import { SITE_LIMITS, SiteBlockSchema, type SiteBlockInput } from "../blocks/blo
 import BlockList, { type ListContext } from "./block-list";
 import { blockProblems } from "./block-problems";
 import { LOCK_RENEW_SECONDS } from "../pages/page-lock";
+import { hasMainHeading } from "../pages/page-rules";
 import PreviewPanel from "./preview-panel";
 import { canRedo, canUndo, countEditorBlocks, editorReducer, initialEditorState, stripKeys, withKeys, type EditorBlock } from "./editor-state";
 import type { PageDetail, PageListItem } from "./editor-types";
@@ -37,8 +38,8 @@ function toEditorBlocks(page: PageDetail) {
 }
 
 // What gets saved: the words and the blocks, without the editor's own keys.
-function snapshot(title: string, description: string, blocks: EditorBlock[]) {
-  return JSON.stringify({ title: title.trim(), description: description.trim(), blocks: stripKeys(blocks) });
+function snapshot(title: string, description: string, blocks: EditorBlock[], showTitle: boolean) {
+  return JSON.stringify({ title: title.trim(), description: description.trim(), showTitle, blocks: stripKeys(blocks) });
 }
 
 function ConfirmDelete({ title, onClose, onConfirm, busy }: { title: string; onClose: () => void; onConfirm: () => void; busy: boolean }) {
@@ -57,10 +58,30 @@ function ConfirmDelete({ title, onClose, onConfirm, busy }: { title: string; onC
   );
 }
 
+function ConfirmMakeHome({ title, oldHomeTitle, notLive, busy, onClose, onConfirm }: { title: string; oldHomeTitle: string | null; notLive: boolean; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md space-y-4">
+        <button type="button" onClick={onClose} aria-label="Close" title="Close" className="ui-modal-close absolute right-3 top-3"><X aria-hidden="true" className="h-4 w-4" /></button>
+        <DialogTitle className="pr-12 text-xl font-semibold text-[var(--text-primary)]">Make This the Home Page</DialogTitle>
+        <DialogDescription className="space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
+          <span className="block">“{title}” will be the page visitors see first.{oldHomeTitle ? ` The current home page, “${oldHomeTitle}”, stays as an ordinary page.` : ""}</span>
+          {notLive ? <span className="block font-semibold">This page is not published yet, so your website will show “This page is not available” until you publish it.</span> : null}
+        </DialogDescription>
+        <div className="flex justify-end gap-2">
+          <button type="button" autoFocus onClick={onClose} className={KEEP_BUTTON}>Keep it as it is</button>
+          <button type="button" onClick={onConfirm} disabled={busy} className={PRIMARY_BUTTON}>{busy ? "Changing…" : "Yes, I am sure"}</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: { page: PageDetail; skipped: number; initial: EditorBlock[] } & Omit<Props, "pageId">) {
   const workspaceSlug = String(useParams<{ workspaceSlug: string }>().workspaceSlug ?? "");
   const [title, setTitle] = useState(page.title);
   const [description, setDescription] = useState(page.description ?? "");
+  const [showTitle, setShowTitle] = useState(page.showTitle);
   const [editor, dispatch] = useReducer(editorReducer, initial, initialEditorState);
   const [status, setStatus] = useState(page.status);
   const [isPublic, setIsPublic] = useState(page.isPublic);
@@ -69,9 +90,9 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   // What the server last confirmed, as a snapshot. The page is "dirty" whenever the editor differs from it.
-  const [saved, setSaved] = useState(() => snapshot(page.title, page.description ?? "", initial));
+  const [saved, setSaved] = useState(() => snapshot(page.title, page.description ?? "", initial, page.showTitle));
 
-  const current = snapshot(title, description, editor.blocks);
+  const current = snapshot(title, description, editor.blocks, showTitle);
   const dirty = current !== saved;
   const problems = useMemo(() => blockProblems(editor.blocks), [editor.blocks]);
   // Only one person edits a page at a time. Opening the page claims it, and asking again every 20 seconds
@@ -103,8 +124,8 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
 
   const save = useMutation({
     mutationFn: (extra?: { status?: "DRAFT" | "PUBLISHED"; isPublic?: boolean }) => {
-      const sent = snapshot(title, description, editor.blocks);
-      const body = JSON.parse(sent) as { title: string; description: string; blocks: unknown[] };
+      const sent = snapshot(title, description, editor.blocks, showTitle);
+      const body = JSON.parse(sent) as { title: string; description: string; showTitle: boolean; blocks: unknown[] };
       return apiFetch<PageDetail>(`/api/site/pages/${page.id}`, { method: "PATCH", body: JSON.stringify({ ...body, ...extra }) }).then((saved) => ({ saved, sent }));
     },
     onSuccess: ({ saved, sent }) => {
@@ -130,6 +151,17 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  const queryClient = useQueryClient();
+  const [confirmHome, setConfirmHome] = useState(false);
+  const makeHome = useMutation({
+    mutationFn: () => apiFetch<{ slug: string }>(`/api/site/pages/${page.id}/make-home`, { method: "POST" }),
+    onSuccess: () => {
+      setConfirmHome(false);
+      void queryClient.invalidateQueries({ queryKey: ["site-page", page.id] });
+      onChanged();
+    },
+  });
 
   const remove = useMutation({
     mutationFn: () => apiFetch<{ deleted: true }>(`/api/site/pages/${page.id}`, { method: "DELETE" }),
@@ -163,6 +195,9 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
           </div>
           <button type="button" className={ICON_BUTTON} aria-label="Undo" title="Undo" disabled={!canUndo(editor) || readOnly || mode === "preview"} onClick={() => dispatch({ type: "undo" })}><Undo2 aria-hidden="true" className="h-5 w-5" /></button>
           <button type="button" className={ICON_BUTTON} aria-label="Redo" title="Redo" disabled={!canRedo(editor) || readOnly || mode === "preview"} onClick={() => dispatch({ type: "redo" })}><Redo2 aria-hidden="true" className="h-5 w-5" /></button>
+          {flags.canPublish && !isHome && mode === "edit" ? (
+            <button type="button" className={SECONDARY_BUTTON + " min-h-11 gap-2"} disabled={save.isPending} onClick={() => setConfirmHome(true)}><Home aria-hidden="true" className="h-4 w-4" />Make this the home page</button>
+          ) : null}
           {live ? <a className={SECONDARY_BUTTON + " min-h-11"} href={isHome ? `/c/${workspaceSlug}` : `/c/${workspaceSlug}/${page.slug}`} target="_blank" rel="noopener noreferrer">View live page</a> : null}
           {flags.canPublish ? (
             live ? (
@@ -199,6 +234,14 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
           </label>
         </div>
 
+        <div>
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={showTitle} disabled={readOnly} onChange={(event) => setShowTitle(event.target.checked)} />
+            Show the page title as a large heading at the top
+          </label>
+          {!hasMainHeading({ showTitle, blocks: editor.blocks }) ? <p role="status" className="border-l-2 border-[var(--state-warning)] pl-3 text-sm">Without a title, add a Cover with a headline, so the page still has a main heading for screen readers and search engines.</p> : null}
+        </div>
+
         <BlockList blocks={editor.blocks} ctx={listContext} />
         {readOnly ? <p className="text-sm text-[var(--text-muted)]">{lock === "checking" ? "Checking whether anyone else is editing this page…" : "You can look at this page but not change it."}</p> : null}
 
@@ -210,6 +253,8 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
         </>
       )}
 
+      {confirmHome ? <ConfirmMakeHome title={title} oldHomeTitle={pages.find((item) => item.slug === "home")?.title ?? null} notLive={!live} busy={makeHome.isPending} onClose={() => setConfirmHome(false)} onConfirm={() => makeHome.mutate()} /> : null}
+      {makeHome.isError ? <p role="alert" className="text-sm">{makeHome.error instanceof Error ? makeHome.error.message : "The home page could not be changed."}</p> : null}
       {confirmDelete ? <ConfirmDelete title={title} busy={remove.isPending} onClose={() => setConfirmDelete(false)} onConfirm={() => remove.mutate()} /> : null}
       {remove.isError ? <p role="alert" className="text-sm">{remove.error instanceof Error ? remove.error.message : "The page could not be deleted."}</p> : null}
     </div>

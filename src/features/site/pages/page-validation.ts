@@ -10,6 +10,8 @@ export const CreatePageSchema = z.strictObject({
   description: description.optional(),
   // Start from the ready-made home page (only offered for the first page of a church).
   starter: z.boolean().optional(),
+  // Whether the page shows its title as a large heading. Off for a homepage that starts with a Cover.
+  showTitle: z.boolean().optional(),
   blocks: PageInputSchema.shape.blocks.optional(),
 });
 
@@ -17,6 +19,7 @@ export const UpdatePageSchema = z.strictObject({
   title: title.optional(),
   description: description.optional(),
   blocks: PageInputSchema.shape.blocks.optional(),
+  showTitle: z.boolean().optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   isPublic: z.boolean().optional(),
 });

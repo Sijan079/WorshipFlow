@@ -61,3 +61,11 @@ test("claiming a page is one database update, saving over someone else's claim i
   assert.match(one(), /lockStatus\(existing, context\.userId, new Date\(\)\) === "other"[\s\S]*?status: 409/);
   assert.match(read("src", "features", "site", "editor", "page-editor.tsx"), /method: "DELETE", keepalive: true/);
 });
+
+test("making a page the home page needs Publish, is planned by the one rule, and swaps both addresses in one transaction", () => {
+  const route = read("src", "app", "api", "site", "pages", "[id]", "make-home", "route.ts");
+  assert.match(route, /export async function POST[\s\S]*?requireSiteAction\("PUBLISH"\)/);
+  assert.match(route, /planHomeSwap\(/);
+  assert.match(route, /prisma\.\$transaction\(/);
+  for (const clause of route.match(/where: \{[^}]*\}/g) ?? []) assert.match(clause, /workspaceId/, `no query without the church: ${clause}`);
+});
