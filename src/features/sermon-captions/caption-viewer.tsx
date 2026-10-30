@@ -14,6 +14,7 @@ function describe(feed: Feed | null, problem: Problem) {
   if (!feed) return "Connecting to captions…";
   switch (feed.status) {
     case "waiting": return "Captions will start when the service begins. This page updates by itself.";
+    case "paused": return "Captions are paused. They will continue shortly.";
     case "connecting": return "Captions are starting.";
     case "live": return "Live English captions";
     case "interrupted": return "Connection interrupted. Captions should return shortly.";

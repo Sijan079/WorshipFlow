@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       where: { workspaceId, OR: [{ status: "LIVE" }, { status: "ENDED", expiresAt: { gt: now } }] },
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: { id: true, status: true, expiresAt: true, createdAt: true, connectionStatus: true, lastHeartbeatAt: true },
+      select: { id: true, status: true, expiresAt: true, createdAt: true, connectionStatus: true, lastHeartbeatAt: true, paused: true },
     });
     const chosen = selectViewerSession(sessions, now);
     if (!chosen) {

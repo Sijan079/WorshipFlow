@@ -10,7 +10,7 @@ import { canResumeSession } from "./caption-resume";
 import { claimStreamLock } from "./stream-lock";
 import type { CaptionRunState } from "./caption-ui";
 import {
-  extendSession, fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, startSession, stopSession,
+  extendSession, fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, setSessionPaused, startSession, stopSession,
   stopSessionOnLeave, type CaptionLine, type CaptionSession, type PresenceStatus,
 } from "./caption-session-api";
 import { clearOperatorToken, loadOperatorInput, loadOperatorToken, saveOperatorInput, saveOperatorToken } from "./operator-token-store";
@@ -39,6 +39,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   const [state, setState] = useState<CaptionRunState>("idle");
   const [message, setMessage] = useState("Choose an audio input with the options button, then start captions.");
   const [lines, setLines] = useState<CaptionLine[]>([]);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
   const [canShare, setCanShare] = useState(false);
   const [canRegenerate, setCanRegenerate] = useState(false);
   const [devAgainstLiveDatabase, setDevAgainstLiveDatabase] = useState(false);
@@ -162,6 +164,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
         clearOperatorToken(active.id);
       }
       activeRef.current = null;
+      pausedRef.current = false;
+      setPaused(false);
       setSession(null);
       setOperatorToken("");
       setMessage(STOPPED_MESSAGE);
@@ -186,6 +190,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     setSession(current);
     setOperatorToken(token);
     setLines([]);
+    pausedRef.current = Boolean(current.paused);
+    setPaused(pausedRef.current);
     assemblerRef.current = new CaptionAssembler(startAfterLine);
     queueRef.current = Promise.resolve();
     stoppingRef.current = false;
@@ -206,6 +212,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
       },
       onMessage: (data) => {
         try {
+          // While paused nothing is assembled or published; the audio keeps flowing so Resume is instant.
+          if (pausedRef.current) return;
           const result = JSON.parse(String(data));
           const recognitionMs = recognitionLagMs({ streamElapsedMs: performance.now() - streamStartRef.current, start: result.start, duration: result.duration });
           for (const update of assemblerRef.current.accept(result)) publish({ ...update, recognitionMs });
@@ -222,6 +230,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
           heartbeat(nextStatus);
         }
         if (connectionState === "live" && attempts === 0) notify("Captions are live.", "success");
+        if (pausedRef.current && connectionState === "live") return;
         setMessage(connectionState === "reconnecting"
           ? "Connection interrupted. Reconnecting automatically; keep this page open."
           : connectionState === "error"
@@ -232,7 +241,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
                 ? "Connecting to Deepgram with the selected PC input."
                 : "Listening to the selected PC input and publishing English captions.");
       },
-      onDisconnect: () => { for (const update of assemblerRef.current.flush()) publish(update); },
+      onDisconnect: () => { if (!pausedRef.current) for (const update of assemblerRef.current.flush()) publish(update); },
       isFatalTokenError: (error) => error instanceof ApiError && [401, 403, 404, 409].includes(error.status),
     });
     connectionRef.current = connection;
@@ -331,6 +340,25 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     }
   }
 
+  // Pause: finish the sentence being spoken, then tell listeners "paused" and publish nothing until Resume.
+  // The microphone and the provider connection stay open, so Resume needs no reconnect.
+  async function setPausedTo(next: boolean) {
+    const active = activeRef.current;
+    if (!active || pausedRef.current === next) return;
+    try {
+      if (next) {
+        for (const update of assemblerRef.current.flush()) publish(update);
+        await queueRef.current;
+      }
+      await setSessionPaused(active.id, active.token, next);
+      pausedRef.current = next;
+      setPaused(next);
+      setMessage(next ? "Captions are paused. Listeners see that captions will continue shortly. Nothing is published until you resume." : "Listening to the selected PC input and publishing English captions.");
+    } catch (error) {
+      notify(`Could not ${next ? "pause" : "resume"} captions: ${errorMessage(error)}`, "error");
+    }
+  }
+
   // Stops a session this page did not start (found on load, or left from an earlier visit).
   async function stopExisting() {
     if (!session) return;
@@ -347,6 +375,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   return {
     state, session, message, lines, canOperate, canShare, canRegenerate, devAgainstLiveDatabase,
     canStopExisting: canOperate && Boolean(operatorToken || session?.canManage),
+    paused, pause: () => setPausedTo(true), resume: () => setPausedTo(false),
     start, stop, stopExisting, extend,
   };
 }

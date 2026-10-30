@@ -44,6 +44,9 @@ export default function SermonCaptionsPage() {
             onStart={startCaptions}
             onStop={engine.requestStop}
             onStopExisting={engine.requestStop}
+            paused={engine.paused}
+            onPause={() => void engine.pause()}
+            onResume={() => void engine.resume()}
           />
         </div>
       </section>
@@ -51,7 +54,7 @@ export default function SermonCaptionsPage() {
       <section className="ui-surface-elevated flex flex-1 flex-col divide-y divide-[var(--rule-default)]" aria-label="Live captions">
         <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
           <CaptionInfo inputLabel={engine.input.label} running={engine.running} />
-          <CaptionStatus state={engine.state} hasSession={Boolean(engine.session)} />
+          <CaptionStatus state={engine.state} hasSession={Boolean(engine.session)} paused={engine.paused} />
         </div>
         <CaptionPreview lines={engine.lines} />
         <div className="px-4 py-3 sm:px-6">

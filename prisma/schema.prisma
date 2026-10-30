@@ -882,6 +882,8 @@ model CaptionSession {
   connectionStatus CaptionConnectionStatus @default(CONNECTING)
   lastHeartbeatAt DateTime @default(now())
   connectionSequence Int @default(0)
+  // The operator paused publishing: the link stays up and listeners see "paused", but no lines are published.
+  paused Boolean @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
   endedAt DateTime?

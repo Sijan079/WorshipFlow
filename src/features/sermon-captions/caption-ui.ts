@@ -14,7 +14,8 @@ export function usableAudioInputs(devices: readonly AudioDevice[]) {
 }
 
 // A status is a small dot and a label. Red means an error only.
-export function captionStatus(state: CaptionRunState, hasSession: boolean): { label: string; tone: CaptionTone } {
+export function captionStatus(state: CaptionRunState, hasSession: boolean, paused = false): { label: string; tone: CaptionTone } {
+  if (paused && state === "live") return { label: "Paused", tone: "warning" };
   if (state === "live") return { label: "Live", tone: "success" };
   if (state === "reconnecting") return { label: "Reconnecting", tone: "warning" };
   if (state === "error") return { label: "Needs attention", tone: "danger" };

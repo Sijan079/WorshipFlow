@@ -2,12 +2,9 @@
 
 Ideas decided or discussed but not built. Revisit after the stable link ships.
 
-## Pause captions (likely next)
+## Pause captions (built 2026-10-30)
 
-Start means "live to everyone with the link", so the microphone's chatter before the service is
-published as soon as Start is pressed. A **Pause captions** button would keep the session and
-the link up, show listeners "Captions are paused", and publish nothing until the operator
-resumes. This is the direct answer to the chatter concern; build it before any audio filtering.
+**Pause captions** keeps the session and link up, shows listeners "Captions are paused", and publishes nothing until **Resume captions**. The microphone and provider connection stay open, so resuming is instant. Stored on `CaptionSession.paused`.
 
 ## Noise suppression switches
 

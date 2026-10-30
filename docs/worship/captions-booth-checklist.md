@@ -17,6 +17,8 @@ test: do it with captions live and a listener page open on a phone, then check w
 4. **Let the screen dim.** Do: leave the computer idle for the length of your screen timeout. Expect: the
    screen stays on while live (it is kept awake), and captions continue.
 
+8. **Pause and resume.** Do: while live, press Pause captions and speak. Expect: the phone shows "Captions are paused" within a couple of seconds and no new lines appear; Resume captions brings them back. Reloading while paused stays paused.
+
 ## Recovers (expect a short gap)
 
 5. **Reload the page.** Do: while live, press reload and confirm the browser's question. Expect: captions

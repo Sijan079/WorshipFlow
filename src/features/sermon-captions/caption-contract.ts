@@ -18,7 +18,7 @@ export function extendedExpiresAt(expiresAt: Date) {
   return new Date(expiresAt.getTime() + CAPTION_SESSION_MS);
 }
 
-export type CaptionPublicStatus = "waiting" | "connecting" | "live" | "interrupted" | "error" | "ended";
+export type CaptionPublicStatus = "waiting" | "connecting" | "live" | "paused" | "interrupted" | "error" | "ended";
 
 // A session that has sent no heartbeat for this long is treated as dead, so Start may take it over.
 export const CAPTION_TAKEOVER_STALE_MS = 2 * 60 * 1000;
@@ -49,12 +49,13 @@ export function selectViewerSession<T extends { status: string; expiresAt: Date;
 }
 
 export function captionViewerStatus(
-  session: { status: string; expiresAt: Date; connectionStatus: string; lastHeartbeatAt: Date },
+  session: { status: string; expiresAt: Date; connectionStatus: string; lastHeartbeatAt: Date; paused?: boolean },
   now = new Date(),
 ): CaptionPublicStatus {
   if (!canReadCaptionSession(session, now)) return "ended";
   if (session.connectionStatus === "ERROR") return "error";
   if (now.getTime() - session.lastHeartbeatAt.getTime() >= CAPTION_HEARTBEAT_STALE_MS) return "interrupted";
+  if (session.paused) return "paused";
   if (session.connectionStatus === "CONNECTING") return "connecting";
   return session.connectionStatus === "STREAMING" ? "live" : "interrupted";
 }

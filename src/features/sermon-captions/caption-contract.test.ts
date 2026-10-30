@@ -65,3 +65,12 @@ test("caption source is bounded and viewer access expires", () => {
   assert.equal(canReadCaptionSession({ status: "LIVE", expiresAt: new Date("2026-10-25T03:00:00Z") }, new Date("2026-10-25T02:00:00Z")), true);
   assert.equal(canReadCaptionSession({ status: "LIVE", expiresAt: new Date("2026-10-25T03:00:00Z") }, new Date("2026-10-25T03:00:00Z")), false);
 });
+
+test("a paused session shows listeners paused, but a stale or broken one still shows its real problem", () => {
+  const now = new Date("2026-10-25T03:00:00Z");
+  const session = { status: "LIVE", expiresAt: new Date("2026-10-25T04:00:00Z"), connectionStatus: "STREAMING", lastHeartbeatAt: now, paused: true };
+  assert.equal(captionViewerStatus(session, now), "paused");
+  assert.equal(captionViewerStatus({ ...session, lastHeartbeatAt: new Date("2026-10-25T02:59:44Z") }, now), "interrupted");
+  assert.equal(captionViewerStatus({ ...session, connectionStatus: "ERROR" }, now), "error");
+  assert.equal(captionViewerStatus({ ...session, paused: false }, now), "live");
+});

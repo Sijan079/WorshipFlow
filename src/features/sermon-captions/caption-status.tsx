@@ -11,12 +11,12 @@ const DOT: Record<CaptionTone, string> = {
 // A small dot and a label in the same colour: the colour of what the booth is doing right now.
 // Red is for errors only. Only Live pulses, so it can be noticed from across the booth. Reduced
 // motion is respected globally.
-export default function CaptionStatus({ state, hasSession }: { state: CaptionRunState; hasSession: boolean }) {
-  const status = captionStatus(state, hasSession);
+export default function CaptionStatus({ state, hasSession, paused = false }: { state: CaptionRunState; hasSession: boolean; paused?: boolean }) {
+  const status = captionStatus(state, hasSession, paused);
   return (
     <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: DOT[status.tone] }}>
       <span aria-hidden="true" className="relative flex size-2.5">
-        {state === "live" ? (
+        {state === "live" && !paused ? (
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: DOT[status.tone] }} />
         ) : null}
         <span className="relative inline-flex size-2.5 rounded-full" style={{ backgroundColor: DOT[status.tone] }} />

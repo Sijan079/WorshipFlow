@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const context = await requireCaptionAction("VIEW");
     const session = await prisma.captionSession.findFirst({
       where: { workspaceId: context.workspaceId, status: "LIVE", expiresAt: { gt: new Date() } },
-      select: { id: true, operatorUserId: true, createdAt: true, expiresAt: true },
+      select: { id: true, operatorUserId: true, createdAt: true, expiresAt: true, paused: true },
     });
     // The highest line stored so far, so a reloaded booth can number new lines after it.
     const lastLine = session
