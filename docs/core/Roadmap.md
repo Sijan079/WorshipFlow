@@ -75,8 +75,10 @@ write the failing check first, build, verify, document.
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
    indexable/unlisted switch. Largest step, and the one most likely to slip. Decided 2026-10-30 (see
    `docs/changes/20261030.md` items 9 to 15): a WordPress-style block editor with many pages and a menu.
-   **Progress (2026-10-30):** schema and migration applied, the public page `/c/{slug}`, its narrow data
-   layer, and the privacy test are built. Next: the editor screen and its API.
+   **Progress (2026-10-30):** built and tried in the browser: the schema, the public pages and menu, the privacy
+   test, the page API, the editor (autosave, undo, publish, preview, one editor at a time), pictures with WebP
+   conversion, and the website settings. See `docs/changes/20261030.md` item 14. Remaining: bold, italic and links
+   inside text, the logo and colour and font presets, Articles, a storage meter, and the design look of the public site.
    Check: a test proves public routes cannot read People, Ministry, or
    attendance data; unlisted sends `noindex`; only items marked public appear.
 9. **Dashboard** with four summary cards.
