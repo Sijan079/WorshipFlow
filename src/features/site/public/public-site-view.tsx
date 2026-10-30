@@ -1,21 +1,78 @@
 import type { PublicBlock, PublicSite } from "./public-site-data";
+import type { SiteLink, TextRun } from "@/features/site/blocks/block-validation";
 import "./public-site.css";
 
 function when(startsAt: string, timezone: string) {
   return new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeStyle: "short", timeZone: timezone }).format(new Date(startsAt));
 }
 
-function Block({ block }: { block: PublicBlock }) {
+function hrefOf(link: SiteLink, churchSlug: string) {
+  return link.kind === "page" ? `/c/${churchSlug}/${link.slug}` : link.url;
+}
+
+function isOutside(link: SiteLink) {
+  return link.kind === "url" && /^https?:/i.test(link.url);
+}
+
+function Run({ run, churchSlug }: { run: TextRun; churchSlug: string }) {
+  let node: React.ReactNode = run.text;
+  if (run.bold) node = <strong>{node}</strong>;
+  if (run.italic) node = <em>{node}</em>;
+  if (run.link) {
+    node = <a className="underline" href={hrefOf(run.link, churchSlug)} {...(isOutside(run.link) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{node}</a>;
+  }
+  return <>{node}</>;
+}
+
+const alignClass = { left: "text-left", center: "text-center" } as const;
+const spacerClass = { small: "h-4", medium: "h-8", large: "h-16" } as const;
+
+function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }) {
   switch (block.type) {
-    case "HEADING":
-      return <h2 className="mt-12 mb-3 text-2xl font-semibold">{block.text}</h2>;
-    case "RICH_TEXT":
-      return <p className="my-4 whitespace-pre-line text-lg leading-relaxed">{block.text}</p>;
+    case "PARAGRAPH":
+      return (
+        <p className={`my-4 whitespace-pre-line leading-relaxed ${block.content.size === "large" ? "text-2xl" : "text-lg"} ${alignClass[block.content.align]}`}>
+          {block.content.runs.map((run, index) => <Run key={index} run={run} churchSlug={churchSlug} />)}
+        </p>
+      );
+    case "HEADING": {
+      const Tag = block.content.level === 2 ? "h2" : "h3";
+      return <Tag className={`mt-10 mb-3 font-semibold ${block.content.level === 2 ? "text-2xl" : "text-xl"} ${alignClass[block.content.align]}`}>{block.content.text}</Tag>;
+    }
+    case "LIST": {
+      const Tag = block.content.ordered ? "ol" : "ul";
+      return (
+        <Tag className={`my-4 ml-6 space-y-1 text-lg ${block.content.ordered ? "list-decimal" : "list-disc"}`}>
+          {block.content.items.map((item, index) => <li key={index}>{item}</li>)}
+        </Tag>
+      );
+    }
+    case "QUOTE":
+      return (
+        <blockquote className="my-6 border-l-4 border-[var(--site-line)] pl-5 text-xl italic">
+          {block.content.text}
+          {block.content.cite && <footer className="mt-2 text-base not-italic text-[var(--site-muted)]">{block.content.cite}</footer>}
+        </blockquote>
+      );
+    case "BUTTON":
+      return (
+        <p className={`my-6 ${alignClass[block.content.align]}`}>
+          <a
+            className="inline-block rounded-lg bg-[var(--site-accent)] px-6 py-3 text-lg font-semibold text-[var(--site-accent-text)]"
+            href={hrefOf(block.content.link, churchSlug)}
+            {...(isOutside(block.content.link) ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          >
+            {block.content.label}
+          </a>
+        </p>
+      );
+    case "SPACER":
+      return <div aria-hidden="true" className={spacerClass[block.content.size]} />;
     case "SERVICE_TIMES":
       return (
         <section className="my-6 rounded-lg bg-[var(--site-soft)] px-6 py-5">
           <h2 className="mb-2 text-2xl font-semibold">Service times</h2>
-          {block.lines.map((line) => <p key={line} className="text-lg">{line}</p>)}
+          {block.content.lines.map((line) => <p key={line} className="text-lg">{line}</p>)}
         </section>
       );
     case "ANNOUNCEMENTS_LIST":
@@ -56,13 +113,13 @@ function Block({ block }: { block: PublicBlock }) {
   }
 }
 
-export function PublicSiteView({ site }: { site: PublicSite }) {
+export function PublicSiteView({ site, churchSlug }: { site: PublicSite; churchSlug: string }) {
   return (
     <div className="public-site min-h-screen">
       <header className="border-b border-[var(--site-line)] px-6 py-4 text-xl font-bold">{site.churchName}</header>
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1>
-        {site.page.blocks.map((block) => <Block key={block.id} block={block} />)}
+        {site.page.blocks.map((block) => <Block key={block.id} block={block} churchSlug={churchSlug} />)}
       </main>
       <footer className="mt-12 border-t border-[var(--site-line)] px-6 py-6 text-center text-base text-[var(--site-muted)]">© {site.churchName}</footer>
     </div>

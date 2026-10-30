@@ -4,6 +4,8 @@
   --site-soft: #f5f4fb;
   --site-muted: #5b6475;
   --site-line: #e3e6ec;
+  --site-accent: #4b3fa8;
+  --site-accent-text: #ffffff;
   background-color: #ffffff;
   color: #1f2430;
 }

@@ -1124,8 +1124,13 @@ model Post {
 }
 
 enum SiteBlockType {
+  PARAGRAPH
   HEADING
-  RICH_TEXT
+  LIST
+  QUOTE
+  IMAGE
+  BUTTON
+  SPACER
   ANNOUNCEMENTS_LIST
   EVENTS_LIST
   SERVICE_TIMES
@@ -1150,6 +1155,7 @@ model SitePage {
   workspaceId String
   title       String
   slug        String
+  description String?    @db.Text
   status      PostStatus @default(DRAFT)
   isPublic    Boolean    @default(false)
   sortOrder   Int        @default(0)

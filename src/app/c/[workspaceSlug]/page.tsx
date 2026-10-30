@@ -15,7 +15,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PublicSitePage({ params }: Props) {
-  const site = await getPublicSite((await params).workspaceSlug);
+  const { workspaceSlug } = await params;
+  const site = await getPublicSite(workspaceSlug);
   if (!site) {
     return (
       <main className="mx-auto max-w-xl px-6 py-24 text-center">
@@ -24,5 +25,5 @@ export default async function PublicSitePage({ params }: Props) {
       </main>
     );
   }
-  return <PublicSiteView site={site} />;
+  return <PublicSiteView site={site} churchSlug={workspaceSlug} />;
 }

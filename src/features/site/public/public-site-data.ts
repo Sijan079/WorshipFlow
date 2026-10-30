@@ -1,13 +1,15 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
+import { SiteBlockSchema, type SiteBlockInput } from "@/features/site/blocks/block-validation";
 
 // The only door the public site (/c/{slug}) reads through. It returns a small set of public-safe fields and
 // never touches People, Ministry, attendance or service-assignment data. The privacy test checks this folder.
 
+type Listed = "ANNOUNCEMENTS_LIST" | "EVENTS_LIST" | "CONTACT";
+type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" }>;
+
 export type PublicBlock =
-  | { id: string; type: "HEADING"; text: string }
-  | { id: string; type: "RICH_TEXT"; text: string }
-  | { id: string; type: "SERVICE_TIMES"; lines: string[] }
+  | (Shown & { id: string })
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
   | { id: string; type: "CONTACT"; email: string | null; phone: string | null; address: string | null };
@@ -20,19 +22,6 @@ export type PublicSite = {
 
 const HOME_SLUG = "home";
 const LIST_LIMIT = 10;
-
-function textOf(content: unknown, key: string) {
-  if (content && typeof content === "object" && key in content) {
-    const value = (content as Record<string, unknown>)[key];
-    if (typeof value === "string") return value;
-  }
-  return "";
-}
-
-function linesOf(content: unknown) {
-  const value = content && typeof content === "object" ? (content as Record<string, unknown>).lines : null;
-  return Array.isArray(value) ? value.filter((line): line is string => typeof line === "string" && line.trim() !== "") : [];
-}
 
 // Returns null when the church or its home page is not public, so the route can show one plain "not available"
 // page and never reveal which of the two was missing.
@@ -51,16 +40,25 @@ export async function getPublicSite(workspaceSlug: string, now = new Date()): Pr
 
   const settings = workspace.siteSettings;
   const blocks: PublicBlock[] = [];
-  for (const block of page.blocks) {
-    if (block.type === "HEADING") blocks.push({ id: block.id, type: "HEADING", text: textOf(block.content, "text") });
-    else if (block.type === "RICH_TEXT") blocks.push({ id: block.id, type: "RICH_TEXT", text: textOf(block.content, "text") });
-    else if (block.type === "SERVICE_TIMES") blocks.push({ id: block.id, type: "SERVICE_TIMES", lines: linesOf(block.content) });
-    else if (block.type === "CONTACT") {
-      blocks.push({ id: block.id, type: "CONTACT", email: settings?.contactEmail ?? null, phone: settings?.contactPhone ?? null, address: settings?.address ?? null });
-    } else if (block.type === "ANNOUNCEMENTS_LIST") {
-      blocks.push({ id: block.id, type: "ANNOUNCEMENTS_LIST", items: await publicAnnouncements(workspace.id, now) });
-    } else if (block.type === "EVENTS_LIST") {
-      blocks.push({ id: block.id, type: "EVENTS_LIST", items: await publicEvents(workspace.id, now) });
+  for (const row of page.blocks) {
+    // A stored block that no longer fits the rules is left out rather than shown half-broken.
+    const parsed = SiteBlockSchema.safeParse({ type: row.type, content: row.content });
+    if (!parsed.success) continue;
+    const block = parsed.data;
+    switch (block.type) {
+      case "IMAGE":
+        break; // Images arrive with the image upload piece.
+      case "CONTACT":
+        blocks.push({ id: row.id, type: "CONTACT", email: settings?.contactEmail ?? null, phone: settings?.contactPhone ?? null, address: settings?.address ?? null });
+        break;
+      case "ANNOUNCEMENTS_LIST":
+        blocks.push({ id: row.id, type: "ANNOUNCEMENTS_LIST", items: await publicAnnouncements(workspace.id, now) });
+        break;
+      case "EVENTS_LIST":
+        blocks.push({ id: row.id, type: "EVENTS_LIST", items: await publicEvents(workspace.id, now) });
+        break;
+      default:
+        blocks.push({ ...block, id: row.id });
     }
   }
 

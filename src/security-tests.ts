@@ -68,6 +68,7 @@ import "./features/events/event-status.test.ts";
 import "./features/posts/post-rules.test.ts";
 import "./features/posts/post-api.test.ts";
 import "./features/site/public-site-privacy.test.ts";
+import "./features/site/blocks/block-validation.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";
