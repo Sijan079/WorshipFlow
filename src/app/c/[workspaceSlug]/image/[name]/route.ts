@@ -8,7 +8,8 @@ type RouteParams = { params: Promise<{ workspaceSlug: string; name: string }> };
 
 const notFound = () => new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "public, max-age=60" } });
 
-// A picture is public only while a published, public page uses it. Everything else looks like it does not exist.
+// A picture is public only while a published, public page uses it, or it is the church's logo. Everything else looks
+// like it does not exist.
 // It may be remembered for five minutes, so a page taken down does not keep showing its pictures for long.
 export async function GET(request: Request, { params }: RouteParams) {
   try {
@@ -26,7 +27,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       where: { type: "IMAGE", content: { path: ["path"], equals: imagePathFor(imageId) }, page: { workspaceId: image.workspaceId, status: "PUBLISHED", isPublic: true } },
       select: { id: true },
     });
-    if (!inUse) return notFound();
+    // The logo is public too, as long as it is the church's current one.
+    const isLogo = inUse ? null : await prisma.siteSettings.findFirst({ where: { workspaceId: image.workspaceId, logoPath: imagePathFor(imageId) }, select: { id: true } });
+    if (!inUse && !isLogo) return notFound();
 
     const data = await readPrivateOutputFile(image.storagePath);
     return new NextResponse(new Uint8Array(data), {

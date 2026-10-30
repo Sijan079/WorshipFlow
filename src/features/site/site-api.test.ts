@@ -69,3 +69,10 @@ test("making a page the home page needs Publish, is planned by the one rule, and
   assert.match(route, /prisma\.\$transaction\(/);
   for (const clause of route.match(/where: \{[^}]*\}/g) ?? []) assert.match(clause, /workspaceId/, `no query without the church: ${clause}`);
 });
+
+test("the logo must be one of the church's own pictures, and the public picture address also serves the current logo", () => {
+  const settings = read("src", "app", "api", "site", "settings", "route.ts");
+  assert.match(settings, /input\.logoPath[\s\S]*?unavailableImagesIn\(context\.workspaceId/);
+  const publicImage = read("src", "app", "c", "[workspaceSlug]", "image", "[name]", "route.ts");
+  assert.match(publicImage, /siteSettings\.findFirst\(\{ where: \{ workspaceId: image\.workspaceId, logoPath:/);
+});

@@ -1,6 +1,8 @@
 import type { PublicBlock, PublicSite } from "./public-site-data";
 import type { SiteLink, TextRun } from "@/features/site/blocks/block-validation";
 import { COVER_OVERLAY, coverFocusPosition } from "@/features/site/blocks/cover-style";
+import { lookVariables } from "@/features/site/look/look";
+import { pageHref } from "@/features/site/look/site-chrome";
 import "./public-site.css";
 
 function when(startsAt: string, timezone: string) {
@@ -203,42 +205,96 @@ function Row({ width, children }: { width: "content" | "wide" | "full"; children
   return <div className={`${width === "wide" ? "site-wide" : "site-content"} site-gutter`}>{children}</div>;
 }
 
-function pageHref(churchSlug: string, pageSlug: string) {
-  return pageSlug === "home" ? `/c/${churchSlug}` : `/c/${churchSlug}/${pageSlug}`;
+// The header: the church's logo or name, the menu, and an optional call-to-action button. On a narrow page the menu
+// folds into a Menu button (a plain disclosure, no script).
+function SiteHeader({ site, churchSlug, preview }: { site: PublicSite; churchSlug: string; preview: boolean }) {
+  const items = site.menu.length > 1 ? site.menu : [];
+  const link = (item: { slug: string; title: string }) => {
+    const current = item.slug === site.page.slug;
+    const className = `site-nav-link ${current ? "site-nav-current" : ""}`;
+    return preview
+      ? <span className={className}>{item.title}</span>
+      : <a href={pageHref(churchSlug, item.slug)} aria-current={current ? "page" : undefined} className={className}>{item.title}</a>;
+  };
+  const brand = site.header.logoSrc
+    // eslint-disable-next-line @next/next/no-img-element -- the church's own small WebP
+    ? <img src={site.header.logoSrc} alt={site.churchName} className="site-logo" />
+    : <span className="site-brand-name">{site.churchName}</span>;
+  const button = site.header.button;
+  return (
+    <header className="site-header">
+      <div className="site-wide site-gutter site-header-row">
+        {preview ? <span className="site-brand">{brand}</span> : <a href={pageHref(churchSlug, "home")} className="site-brand">{brand}</a>}
+        {items.length > 0 ? (
+          <nav aria-label="Main menu" className="site-nav-wide">
+            <ul>{items.map((item) => <li key={item.slug}>{link(item)}</li>)}</ul>
+          </nav>
+        ) : null}
+        <div className="site-header-actions">
+          {button ? (preview ? <span className="site-header-button">{button.label}</span> : <a href={button.href} className="site-header-button">{button.label}</a>) : null}
+          {items.length > 0 ? (
+            <details className="site-menu-narrow">
+              <summary>Menu</summary>
+              <ul>{items.map((item) => <li key={item.slug}>{link(item)}</li>)}</ul>
+            </details>
+          ) : null}
+        </div>
+      </div>
+    </header>
+  );
 }
 
-// In the editor's preview the menu is shown but does not leave the editor.
+// The footer: who and where, when, and a link to every page.
+function SiteFooter({ site, churchSlug, preview }: { site: PublicSite; churchSlug: string; preview: boolean }) {
+  const { address, phone, email, serviceTimes } = site.footer;
+  const hasContact = Boolean(address || phone || email);
+  return (
+    <footer className="site-footer">
+      <div className="site-wide site-gutter">
+        <div className="site-footer-grid">
+          <div>
+            <p className="site-footer-name">{site.churchName}</p>
+            {hasContact ? (
+              <p className="site-footer-text">
+                {address ? <span className="block whitespace-pre-line">{address}</span> : null}
+                {phone ? <span className="block">{phone}</span> : null}
+                {email ? <span className="block">{email}</span> : null}
+              </p>
+            ) : null}
+          </div>
+          {serviceTimes.length > 0 ? (
+            <div>
+              <h2 className="site-footer-heading">Service times</h2>
+              <p className="site-footer-text">{serviceTimes.map((line, index) => <span key={index} className="block">{line}</span>)}</p>
+            </div>
+          ) : null}
+          {site.menu.length > 1 ? (
+            <div>
+              <h2 className="site-footer-heading">Pages</h2>
+              <ul className="site-footer-links">
+                {site.menu.map((item) => <li key={item.slug}>{preview ? <span>{item.title}</span> : <a href={pageHref(churchSlug, item.slug)}>{item.title}</a>}</li>)}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+        <p className="site-footer-legal">© {new Date().getFullYear()} {site.churchName}</p>
+      </div>
+    </footer>
+  );
+}
+
+// In the editor's preview the menu and the buttons are shown but do not leave the editor.
 export function PublicSiteView({ site, churchSlug, preview = false }: { site: PublicSite; churchSlug: string; preview?: boolean }) {
   // When the page title is hidden, the first Cover's headline is the page's one main heading.
   const mainCoverId = site.page.showTitle ? undefined : site.page.blocks.find((block) => block.type === "COVER")?.id;
-  const linkClass = "inline-flex min-h-11 items-center px-1 text-lg";
   return (
-    <div className="public-site @container min-h-screen">
-      <header className="border-b border-[var(--site-line)] px-6 py-3">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1">
-          <span className="text-xl font-bold">{site.churchName}</span>
-          {site.menu.length > 1 ? (
-            <nav aria-label="Main menu">
-              <ul className="flex flex-wrap gap-x-4">
-                {site.menu.map((item) => (
-                  <li key={item.slug}>
-                    {preview ? (
-                      <span className={`${linkClass} ${item.slug === site.page.slug ? "font-semibold underline" : ""}`}>{item.title}</span>
-                    ) : (
-                      <a href={pageHref(churchSlug, item.slug)} aria-current={item.slug === site.page.slug ? "page" : undefined} className={`${linkClass} hover:underline ${item.slug === site.page.slug ? "font-semibold underline" : ""}`}>{item.title}</a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ) : null}
-        </div>
-      </header>
+    <div className="public-site @container min-h-screen" style={lookVariables(site.look.colorSet, site.look.fontStyle) as React.CSSProperties}>
+      <SiteHeader site={site} churchSlug={churchSlug} preview={preview} />
       <main className={site.page.showTitle ? "py-10" : "pb-10"}>
         {site.page.showTitle ? <Row width="content"><h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1></Row> : null}
         {site.page.blocks.map((block) => <Row key={block.id} width={widthOf(block)}><Block block={block} churchSlug={churchSlug} asH1={block.id === mainCoverId} /></Row>)}
       </main>
-      <footer className="mt-12 border-t border-[var(--site-line)] px-6 py-6 text-center text-base text-[var(--site-muted)]">© {site.churchName}</footer>
+      <SiteFooter site={site} churchSlug={churchSlug} preview={preview} />
     </div>
   );
 }

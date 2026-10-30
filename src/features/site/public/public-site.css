@@ -12,8 +12,12 @@
   --site-content: 720px;
   --site-wide: 1200px;
   container-type: inline-size;
+  --site-text: #1f2430;
+  --site-font-heading: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --site-font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: #ffffff;
-  color: #1f2430;
+  color: var(--site-text);
+  font-family: var(--site-font-body);
 }
 
 /* The three widths: reading width, wide, and full (no limit). The side gutter keeps text off the screen edge. */
@@ -88,3 +92,42 @@
 /* Blocks that sit at the top or bottom of a band or a column do not add their own space there. */
 .public-site .site-section .site-gutter > :first-child, .public-site .site-column > :first-child { margin-top: 0; }
 .public-site .site-section .site-gutter > :last-child, .public-site .site-column > :last-child { margin-bottom: 0; }
+
+/* The header: logo or name on the left, the menu and an optional button on the right. */
+.public-site :is(h1, h2, h3, .site-brand-name, .site-footer-name) { font-family: var(--site-font-heading); }
+.public-site .site-header { border-bottom: 1px solid var(--site-line); background-color: #ffffff; }
+.public-site .site-header-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; padding-block: 0.5rem; }
+.public-site .site-brand { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
+.public-site .site-brand-name { font-size: 1.25rem; font-weight: 700; }
+.public-site .site-logo { height: 2.5rem; width: auto; max-width: 14rem; object-fit: contain; }
+.public-site .site-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-left: auto; }
+.public-site .site-nav-wide { display: none; }
+.public-site .site-nav-wide ul { display: flex; flex-wrap: wrap; gap: 0 0.5rem; margin: 0; padding: 0; list-style: none; }
+.public-site .site-nav-link { display: inline-flex; min-height: 44px; align-items: center; padding-inline: 0.5rem; font-size: 1.0625rem; color: inherit; text-decoration: none; }
+.public-site a.site-nav-link:hover { text-decoration: underline; }
+.public-site .site-nav-current { font-weight: 600; text-decoration: underline; }
+.public-site .site-header-button { display: inline-flex; min-height: 44px; align-items: center; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; background-color: var(--site-accent); color: var(--site-accent-text); text-decoration: none; }
+/* On a narrow page the menu folds into one button. */
+.public-site .site-menu-narrow summary { display: inline-flex; min-height: 44px; cursor: pointer; align-items: center; border: 1px solid var(--site-line); border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 600; list-style: none; }
+.public-site .site-menu-narrow summary::-webkit-details-marker { display: none; }
+.public-site .site-menu-narrow[open] { flex-basis: 100%; }
+.public-site .site-menu-narrow ul { margin: 0.5rem 0 0; padding: 0; list-style: none; }
+@container (min-width: 672px) {
+  .public-site .site-nav-wide { display: block; margin-left: auto; }
+  .public-site .site-menu-narrow { display: none; }
+  .public-site .site-header-actions { margin-left: 0; }
+}
+
+/* The footer: dark, with who and where, when, and the pages. */
+.public-site .site-footer { margin-top: 3rem; background-color: var(--site-dark); color: #ffffff; padding-block: 2.5rem 1.5rem; }
+.public-site .site-footer-grid { display: grid; gap: 2rem; }
+@container (min-width: 672px) {
+  .public-site .site-footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.public-site .site-footer-name { font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; }
+.public-site .site-footer-heading { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }
+.public-site .site-footer-text { margin: 0; color: rgba(255, 255, 255, 0.82); line-height: 1.6; }
+.public-site .site-footer-links { margin: 0; padding: 0; list-style: none; }
+.public-site .site-footer-links a, .public-site .site-footer-links span { display: inline-flex; min-height: 36px; align-items: center; color: rgba(255, 255, 255, 0.82); text-decoration: none; }
+.public-site .site-footer-links a:hover { color: #ffffff; text-decoration: underline; }
+.public-site .site-footer-legal { margin: 2rem 0 0; border-top: 1px solid rgba(255, 255, 255, 0.25); padding-top: 1rem; font-size: 0.9375rem; color: rgba(255, 255, 255, 0.82); }

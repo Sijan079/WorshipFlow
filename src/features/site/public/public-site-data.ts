@@ -3,6 +3,7 @@ import { isPubliclyVisible } from "@/features/posts/post-rules";
 import { SiteBlockSchema, type BaseBlockInput, type ColumnsBlockInput, type SectionChildInput, type SiteBlockInput } from "@/features/site/blocks/block-validation";
 import { imageIdFromPath, imageIdsIn } from "@/features/site/images/image-refs";
 import { HOME_SLUG, menuPages } from "@/features/site/pages/page-rules";
+import { footerServiceTimes, headerButton } from "@/features/site/look/site-chrome";
 import { nextDatePerEvent } from "./public-events";
 import { pageDescription } from "./page-description";
 
@@ -31,12 +32,32 @@ export type PublicSite = {
   indexable: boolean;
   // The pages in the menu bar: published and public, home first.
   menu: Array<{ slug: string; title: string }>;
+  // The look, and what the header and the footer show. All of it comes from the church's own website settings.
+  look: { colorSet: string; fontStyle: string };
+  header: { logoSrc: string | null; button: { label: string; href: string } | null };
+  footer: { address: string | null; phone: string | null; email: string | null; serviceTimes: string[] };
   page: { slug: string; title: string; description: string | null; showTitle: boolean; blocks: PublicBlock[] };
 };
 
 const LIST_LIMIT = 10;
 
-type Settings = { indexable: boolean; contactEmail: string | null; contactPhone: string | null; address: string | null } | null;
+type Settings = {
+  indexable: boolean; contactEmail: string | null; contactPhone: string | null; address: string | null;
+  colorSet: string; fontStyle: string; logoPath: string | null; headerButtonLabel: string | null; headerButtonSlug: string | null; serviceTimes: string | null;
+} | null;
+
+const settingsSelect = { indexable: true, contactEmail: true, contactPhone: true, address: true, colorSet: true, fontStyle: true, logoPath: true, headerButtonLabel: true, headerButtonSlug: true, serviceTimes: true } as const;
+
+// What the header and the footer need. The logo counts only if it is one of this church's own pictures.
+async function buildChrome({ workspaceId, workspaceSlug, settings, menu, imageSrc }: { workspaceId: string; workspaceSlug: string; settings: Settings; menu: Array<{ slug: string }>; imageSrc: (imageId: string) => string }) {
+  const logoId = settings?.logoPath ? imageIdFromPath(settings.logoPath) : null;
+  const logo = logoId ? await prisma.siteImage.findFirst({ where: { id: logoId, workspaceId }, select: { id: true } }) : null;
+  return {
+    look: { colorSet: settings?.colorSet ?? "dawn", fontStyle: settings?.fontStyle ?? "clean" },
+    header: { logoSrc: logo ? imageSrc(logo.id) : null, button: headerButton({ label: settings?.headerButtonLabel ?? null, slug: settings?.headerButtonSlug ?? null }, workspaceSlug, menu) },
+    footer: { address: settings?.address ?? null, phone: settings?.contactPhone ?? null, email: settings?.contactEmail ?? null, serviceTimes: footerServiceTimes(settings?.serviceTimes ?? null) },
+  };
+}
 type PageRows = Array<{ id: string; type: string; content: unknown }>;
 
 const blockRows = { orderBy: { sortOrder: "asc" as const }, select: { id: true, type: true, content: true } };
@@ -54,7 +75,7 @@ async function menuFor(workspaceId: string) {
 export async function getPublicSite(workspaceSlug: string, pageSlug: string = HOME_SLUG, now = new Date()): Promise<PublicSite | null> {
   const workspace = await prisma.workspace.findUnique({
     where: { slug: workspaceSlug },
-    select: { id: true, name: true, siteSettings: { select: { indexable: true, contactEmail: true, contactPhone: true, address: true } } },
+    select: { id: true, name: true, siteSettings: { select: settingsSelect } },
   });
   if (!workspace) return null;
 
@@ -64,15 +85,18 @@ export async function getPublicSite(workspaceSlug: string, pageSlug: string = HO
   });
   if (!page) return null;
 
+  const publicSrc = (imageId: string) => `/c/${workspaceSlug}/image/${imageId}.webp`;
   const [menu, built] = await Promise.all([
     menuFor(workspace.id),
-    buildPage({ workspaceId: workspace.id, rows: page.blocks, settings: workspace.siteSettings, now, imageSrc: (imageId) => `/c/${workspaceSlug}/image/${imageId}.webp` }),
+    buildPage({ workspaceId: workspace.id, rows: page.blocks, settings: workspace.siteSettings, now, imageSrc: publicSrc }),
   ]);
+  const chrome = await buildChrome({ workspaceId: workspace.id, workspaceSlug, settings: workspace.siteSettings, menu, imageSrc: publicSrc });
   return {
     churchName: workspace.name,
     churchSlug: workspaceSlug,
     indexable: workspace.siteSettings?.indexable ?? false,
     menu,
+    ...chrome,
     page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), showTitle: page.showTitle, blocks: built.blocks },
   };
 }
@@ -83,7 +107,7 @@ export async function getPublicSite(workspaceSlug: string, pageSlug: string = HO
 export async function getPreviewSite(workspaceId: string, pageId: string, workspaceSlug: string, now = new Date()): Promise<PublicSite | null> {
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
-    select: { name: true, siteSettings: { select: { indexable: true, contactEmail: true, contactPhone: true, address: true } } },
+    select: { name: true, siteSettings: { select: settingsSelect } },
   });
   if (!workspace) return null;
   const page = await prisma.sitePage.findFirst({
@@ -91,15 +115,18 @@ export async function getPreviewSite(workspaceId: string, pageId: string, worksp
     select: { slug: true, title: true, description: true, showTitle: true, blocks: blockRows },
   });
   if (!page) return null;
+  const previewSrc = (imageId: string) => `/api/workspaces/${workspaceSlug}/site/images/${imageId}`;
   const [menu, built] = await Promise.all([
     menuFor(workspaceId),
-    buildPage({ workspaceId, rows: page.blocks, settings: workspace.siteSettings, now, imageSrc: (imageId) => `/api/workspaces/${workspaceSlug}/site/images/${imageId}` }),
+    buildPage({ workspaceId, rows: page.blocks, settings: workspace.siteSettings, now, imageSrc: previewSrc }),
   ]);
+  const chrome = await buildChrome({ workspaceId, workspaceSlug, settings: workspace.siteSettings, menu, imageSrc: previewSrc });
   return {
     churchName: workspace.name,
     churchSlug: workspaceSlug,
     indexable: workspace.siteSettings?.indexable ?? false,
     menu,
+    ...chrome,
     page: { slug: page.slug, title: page.title, description: pageDescription({ description: page.description, blocks: built.parsed }), showTitle: page.showTitle, blocks: built.blocks },
   };
 }

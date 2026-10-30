@@ -91,7 +91,7 @@ export default function SitePagesClient() {
         ) : null}
       </header>
 
-      <SiteSettingsPanel />
+      <SiteSettingsPanel pages={items.map((page) => ({ slug: page.slug, title: page.title }))} />
 
       {query.isPending ? <p role="status" className="py-12 text-sm text-[var(--text-muted)]">Loading pages…</p> : null}
       {query.isError ? <div role="alert" className="py-8 text-sm"><p>The pages could not be loaded. {query.error instanceof Error ? query.error.message : ""}</p><button type="button" onClick={() => void query.refetch()} className="mt-3 min-h-11 text-sm font-semibold text-[var(--text-accent)] underline">Try again</button></div> : null}
