@@ -56,3 +56,11 @@ test("a page cannot use an image that the church does not own", () => {
   assert.deepEqual(missingImageIds([id, mine], new Set([mine])), [id]);
   assert.deepEqual(missingImageIds([mine], new Set([mine])), []);
 });
+
+test("pictures on a Carousel's cards are listed, on the page and inside a Section", () => {
+  const a = "11111111-2222-4333-8444-555555555555";
+  const b = "66666666-7777-4888-8999-000000000000";
+  const carousel = (...ids: string[]) => ({ type: "CAROUSEL", content: { perView: 3, width: "wide", slides: [...ids.map((id) => ({ title: "Card", picture: imagePathFor(id) })), { title: "No picture" }] } });
+  const section = { type: "SECTION", content: { background: "none", overlay: "medium", padding: "small", inner: "wide", width: "full", blocks: [carousel(b, a)] } };
+  assert.deepEqual(imageIdsIn([carousel(a), section]), [a, b]);
+});

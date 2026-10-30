@@ -13,6 +13,7 @@ export const SITE_LIMITS = {
   descriptionMax: 300,
   runsPerParagraph: 200,
   listItems: 50,
+  carouselSlides: 12,
 } as const;
 
 const SAFE_PROTOCOLS = new Set(["http:", "https:", "tel:", "mailto:"]);
@@ -95,8 +96,29 @@ const columns = z.strictObject({
 });
 export type ColumnsBlockInput = z.infer<typeof columns>;
 
-// What a Section can hold: the ordinary blocks, and Columns.
-const SectionChildSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, columns]);
+// A row of cards that scroll sideways: two to twelve, each with a title and, optionally, a line of words, one of the
+// church's pictures and a button. Used for things like showing the ministries. It sits on the page or in a Section,
+// never in a column. It has no autoplay, so nothing moves unless the visitor moves it.
+const carouselSlide = z.strictObject({
+  title: z.string().trim().min(1, "Give the card a title.").max(60),
+  text: plain(200).optional(),
+  picture: imagePath.optional(),
+  button: z.strictObject({ label: z.string().trim().min(1).max(60), link: LinkSchema }).optional(),
+});
+export type CarouselSlideInput = z.infer<typeof carouselSlide>;
+const carousel = z.strictObject({
+  type: z.literal("CAROUSEL"),
+  content: z.strictObject({
+    label: plain(80).optional(),
+    perView: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+    width: blockWidth,
+    slides: z.array(carouselSlide).min(2).max(SITE_LIMITS.carouselSlides),
+  }),
+});
+export type CarouselBlockInput = z.infer<typeof carousel>;
+
+// What a Section can hold: the ordinary blocks, Columns and a Carousel.
+const SectionChildSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, columns, carousel]);
 export type SectionChildInput = z.infer<typeof SectionChildSchema>;
 
 // A full-width band that holds blocks. Colours come from the church's colour set, never from a free colour.
@@ -135,7 +157,7 @@ const cover = z.strictObject({
   }),
 });
 
-export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section, cover, columns]);
+export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section, cover, columns, carousel]);
 export type SiteBlockInput = z.infer<typeof SiteBlockSchema>;
 export type SectionBlockInput = z.infer<typeof section>;
 export type CoverBlockInput = z.infer<typeof cover>;
@@ -145,7 +167,8 @@ export function countBlocks(blocks: Array<{ type: string; content: unknown }>): 
   let total = 0;
   for (const block of blocks) {
     total += 1;
-    const content = block.content as { blocks?: unknown; columns?: unknown } | null;
+    const content = block.content as { blocks?: unknown; columns?: unknown; slides?: unknown } | null;
+    if (block.type === "CAROUSEL" && Array.isArray(content?.slides)) total += content.slides.length;
     if (block.type === "SECTION" && Array.isArray(content?.blocks)) total += countBlocks(content.blocks as Array<{ type: string; content: unknown }>);
     if (block.type === "COLUMNS" && Array.isArray(content?.columns)) {
       for (const column of content.columns as Array<{ blocks?: unknown }>) {

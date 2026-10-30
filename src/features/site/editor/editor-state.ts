@@ -1,4 +1,4 @@
-import { SITE_LIMITS, type BaseBlockInput, type ColumnsBlockInput, type CoverBlockInput, type SectionBlockInput, type SectionChildInput, type SiteBlockInput } from "../blocks/block-validation.ts";
+import { SITE_LIMITS, type BaseBlockInput, type CarouselBlockInput, type ColumnsBlockInput, type CoverBlockInput, type SectionBlockInput, type SectionChildInput, type SiteBlockInput } from "../blocks/block-validation.ts";
 
 // The editor's blocks while a page is open: the stored block plus a key that stays the same while it is edited,
 // moved or undone. A Section keeps its blocks inside its own content, Columns keep theirs inside each column, and
@@ -8,11 +8,13 @@ export type KeyedBase = BaseBlockInput & { key: string };
 // A column is not a block of its own: it has a key only so blocks can be added into it.
 export type KeyedColumn = { key: string; blocks: KeyedBase[] };
 export type KeyedColumns = { key: string; type: "COLUMNS"; content: Omit<ColumnsBlockInput["content"], "columns"> & { columns: KeyedColumn[] } };
-export type KeyedSectionChild = KeyedBase | KeyedColumns;
+// A Carousel's cards are part of its content, so only the Carousel has a key.
+export type KeyedCarousel = CarouselBlockInput & { key: string };
+export type KeyedSectionChild = KeyedBase | KeyedColumns | KeyedCarousel;
 export type KeyedSection = { key: string; type: "SECTION"; content: Omit<SectionBlockInput["content"], "blocks"> & { blocks: KeyedSectionChild[] } };
 // A Cover has no blocks inside it, but like a Section it can only sit on the page itself.
 export type KeyedCover = CoverBlockInput & { key: string };
-export type EditorBlock = KeyedBase | KeyedSection | KeyedCover | KeyedColumns;
+export type EditorBlock = KeyedBase | KeyedSection | KeyedCover | KeyedColumns | KeyedCarousel;
 export type NewBlockKind = SiteBlockInput["type"];
 export type ColumnsLayout = "picture-left" | "picture-right" | "cards-3" | "two-columns";
 
@@ -48,7 +50,11 @@ const keyColumns = (block: ColumnsBlockInput): KeyedColumns => ({
   type: "COLUMNS",
   content: { ...block.content, columns: block.content.columns.map((column) => ({ key: keyOf(), blocks: column.blocks.map(keyBase) })) },
 });
-const keyChild = (child: SectionChildInput): KeyedSectionChild => (child.type === "COLUMNS" ? keyColumns(child) : keyBase(child));
+const keyChild = (child: SectionChildInput): KeyedSectionChild => {
+  if (child.type === "COLUMNS") return keyColumns(child);
+  if (child.type === "CAROUSEL") return { ...child, key: keyOf() };
+  return keyBase(child);
+};
 
 // Gives every block, at every level, a key. Used when a saved page is opened.
 export function withKeys(blocks: SiteBlockInput[]): EditorBlock[] {
@@ -60,6 +66,15 @@ export function withKeys(blocks: SiteBlockInput[]): EditorBlock[] {
 }
 
 const unkeyBase = ({ key, ...block }: KeyedBase): BaseBlockInput => { void key; return block; };
+const unkeyChild = (child: KeyedSectionChild): SectionChildInput => {
+  if (child.type === "COLUMNS") return unkeyColumns(child);
+  if (child.type === "CAROUSEL") {
+    const { key, ...carousel } = child;
+    void key;
+    return carousel;
+  }
+  return unkeyBase(child);
+};
 const unkeyColumns = (block: KeyedColumns): ColumnsBlockInput => ({
   type: "COLUMNS",
   content: { ...block.content, columns: block.content.columns.map((column) => ({ blocks: column.blocks.map(unkeyBase) })) },
@@ -69,7 +84,7 @@ const unkeyColumns = (block: KeyedColumns): ColumnsBlockInput => ({
 export function stripKeys(blocks: EditorBlock[]): SiteBlockInput[] {
   return blocks.map((block): SiteBlockInput => {
     if (block.type === "SECTION") {
-      return { type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map((child): SectionChildInput => (child.type === "COLUMNS" ? unkeyColumns(child) : unkeyBase(child))) } };
+      return { type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map(unkeyChild) } };
     }
     if (block.type === "COLUMNS") return unkeyColumns(block);
     const { key, ...plain } = block;
@@ -98,10 +113,45 @@ export function newBlock(kind: NewBlockKind): EditorBlock {
     case "SECTION": return { key, type: kind, content: { background: "tinted", overlay: "medium", padding: "medium", inner: "content", width: "full", blocks: [] } };
     case "COVER": return { key, type: kind, content: { headline: "", overlay: "medium", height: "tall", align: "center", focus: "center", width: "full", buttons: [] } };
     case "COLUMNS": return { key, type: kind, content: { columns: [emptyColumn(), emptyColumn()], valign: "top", cards: false, width: "wide" } };
+    case "CAROUSEL": return { key, type: kind, content: { perView: 3, width: "wide", slides: [{ title: "" }, { title: "" }, { title: "" }] } };
   }
 }
 
-const base = (kind: Exclude<NewBlockKind, "SECTION" | "COVER" | "COLUMNS">) => newBlock(kind) as KeyedBase;
+const base = (kind: Exclude<NewBlockKind, "SECTION" | "COVER" | "COLUMNS" | "CAROUSEL">) => newBlock(kind) as KeyedBase;
+
+// A ready-made "Our ministries" band: a heading, a line of words and a Carousel with starter cards. Everything is
+// written by hand here and in the editor: the public site never reads the Ministries list.
+export function newMinistriesShowcase(): KeyedSection {
+  const section = newBlock("SECTION") as KeyedSection;
+  const heading = base("HEADING");
+  const intro = base("PARAGRAPH");
+  const carousel = newBlock("CAROUSEL") as KeyedCarousel;
+  return {
+    ...section,
+    content: {
+      ...section.content,
+      padding: "large",
+      inner: "wide",
+      blocks: [
+        heading.type === "HEADING" ? { ...heading, content: { ...heading.content, text: "Our ministries", align: "center" } } : heading,
+        intro.type === "PARAGRAPH" ? { ...intro, content: { ...intro.content, align: "center", runs: [{ text: "There is a place for everyone to belong, serve and grow." }] } } : intro,
+        {
+          ...carousel,
+          content: {
+            ...carousel.content,
+            label: "Our ministries",
+            slides: [
+              { title: "Children", text: "Bible stories, songs and games for the little ones." },
+              { title: "Youth", text: "Friendship, fun and faith for teenagers." },
+              { title: "Music and worship", text: "Sing and play with the worship team." },
+              { title: "Prayer", text: "Join us to pray for our church and our city." },
+            ],
+          },
+        },
+      ],
+    },
+  };
+}
 const smallHeading = (): KeyedBase => {
   const heading = base("HEADING");
   return heading.type === "HEADING" ? { ...heading, content: { ...heading.content, level: 3 } } : heading;
@@ -135,6 +185,7 @@ export function countEditorBlocks(blocks: EditorBlock[]): number {
   let total = 0;
   for (const block of blocks) {
     total += 1;
+    if (block.type === "CAROUSEL") total += block.content.slides.length;
     if (block.type === "SECTION") total += countEditorBlocks(block.content.blocks);
     if (block.type === "COLUMNS") for (const column of block.content.columns) total += countEditorBlocks(column.blocks);
   }
@@ -218,7 +269,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (container.kind === "section") {
         // A Section holds ordinary blocks and Columns: no Section inside a Section, and no Cover.
         if (type === "SECTION" || type === "COVER" || container.section.content.blocks.length >= SITE_LIMITS.sectionBlocks) return state;
-      } else if (type === "SECTION" || type === "COVER" || type === "COLUMNS" || container.column.blocks.length >= SITE_LIMITS.columnBlocks) {
+      } else if (type === "SECTION" || type === "COVER" || type === "COLUMNS" || type === "CAROUSEL" || container.column.blocks.length >= SITE_LIMITS.columnBlocks) {
         // A column holds ordinary blocks only.
         return state;
       }

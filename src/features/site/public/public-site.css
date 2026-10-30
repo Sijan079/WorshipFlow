@@ -89,6 +89,25 @@
 /* The card look: a light panel with padding and rounded corners. On dark bands the panel turns translucent. */
 .public-site .site-columns-cards .site-column { background-color: var(--site-soft); border-radius: 0.75rem; padding: 1.5rem; }
 
+/* Carousel: cards in a row that scroll and snap sideways. The number of cards in view follows the carousel's own width:
+   one with a peek of the next on a phone, two on a tablet, and the chosen two, three or four on a computer. */
+.public-site .site-carousel { container-type: inline-size; position: relative; margin-block: 1.5rem; --card-gap: 1rem; --per-view: 1.15; }
+.public-site .site-carousel-track { display: flex; gap: var(--card-gap); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; padding: 0.25rem 0 0.75rem; margin: 0; list-style: none; }
+.public-site .site-carousel-track:focus-visible { outline: 3px solid var(--site-accent); outline-offset: 2px; }
+.public-site .site-carousel-card { flex: 0 0 calc((100% - var(--card-gap) * (var(--per-view) - 1)) / var(--per-view)); scroll-snap-align: start; display: flex; flex-direction: column; overflow: hidden; border-radius: 0.75rem; background-color: var(--site-soft); border: 1px solid var(--site-line); }
+.public-site .site-carousel-picture { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.public-site .site-carousel-body { padding: 1.25rem; }
+.public-site .site-carousel-link { display: inline-flex; min-height: 44px; align-items: center; margin-top: 0.75rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.public-site .site-carousel-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; }
+.public-site .site-carousel-button { width: 44px; height: 44px; border-radius: 9999px; border: 1px solid var(--site-line); background-color: #ffffff; color: var(--site-dark); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.public-site .site-carousel-button:disabled { opacity: 0.4; cursor: default; }
+@container (min-width: 520px) { .public-site .site-carousel { --per-view: 2; } }
+@container (min-width: 840px) {
+  .public-site .site-carousel[data-per-view="3"] { --per-view: 3; }
+  .public-site .site-carousel[data-per-view="4"] { --per-view: 4; }
+}
+@media (prefers-reduced-motion: reduce) { .public-site .site-carousel-track { scroll-behavior: auto; } }
+
 /* Blocks that sit at the top or bottom of a band or a column do not add their own space there. */
 .public-site .site-section .site-gutter > :first-child, .public-site .site-column > :first-child { margin-top: 0; }
 .public-site .site-section .site-gutter > :last-child, .public-site .site-column > :last-child { margin-bottom: 0; }

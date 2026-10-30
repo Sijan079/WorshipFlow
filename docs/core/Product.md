@@ -58,8 +58,8 @@ Each links into its module. No charts or trends until there is enough data.
   blocks open a settings panel (a bottom sheet on phones), with autosave, undo and redo, and a Preview with
   phone, tablet and desktop widths. Blocks: paragraph, heading, list, quote, image, button, spacer,
   announcements list, events list, service times, contact, and layout blocks: Section (a full-width band with a
-  background that holds blocks), Cover (a hero picture with text and buttons on top) and Columns (2 to 4, stacked
-  on phones). Blocks can be content width (720 px), wide (1200 px) or full width. A fixed site header and footer
+  background that holds blocks), Cover (a hero picture with text and buttons on top), Columns (2 to 4, stacked
+  on phones) and Carousel (2 to 12 cards that scroll sideways, no autoplay; used for things like the ministries). Blocks can be content width (720 px), wide (1200 px) or full width. A fixed site header and footer
   with a call-to-action button, a Look section in Website settings (5 colour sets, 2 font styles, a logo), a "show
   the page title" switch, "make this the home page", and starter pages (Blank, Homepage, Plan your visit, About
   us). See `docs/changes/20261030.md` items 16 to 19. Options are only left or centre alignment and

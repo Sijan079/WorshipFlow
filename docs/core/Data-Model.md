@@ -55,7 +55,7 @@ intent and the decisions behind schema changes.
   `isPublic`, sort order for the menu. At most 20 per workspace.
 - `SitePageBlock`: belongs to a page, ordered, typed (`SiteBlockType`: paragraph, heading, list, quote, image,
   button, spacer, announcements list, events list, service times, contact, and the layout blocks section, columns
-  and cover). Content is structured JSON, never raw HTML; text styling is a small allowed set (bold, italic, link).
+  and cover, and the carousel). Content is structured JSON, never raw HTML; text styling is a small allowed set (bold, italic, link).
   A layout block keeps its child blocks inside its own JSON (a Section holds blocks and Columns, a Column holds
   blocks, no Section inside a Section): at most three levels, 100 blocks per page counting nested ones, 30 in a
   Section, 15 in a Column. Some blocks have a `width`: content (720 px), wide (1200 px) or full. See

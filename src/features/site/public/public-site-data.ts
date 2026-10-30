@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
-import { SiteBlockSchema, type BaseBlockInput, type ColumnsBlockInput, type SectionChildInput, type SiteBlockInput } from "@/features/site/blocks/block-validation";
+import { SiteBlockSchema, type BaseBlockInput, type CarouselBlockInput, type ColumnsBlockInput, type SectionChildInput, type SiteBlockInput, type SiteLink } from "@/features/site/blocks/block-validation";
 import { imageIdFromPath, imageIdsIn } from "@/features/site/images/image-refs";
 import { HOME_SLUG, menuPages } from "@/features/site/pages/page-rules";
 import { footerServiceTimes, headerButton } from "@/features/site/look/site-chrome";
@@ -14,13 +14,15 @@ type Listed = "ANNOUNCEMENTS_LIST" | "EVENTS_LIST" | "CONTACT";
 type CoverInput = Extract<SiteBlockInput, { type: "COVER" }>["content"];
 export type CoverFocus = CoverInput["focus"];
 export type CoverButton = CoverInput["buttons"][number];
-type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" | "COVER" | "COLUMNS" }>;
+type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" | "COVER" | "COLUMNS" | "CAROUSEL" }>;
+export type CarouselCard = { title: string; text: string | null; pictureSrc: string | null; button: { label: string; link: SiteLink } | null };
 
 export type PublicBlock =
   | (Shown & { id: string })
   | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: "content" | "wide" | "full"; naturalWidth: number; naturalHeight: number }
   | { id: string; type: "SECTION"; background: "none" | "tinted" | "dark" | "accent" | "picture"; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; padding: "small" | "medium" | "large"; inner: "content" | "wide"; width: "wide" | "full"; blocks: PublicBlock[] }
   | { id: string; type: "COLUMNS"; valign: "top" | "center"; cards: boolean; width: "content" | "wide" | "full"; columns: PublicBlock[][] }
+  | { id: string; type: "CAROUSEL"; label: string | null; perView: 2 | 3 | 4; width: "content" | "wide" | "full"; cards: CarouselCard[] }
   | { id: string; type: "COVER"; headline: string; text: string | null; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; height: "medium" | "tall" | "screen"; align: "left" | "center"; focus: CoverFocus; width: "wide" | "full"; buttons: CoverButton[] }
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
@@ -182,10 +184,25 @@ async function buildPage({ workspaceId, rows, settings, now, imageSrc }: { works
     return { id, type: "COLUMNS", valign: block.content.valign, cards: block.content.cards, width: block.content.width, columns };
   }
 
-  const resolveChild = (child: SectionChildInput, id: string) => (child.type === "COLUMNS" ? resolveColumns(child, id) : resolveBase(child, id));
+  // A card whose picture is gone is shown without one rather than left out.
+  function resolveCarousel(block: CarouselBlockInput, id: string): PublicBlock {
+    const { label, perView, width, slides } = block.content;
+    const cards = slides.map((slide): CarouselCard => {
+      const picture = pictureFor(slide.picture);
+      return { title: slide.title, text: slide.text?.trim() || null, pictureSrc: picture ? imageSrc(picture.imageId) : null, button: slide.button ?? null };
+    });
+    return { id, type: "CAROUSEL", label: label?.trim() || null, perView, width, cards };
+  }
+
+  const resolveChild = (child: SectionChildInput, id: string) => {
+    if (child.type === "COLUMNS") return resolveColumns(child, id);
+    if (child.type === "CAROUSEL") return resolveCarousel(child, id);
+    return resolveBase(child, id);
+  };
 
   async function resolve(block: SiteBlockInput, id: string): Promise<PublicBlock | null> {
     if (block.type === "COLUMNS") return resolveColumns(block, id);
+    if (block.type === "CAROUSEL") return resolveCarousel(block, id);
     if (block.type === "COVER") {
       // A cover whose picture is gone, or that never had one, uses the church colour, so its words stay readable.
       const picture = pictureFor(block.content.picture);

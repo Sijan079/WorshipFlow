@@ -3,6 +3,7 @@ import type { SiteLink, TextRun } from "@/features/site/blocks/block-validation"
 import { COVER_OVERLAY, coverFocusPosition } from "@/features/site/blocks/cover-style";
 import { lookVariables } from "@/features/site/look/look";
 import { pageHref } from "@/features/site/look/site-chrome";
+import { CarouselScroller } from "./carousel-scroller";
 import "./public-site.css";
 
 function when(startsAt: string, timezone: string) {
@@ -74,6 +75,26 @@ function Block({ block, churchSlug, nested = false, asH1 = false }: { block: Pub
             </div>
           ))}
         </div>
+      );
+    case "CAROUSEL":
+      return (
+        <CarouselScroller label={block.label ?? "Cards"} perView={block.perView}>
+          {block.cards.map((card, index) => (
+            <li key={index} className="site-carousel-card">
+              {/* eslint-disable-next-line @next/next/no-img-element -- already a small WebP made by the site's own upload */}
+              {card.pictureSrc ? <img src={card.pictureSrc} alt="" loading="lazy" className="site-carousel-picture" /> : null}
+              <div className="site-carousel-body">
+                <h3 className="text-xl font-semibold">{card.title}</h3>
+                {card.text ? <p className="mt-2 text-lg leading-relaxed">{card.text}</p> : null}
+                {card.button ? (
+                  <a className="site-carousel-link" href={hrefOf(card.button.link, churchSlug)} {...(isOutside(card.button.link) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                    {card.button.label}
+                  </a>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </CarouselScroller>
       );
     case "QUOTE":
       return (
@@ -194,7 +215,7 @@ function SectionView({ block, churchSlug }: { block: Extract<PublicBlock, { type
 
 // Each block on the page sits at its own width: the reading width, wide, or the full screen.
 function widthOf(block: PublicBlock): "content" | "wide" | "full" {
-  if (block.type === "SECTION" || block.type === "COVER" || block.type === "COLUMNS") return block.width;
+  if (block.type === "SECTION" || block.type === "COVER" || block.type === "COLUMNS" || block.type === "CAROUSEL") return block.width;
   if (block.type === "IMAGE") return block.width;
   return "content";
 }

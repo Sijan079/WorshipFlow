@@ -58,3 +58,10 @@ test("a new picture block asks for a picture before anything else", () => {
   const image = newBlock("IMAGE");
   assert.match(blockProblems([image]).get(image.key) ?? "", /choose a picture/i);
 });
+
+test("a card without a title is named, and the Carousel itself is not blamed", () => {
+  const carousel = newBlock("CAROUSEL");
+  assert.match(blockProblems([carousel]).get(carousel.key) ?? "", /title/i);
+  const section = { key: "s", type: "SECTION" as const, content: { background: "none" as const, overlay: "medium" as const, padding: "small" as const, inner: "wide" as const, width: "full" as const, blocks: [carousel as never] } };
+  assert.match(blockProblems([section]).get(carousel.key) ?? "", /title/i);
+});

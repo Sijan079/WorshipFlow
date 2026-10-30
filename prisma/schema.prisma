@@ -1139,6 +1139,7 @@ enum SiteBlockType {
   SECTION
   COVER
   COLUMNS
+  CAROUSEL
 }
 
 model SiteSettings {

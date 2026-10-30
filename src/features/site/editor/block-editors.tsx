@@ -6,6 +6,7 @@ import type { SiteBlockInput } from "../blocks/block-validation";
 import type { EditorBlock } from "./editor-state";
 import ImageField from "./image-field";
 import LinkField from "./link-field";
+import CarouselFields from "./carousel-fields";
 import ColumnsFields from "./columns-fields";
 import CoverFields from "./cover-fields";
 import SectionFields from "./section-fields";
@@ -25,6 +26,7 @@ export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   SECTION: "Section",
   COVER: "Cover",
   COLUMNS: "Columns",
+  CAROUSEL: "Carousel",
 };
 
 type Props = {
@@ -162,6 +164,8 @@ export default function BlockBody({ block, pages, disabled, onChange, onSetColum
       return <SectionFields content={block.content} disabled={disabled} onChange={onChange} />;
     case "COVER":
       return <CoverFields content={block.content} pages={pages} disabled={disabled} onChange={onChange} />;
+    case "CAROUSEL":
+      return <CarouselFields content={block.content} pages={pages} disabled={disabled} onChange={onChange} />;
     case "COLUMNS":
       return <ColumnsFields content={block.content} disabled={disabled} onChange={onChange} onSetColumns={onSetColumns ?? (() => undefined)} />;
   }

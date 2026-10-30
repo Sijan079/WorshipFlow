@@ -4,7 +4,7 @@ import type { Dispatch } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { SITE_LIMITS } from "../blocks/block-validation";
 import BlockBody, { BLOCK_LABELS } from "./block-editors";
-import { newBlock, newColumnsLayout, type ColumnsLayout, type EditorAction, type EditorBlock, type NewBlockKind } from "./editor-state";
+import { countEditorBlocks, newBlock, newColumnsLayout, newMinistriesShowcase, type ColumnsLayout, type EditorAction, type EditorBlock, type NewBlockKind } from "./editor-state";
 
 const SECONDARY_BUTTON = "ui-btn-secondary pressable inline-flex items-center px-4 text-sm font-semibold disabled:opacity-60";
 const ICON_BUTTON = "inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-40";
@@ -30,9 +30,13 @@ const COLUMN_LAYOUTS: Choice[] = [
 export type ListKind = "page" | "section" | "column";
 
 // The page itself can hold everything. A Section holds ordinary blocks and Columns. A column holds ordinary blocks only.
+// The Carousel brings three starter cards, which count towards the blocks on the page.
+const CAROUSEL: Choice = { id: "CAROUSEL", label: "Carousel of cards", size: 4, make: () => newBlock("CAROUSEL") };
+const MINISTRIES: Choice = { id: "ministries-showcase", label: "Our ministries (ready-made)", size: countEditorBlocks([newMinistriesShowcase()]), make: newMinistriesShowcase };
+
 const CHOICES: Record<ListKind, Choice[]> = {
-  page: [single("COVER", "Cover (big picture with words)"), ...ORDINARY, single("SECTION", "Section"), ...COLUMN_LAYOUTS],
-  section: [...ORDINARY, ...COLUMN_LAYOUTS],
+  page: [single("COVER", "Cover (big picture with words)"), ...ORDINARY, single("SECTION", "Section"), ...COLUMN_LAYOUTS, CAROUSEL, MINISTRIES],
+  section: [...ORDINARY, ...COLUMN_LAYOUTS, CAROUSEL],
   column: ORDINARY,
 };
 
