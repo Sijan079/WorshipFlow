@@ -73,7 +73,10 @@ write the failing check first, build, verify, document.
    **Update (2026-10-30):** checked in a browser; the "Announce this event" navigation bug was fixed (see
    `docs/changes/20261030.md` item 7).
 8. **Page Builder (public site) and posts**, public at `/c/{workspaceSlug}`, with the
-   indexable/unlisted switch. Largest step, and the one most likely to slip.
+   indexable/unlisted switch. Largest step, and the one most likely to slip. Decided 2026-10-30 (see
+   `docs/changes/20261030.md` items 9 to 15): a WordPress-style block editor with many pages and a menu.
+   **Progress (2026-10-30):** schema and migration applied, the public page `/c/{slug}`, its narrow data
+   layer, and the privacy test are built. Next: the editor screen and its API.
    Check: a test proves public routes cannot read People, Ministry, or
    attendance data; unlisted sends `noindex`; only items marked public appear.
 9. **Dashboard** with four summary cards.

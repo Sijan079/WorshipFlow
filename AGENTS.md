@@ -40,7 +40,7 @@ summary cards, Settings.
 
 Deferred (see `Product.md`): giving/finance, pastoral care, small groups,
 congregant logins and profiles, event RSVP, auto-publishing to social media,
-custom domains, a free-form page builder, self-serve church signup and billing,
+custom domains, a free-form or custom-code page builder (the block editor is in scope), self-serve church signup and billing,
 AI background generation, monthly event repeat, the Tauri/desktop app.
 
 Out of scope: chat or messaging, notifications, social features, generic role

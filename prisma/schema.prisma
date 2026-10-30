@@ -175,6 +175,7 @@ enum WorkspaceModule {
   ANNOUNCEMENTS
   CAPTIONS
   PEOPLE
+  SITE
 }
 
 enum WorkspaceAction {
@@ -274,6 +275,8 @@ model Workspace {
   formatterConversions FormatterConversion[]
   churchEvents ChurchEvent[]
   posts Post[]
+  siteSettings SiteSettings?
+  sitePages SitePage[]
   actionGrants WorkspaceActionGrant[]
   roleActionDefaults WorkspaceRoleActionDefault[]
 }
@@ -1118,4 +1121,58 @@ model Post {
 
   @@index([workspaceId, kind, status])
   @@index([eventId])
+}
+
+enum SiteBlockType {
+  HEADING
+  RICH_TEXT
+  ANNOUNCEMENTS_LIST
+  EVENTS_LIST
+  SERVICE_TIMES
+  CONTACT
+}
+
+model SiteSettings {
+  id           String   @id @default(uuid())
+  workspaceId  String   @unique
+  indexable    Boolean  @default(false)
+  contactEmail String?
+  contactPhone String?
+  address      String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model SitePage {
+  id          String     @id @default(uuid())
+  workspaceId String
+  title       String
+  slug        String
+  status      PostStatus @default(DRAFT)
+  isPublic    Boolean    @default(false)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blocks    SitePageBlock[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, status])
+}
+
+model SitePageBlock {
+  id        String        @id @default(uuid())
+  pageId    String
+  type      SiteBlockType
+  sortOrder Int
+  content   Json          @default("{}")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  page SitePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, sortOrder])
 }

@@ -50,15 +50,15 @@ intent and the decisions behind schema changes.
 ### Site (public church website)
 
 - `SiteSettings`: one per workspace. Includes `indexable` (default false),
-  logo, color and font preset, contact details.
-- `Page`: title, slug unique per workspace, status (DRAFT, PUBLISHED),
-  `isPublic`, sort order for navigation.
-- `PageBlock`: belongs to a page, ordered, typed (heading, rich text, image,
-  button, announcements list, events list, service times, contact). Content is
-  structured data, never raw HTML. Rich text is a restricted ProseMirror subset.
+  logo, one of 5 colour presets, one of 2 font presets, contact details.
+- `SitePage`: title, slug unique per workspace, status (DRAFT, PUBLISHED),
+  `isPublic`, sort order for the menu. At most 20 per workspace.
+- `SitePageBlock`: belongs to a page, ordered, typed (`SiteBlockType`: paragraph, heading, list, quote, image,
+  button, spacer, announcements list, events list, service times, contact). Content is
+  structured JSON, never raw HTML; text styling is a small allowed set (bold, italic, link). At most 60 per page.
 - `Post` (shared with Announcements, see above): as an `ARTICLE` it adds slug, publish date and a rich-text body.
 - Image blocks reference files in Supabase Storage and count toward the
-  workspace storage meter.
+  workspace storage meter. Uploads are converted to WebP, at most 1600 px wide, 10 MB before conversion, with alt text.
 
 ## Changed models
 

@@ -7,6 +7,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/auth/callback",
   "/api/auth/login",
   "/captions/live",
+  "/c",
   "/api/captions/live",
 ];
 

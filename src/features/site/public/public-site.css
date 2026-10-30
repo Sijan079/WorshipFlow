@@ -1,0 +1,9 @@
+/* The neutral default look of the public church site. It does not borrow the app's colours, so the app's theme
+   can change without touching what visitors see. A church's own colour preset will replace these variables. */
+.public-site {
+  --site-soft: #f5f4fb;
+  --site-muted: #5b6475;
+  --site-line: #e3e6ec;
+  background-color: #ffffff;
+  color: #1f2430;
+}
