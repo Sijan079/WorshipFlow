@@ -146,7 +146,7 @@ export default function BlockBody({ block, pages, disabled, onChange }: Props) {
     case "EVENTS_LIST":
       return <Note>Shows your upcoming events that are switched on for the website. Manage them on the Events page.</Note>;
     case "CONTACT":
-      return <Note>Shows your church address, phone and email from the website settings.</Note>;
+      return <Note>Shows your church address, phone and email. Set them under Website settings at the top of this page.</Note>;
     case "IMAGE":
       return <Note>Image blocks can be added once image upload is ready.</Note>;
   }

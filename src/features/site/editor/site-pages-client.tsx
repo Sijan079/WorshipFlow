@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api-client";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import { STARTER_HOME_TITLE } from "../pages/starter-home";
 import type { PageListItem, PageListResponse } from "./editor-types";
+import SiteSettingsPanel from "../settings/site-settings-panel";
 import PageEditor from "./page-editor";
 
 const PRIMARY_BUTTON = "ui-btn-primary pressable inline-flex items-center gap-2 px-4 text-sm font-semibold disabled:opacity-60";
@@ -89,6 +90,8 @@ export default function SitePagesClient() {
           <button type="button" onClick={() => setCreating(true)} className={PRIMARY_BUTTON}><Plus aria-hidden="true" className="h-4 w-4" />Add page</button>
         ) : null}
       </header>
+
+      <SiteSettingsPanel />
 
       {query.isPending ? <p role="status" className="py-12 text-sm text-[var(--text-muted)]">Loading pages…</p> : null}
       {query.isError ? <div role="alert" className="py-8 text-sm"><p>The pages could not be loaded. {query.error instanceof Error ? query.error.message : ""}</p><button type="button" onClick={() => void query.refetch()} className="mt-3 min-h-11 text-sm font-semibold text-[var(--text-accent)] underline">Try again</button></div> : null}

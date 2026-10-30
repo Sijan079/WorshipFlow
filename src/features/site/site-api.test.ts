@@ -37,3 +37,11 @@ test("deleting a page holds the draft rule inside the delete itself, and never d
 test("the Site permission is grantable from Settings", () => {
   assert.match(read("src", "app", "api", "workspaces", "[workspaceSlug]", "members", "permissions", "route.ts"), /"SITE"/);
 });
+
+test("the website settings route reads with View, writes with Edit, and keeps the search switch behind Publish", () => {
+  const route = read("src", "app", "api", "site", "settings", "route.ts");
+  assert.match(route, /export async function GET[\s\S]*?requireSiteAction\("VIEW"\)/);
+  assert.match(route, /export async function PATCH[\s\S]*?requireSiteAction\("EDIT"\)/);
+  assert.match(route, /decideSettingsUpdate\(/);
+  for (const clause of route.match(/where: \{[^}]*\}/g) ?? []) assert.match(clause, /workspaceId/, `no query without the church: ${clause}`);
+});

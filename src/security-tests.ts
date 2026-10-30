@@ -74,6 +74,8 @@ import "./features/site/pages/starter-home.test.ts";
 import "./features/site/site-api.test.ts";
 import "./features/site/editor/editor-state.test.ts";
 import "./features/site/editor/block-problems.test.ts";
+import "./features/site/public/public-events.test.ts";
+import "./features/site/settings/settings-validation.test.ts";
 import { runWorkspaceShellTests } from "./lib/workspace-shell.test.ts";
 import { runFeedbackTests } from "./lib/feedback.test.ts";
 import { runWorkspaceRouteTests } from "./lib/workspace-route.test.ts";

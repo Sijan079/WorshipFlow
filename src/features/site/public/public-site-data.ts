@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
 import { SiteBlockSchema, type SiteBlockInput } from "@/features/site/blocks/block-validation";
+import { nextDatePerEvent } from "./public-events";
 
 // The only door the public site (/c/{slug}) reads through. It returns a small set of public-safe fields and
 // never touches People, Ministry, attendance or service-assignment data. The privacy test checks this folder.
@@ -78,11 +79,13 @@ async function publicAnnouncements(workspaceId: string, now: Date) {
 }
 
 async function publicEvents(workspaceId: string, now: Date) {
+  // A repeating event has many dates, so more are read than shown, and each event is listed once on its next date.
   const rows = await prisma.churchEventOccurrence.findMany({
     where: { status: "SCHEDULED", endsAt: { gte: now }, event: { workspaceId, isPublic: true, status: "CONFIRMED" } },
     orderBy: { startsAt: "asc" },
-    take: LIST_LIMIT,
-    select: { id: true, startsAt: true, event: { select: { title: true, venue: true, timezone: true } } },
+    take: 200,
+    select: { id: true, eventId: true, startsAt: true, event: { select: { title: true, venue: true, timezone: true } } },
   });
-  return rows.map((row) => ({ id: row.id, title: row.event.title, venue: row.event.venue, startsAt: row.startsAt.toISOString(), timezone: row.event.timezone }));
+  const flat = rows.map((row) => ({ id: row.id, eventId: row.eventId, startsAt: row.startsAt, title: row.event.title, venue: row.event.venue, timezone: row.event.timezone }));
+  return nextDatePerEvent(flat, LIST_LIMIT).map((row) => ({ id: row.id, title: row.title, venue: row.venue, startsAt: row.startsAt.toISOString(), timezone: row.timezone }));
 }

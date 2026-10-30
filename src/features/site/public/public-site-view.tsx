@@ -102,6 +102,7 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
         </section>
       );
     case "CONTACT":
+      if (!block.address && !block.email && !block.phone) return null;
       return (
         <section className="my-6">
           <h2 className="mb-2 text-2xl font-semibold">Contact</h2>
