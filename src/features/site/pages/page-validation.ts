@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PageInputSchema, SITE_LIMITS, SiteBlockSchema } from "../blocks/block-validation.ts";
+import { PageInputSchema, SITE_LIMITS } from "../blocks/block-validation.ts";
 
 const title = z.string().trim().min(1, "Enter a page title.").max(SITE_LIMITS.titleMax);
 const description = z.string().trim().max(SITE_LIMITS.descriptionMax);
@@ -16,7 +16,7 @@ export const CreatePageSchema = z.strictObject({
 export const UpdatePageSchema = z.strictObject({
   title: title.optional(),
   description: description.optional(),
-  blocks: z.array(SiteBlockSchema).max(SITE_LIMITS.blocksPerPage).optional(),
+  blocks: PageInputSchema.shape.blocks.optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   isPublic: z.boolean().optional(),
 });

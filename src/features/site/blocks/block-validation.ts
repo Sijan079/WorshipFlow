@@ -5,7 +5,9 @@ import { z } from "zod";
 
 export const SITE_LIMITS = {
   pagesPerChurch: 20,
-  blocksPerPage: 60,
+  // Counted at every level: a Section and the blocks inside it all count.
+  blocksPerPage: 100,
+  sectionBlocks: 30,
   titleMax: 80,
   descriptionMax: 300,
   runsPerParagraph: 200,
@@ -47,34 +49,73 @@ export type TextRun = z.infer<typeof RunSchema>;
 const none = z.strictObject({});
 const plain = (max: number) => z.string().max(max);
 
-export const SiteBlockSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("PARAGRAPH"), content: z.strictObject({ runs: z.array(RunSchema).max(SITE_LIMITS.runsPerParagraph), align, size: textSize }) }),
-  z.strictObject({ type: z.literal("HEADING"), content: z.strictObject({ text: plain(200), level: z.union([z.literal(2), z.literal(3)]), align }) }),
-  z.strictObject({ type: z.literal("LIST"), content: z.strictObject({ ordered: z.boolean(), items: z.array(plain(500)).max(SITE_LIMITS.listItems) }) }),
-  z.strictObject({ type: z.literal("QUOTE"), content: z.strictObject({ text: plain(1000), cite: plain(200).optional() }) }),
-  z.strictObject({
-    type: z.literal("IMAGE"),
-    content: z.strictObject({
-      // Only a file in the site's own storage folder, so a block can never point at someone else's file or address.
-      path: z.string().regex(/^site\/[A-Za-z0-9_-]+\.webp$/),
-      alt: z.string().trim().min(1, "Describe the image.").max(300),
-      caption: plain(300).optional(),
-      align,
-    }),
+// Pictures: a stored file of the church's own, never an address. Only the church's pictures, checked again on save.
+const imagePath = z.string().regex(/^site\/[A-Za-z0-9_-]+\.webp$/);
+
+// Text blocks always sit at the reading width, so they take no width setting. Pictures, and the layout blocks, can
+// be content width, wide or full.
+const blockWidth = z.enum(["content", "wide", "full"]);
+
+const paragraph = z.strictObject({ type: z.literal("PARAGRAPH"), content: z.strictObject({ runs: z.array(RunSchema).max(SITE_LIMITS.runsPerParagraph), align, size: textSize }) });
+const heading = z.strictObject({ type: z.literal("HEADING"), content: z.strictObject({ text: plain(200), level: z.union([z.literal(2), z.literal(3)]), align }) });
+const list = z.strictObject({ type: z.literal("LIST"), content: z.strictObject({ ordered: z.boolean(), items: z.array(plain(500)).max(SITE_LIMITS.listItems) }) });
+const quote = z.strictObject({ type: z.literal("QUOTE"), content: z.strictObject({ text: plain(1000), cite: plain(200).optional() }) });
+const image = z.strictObject({
+  type: z.literal("IMAGE"),
+  content: z.strictObject({
+    path: imagePath,
+    alt: z.string().trim().min(1, "Describe the image.").max(300),
+    caption: plain(300).optional(),
+    align,
+    width: blockWidth.optional(),
   }),
-  z.strictObject({ type: z.literal("BUTTON"), content: z.strictObject({ label: z.string().trim().min(1).max(60), link: LinkSchema, align }) }),
-  z.strictObject({ type: z.literal("SPACER"), content: z.strictObject({ size: z.enum(["small", "medium", "large"]) }) }),
-  z.strictObject({ type: z.literal("SERVICE_TIMES"), content: z.strictObject({ lines: z.array(plain(120)).max(10) }) }),
-  z.strictObject({ type: z.literal("ANNOUNCEMENTS_LIST"), content: none }),
-  z.strictObject({ type: z.literal("EVENTS_LIST"), content: none }),
-  z.strictObject({ type: z.literal("CONTACT"), content: none }),
-]);
+});
+const button = z.strictObject({ type: z.literal("BUTTON"), content: z.strictObject({ label: z.string().trim().min(1).max(60), link: LinkSchema, align }) });
+const spacer = z.strictObject({ type: z.literal("SPACER"), content: z.strictObject({ size: z.enum(["small", "medium", "large"]) }) });
+const serviceTimes = z.strictObject({ type: z.literal("SERVICE_TIMES"), content: z.strictObject({ lines: z.array(plain(120)).max(10) }) });
+const announcementsList = z.strictObject({ type: z.literal("ANNOUNCEMENTS_LIST"), content: none });
+const eventsList = z.strictObject({ type: z.literal("EVENTS_LIST"), content: none });
+const contact = z.strictObject({ type: z.literal("CONTACT"), content: none });
+
+// Every block that can sit inside a layout block. A layout block never holds another layout block of its own kind.
+export const BaseBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact]);
+export type BaseBlockInput = z.infer<typeof BaseBlockSchema>;
+
+// A full-width band that holds blocks. Colours come from the church's colour set, never from a free colour.
+const section = z.strictObject({
+  type: z.literal("SECTION"),
+  content: z
+    .strictObject({
+      background: z.enum(["none", "tinted", "dark", "accent", "picture"]),
+      picture: imagePath.optional(),
+      overlay: z.enum(["light", "medium", "strong"]),
+      padding: z.enum(["small", "medium", "large"]),
+      inner: z.enum(["content", "wide"]),
+      width: z.enum(["wide", "full"]),
+      blocks: z.array(BaseBlockSchema).max(SITE_LIMITS.sectionBlocks),
+    })
+    .refine((content) => content.background !== "picture" || Boolean(content.picture), { message: "Choose a picture for the background.", path: ["picture"] }),
+});
+
+export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section]);
 export type SiteBlockInput = z.infer<typeof SiteBlockSchema>;
+export type SectionBlockInput = z.infer<typeof section>;
+
+// Blocks at every level, a layout block counting once itself and once for each block inside it.
+export function countBlocks(blocks: Array<{ type: string; content: unknown }>): number {
+  let total = 0;
+  for (const block of blocks) {
+    total += 1;
+    const inner = (block.content as { blocks?: unknown } | null)?.blocks;
+    if (block.type === "SECTION" && Array.isArray(inner)) total += countBlocks(inner as Array<{ type: string; content: unknown }>);
+  }
+  return total;
+}
 
 export const PageInputSchema = z.strictObject({
   title: z.string().trim().min(1, "Enter a page title.").max(SITE_LIMITS.titleMax),
   description: z.string().trim().max(SITE_LIMITS.descriptionMax).optional(),
-  blocks: z.array(SiteBlockSchema).max(SITE_LIMITS.blocksPerPage),
+  blocks: z.array(SiteBlockSchema).max(SITE_LIMITS.blocksPerPage).refine((blocks) => countBlocks(blocks) <= SITE_LIMITS.blocksPerPage, { message: "A page can hold up to 100 blocks, counting the ones inside sections." }),
 });
 export type PageInput = z.infer<typeof PageInputSchema>;
 

@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
-import { SiteBlockSchema, type SiteBlockInput } from "@/features/site/blocks/block-validation";
-import { imageIdFromPath } from "@/features/site/images/image-refs";
+import { SiteBlockSchema, type BaseBlockInput, type SiteBlockInput } from "@/features/site/blocks/block-validation";
+import { imageIdFromPath, imageIdsIn } from "@/features/site/images/image-refs";
 import { HOME_SLUG, menuPages } from "@/features/site/pages/page-rules";
 import { nextDatePerEvent } from "./public-events";
 import { pageDescription } from "./page-description";
@@ -10,11 +10,12 @@ import { pageDescription } from "./page-description";
 // never touches People, Ministry, attendance or service-assignment data. The privacy test checks this folder.
 
 type Listed = "ANNOUNCEMENTS_LIST" | "EVENTS_LIST" | "CONTACT";
-type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" }>;
+type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" }>;
 
 export type PublicBlock =
   | (Shown & { id: string })
-  | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: number; height: number }
+  | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: "content" | "wide" | "full"; naturalWidth: number; naturalHeight: number }
+  | { id: string; type: "SECTION"; background: "none" | "tinted" | "dark" | "accent" | "picture"; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; padding: "small" | "medium" | "large"; inner: "content" | "wide"; width: "wide" | "full"; blocks: PublicBlock[] }
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
   | { id: string; type: "CONTACT"; email: string | null; phone: string | null; address: string | null };
@@ -99,45 +100,62 @@ export async function getPreviewSite(workspaceId: string, pageId: string, worksp
 }
 
 async function buildPage({ workspaceId, rows, settings, now, imageSrc }: { workspaceId: string; rows: PageRows; settings: Settings; now: Date; imageSrc: (imageId: string) => string }) {
-  const blocks: PublicBlock[] = [];
-  const parsedBlocks: SiteBlockInput[] = [];
-  // Only pictures this church uploaded count, however a block spells its path.
-  const wantedImages = rows.flatMap((row) => {
-    const path = (row.content as { path?: unknown } | null)?.path;
-    return row.type === "IMAGE" && typeof path === "string" ? [imageIdFromPath(path)].filter((id): id is string => id !== null) : [];
-  });
-  const images = new Map(
-    (wantedImages.length === 0 ? [] : await prisma.siteImage.findMany({ where: { workspaceId, id: { in: wantedImages } }, select: { id: true, width: true, height: true } })).map((image) => [image.id, image]),
-  );
+  // A stored block that no longer fits the rules is left out rather than shown half-broken.
+  const parsed: Array<{ id: string; block: SiteBlockInput }> = [];
   for (const row of rows) {
-    // A stored block that no longer fits the rules is left out rather than shown half-broken.
-    const parsed = SiteBlockSchema.safeParse({ type: row.type, content: row.content });
-    if (!parsed.success) continue;
-    const block = parsed.data;
-    parsedBlocks.push(block);
+    const result = SiteBlockSchema.safeParse({ type: row.type, content: row.content });
+    if (result.success) parsed.push({ id: row.id, block: result.data });
+  }
+
+  // Only pictures this church uploaded count, however a block spells its path. One lookup covers the whole page.
+  const wanted = imageIdsIn(parsed.map((item) => item.block));
+  const images = new Map(
+    (wanted.length === 0 ? [] : await prisma.siteImage.findMany({ where: { workspaceId, id: { in: wanted } }, select: { id: true, width: true, height: true } })).map((image) => [image.id, image]),
+  );
+
+  const pictureFor = (path: string | undefined) => {
+    const imageId = path ? imageIdFromPath(path) : null;
+    const image = imageId ? images.get(imageId) : undefined;
+    return imageId && image ? { imageId, image } : null;
+  };
+
+  async function resolveBase(block: BaseBlockInput, id: string): Promise<PublicBlock | null> {
     switch (block.type) {
       case "IMAGE": {
-        const imageId = imageIdFromPath(block.content.path);
-        const image = imageId ? images.get(imageId) : undefined;
-        if (imageId && image) {
-          blocks.push({ id: row.id, type: "IMAGE", src: imageSrc(imageId), alt: block.content.alt, caption: block.content.caption?.trim() || null, align: block.content.align, width: image.width, height: image.height });
-        }
-        break;
+        const picture = pictureFor(block.content.path);
+        if (!picture) return null;
+        return { id, type: "IMAGE", src: imageSrc(picture.imageId), alt: block.content.alt, caption: block.content.caption?.trim() || null, align: block.content.align, width: block.content.width ?? "content", naturalWidth: picture.image.width, naturalHeight: picture.image.height };
       }
       case "CONTACT":
-        blocks.push({ id: row.id, type: "CONTACT", email: settings?.contactEmail ?? null, phone: settings?.contactPhone ?? null, address: settings?.address ?? null });
-        break;
+        return { id, type: "CONTACT", email: settings?.contactEmail ?? null, phone: settings?.contactPhone ?? null, address: settings?.address ?? null };
       case "ANNOUNCEMENTS_LIST":
-        blocks.push({ id: row.id, type: "ANNOUNCEMENTS_LIST", items: await publicAnnouncements(workspaceId, now) });
-        break;
+        return { id, type: "ANNOUNCEMENTS_LIST", items: await publicAnnouncements(workspaceId, now) };
       case "EVENTS_LIST":
-        blocks.push({ id: row.id, type: "EVENTS_LIST", items: await publicEvents(workspaceId, now) });
-        break;
+        return { id, type: "EVENTS_LIST", items: await publicEvents(workspaceId, now) };
       default:
-        blocks.push({ ...block, id: row.id });
+        return { ...block, id };
     }
   }
-  return { blocks, parsed: parsedBlocks };
+
+  async function resolve(block: SiteBlockInput, id: string): Promise<PublicBlock | null> {
+    if (block.type !== "SECTION") return resolveBase(block, id);
+    const inner: PublicBlock[] = [];
+    for (const [index, child] of block.content.blocks.entries()) {
+      const resolved = await resolveBase(child, `${id}-${index}`);
+      if (resolved) inner.push(resolved);
+    }
+    const picture = block.content.background === "picture" ? pictureFor(block.content.picture) : null;
+    // A picture background whose picture is gone falls back to the dark band, so the words stay readable.
+    const background = block.content.background === "picture" && !picture ? "dark" : block.content.background;
+    return { id, type: "SECTION", background, pictureSrc: picture ? imageSrc(picture.imageId) : null, overlay: block.content.overlay, padding: block.content.padding, inner: block.content.inner, width: block.content.width, blocks: inner };
+  }
+
+  const blocks: PublicBlock[] = [];
+  for (const item of parsed) {
+    const resolved = await resolve(item.block, item.id);
+    if (resolved) blocks.push(resolved);
+  }
+  return { blocks, parsed: parsed.map((item) => item.block) };
 }
 
 async function publicAnnouncements(workspaceId: string, now: Date) {

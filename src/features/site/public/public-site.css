@@ -1,11 +1,41 @@
 /* The neutral default look of the public church site. It does not borrow the app's colours, so the app's theme
-   can change without touching what visitors see. A church's own colour preset will replace these variables. */
+   can change without touching what visitors see. A church's own colour set will replace these variables. */
 .public-site {
   --site-soft: #f5f4fb;
   --site-muted: #5b6475;
   --site-line: #e3e6ec;
   --site-accent: #4b3fa8;
   --site-accent-text: #ffffff;
+  --site-dark: #1f2547;
+  --site-btn-bg: var(--site-accent);
+  --site-btn-text: var(--site-accent-text);
+  --site-content: 720px;
+  --site-wide: 1200px;
   background-color: #ffffff;
   color: #1f2430;
+}
+
+/* The three widths: reading width, wide, and full (no limit). The side gutter keeps text off the screen edge. */
+.public-site .site-content { max-width: var(--site-content); margin-inline: auto; }
+.public-site .site-wide { max-width: var(--site-wide); margin-inline: auto; }
+.public-site .site-gutter { padding-inline: 1.5rem; }
+
+/* A Section: a full-width band with its own background and spacing. */
+.public-site .site-section[data-pad="small"] { padding-block: 2rem; }
+.public-site .site-section[data-pad="medium"] { padding-block: 4rem; }
+.public-site .site-section[data-pad="large"] { padding-block: 6rem; }
+.public-site .site-section[data-bg="tinted"] { background-color: var(--site-soft); --site-soft: #ffffff; }
+.public-site .site-section[data-bg="dark"] { background-color: var(--site-dark); }
+.public-site .site-section[data-bg="accent"] { background-color: var(--site-accent); }
+.public-site .site-section[data-bg="picture"] { background-size: cover; background-position: center; background-color: var(--site-dark); }
+
+/* On dark, accent and picture bands the words turn light, and so do the little boxes and rules inside, and the
+   buttons turn white so they still stand out. */
+.public-site .site-section[data-tone="dark"] {
+  color: #ffffff;
+  --site-muted: rgba(255, 255, 255, 0.82);
+  --site-line: rgba(255, 255, 255, 0.35);
+  --site-soft: rgba(255, 255, 255, 0.14);
+  --site-btn-bg: #ffffff;
+  --site-btn-text: var(--site-dark);
 }

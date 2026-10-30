@@ -7,7 +7,9 @@ const MAX_LENGTH = 160;
 export function pageDescription({ description, blocks }: { description: string | null; blocks: SiteBlockInput[] }) {
   const own = description?.trim();
   if (own) return own;
-  for (const block of blocks) {
+  // The first paragraph anywhere on the page, including inside a Section.
+  const paragraphs = blocks.flatMap((block) => (block.type === "SECTION" ? block.content.blocks : [block]));
+  for (const block of paragraphs) {
     if (block.type !== "PARAGRAPH") continue;
     const text = block.content.runs.map((run) => run.text).join("").replace(/\s+/g, " ").trim();
     if (!text) continue;

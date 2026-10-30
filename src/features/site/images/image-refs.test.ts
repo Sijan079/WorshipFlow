@@ -22,6 +22,20 @@ test("a page's images are listed once each, in order", () => {
   assert.deepEqual(imageIdsIn(blocks), [id, other]);
 });
 
+test("pictures inside a Section, and a Section's background picture, are listed too", () => {
+  const a = "11111111-2222-4333-8444-555555555555";
+  const b = "66666666-7777-4888-8999-000000000000";
+  const c = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const blocks = [
+    { type: "SECTION", content: { background: "picture", picture: imagePathFor(a), overlay: "medium", padding: "medium", inner: "content", width: "full", blocks: [
+      { type: "IMAGE", content: { path: imagePathFor(b), alt: "x", align: "left" } },
+      { type: "IMAGE", content: { path: imagePathFor(a), alt: "x", align: "left" } },
+    ] } },
+    { type: "IMAGE", content: { path: imagePathFor(c), alt: "x", align: "left" } },
+  ];
+  assert.deepEqual(imageIdsIn(blocks), [a, b, c]);
+});
+
 test("a page cannot use an image that the church does not own", () => {
   const mine = "11111111-2222-4333-8444-555555555555";
   assert.deepEqual(missingImageIds([id, mine], new Set([mine])), [id]);

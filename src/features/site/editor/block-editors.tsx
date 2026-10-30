@@ -6,6 +6,7 @@ import type { SiteBlockInput } from "../blocks/block-validation";
 import type { EditorBlock } from "./editor-state";
 import ImageField from "./image-field";
 import LinkField from "./link-field";
+import SectionFields from "./section-fields";
 
 export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   PARAGRAPH: "Text",
@@ -19,6 +20,7 @@ export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   ANNOUNCEMENTS_LIST: "Announcements",
   EVENTS_LIST: "Upcoming events",
   CONTACT: "Contact details",
+  SECTION: "Section",
 };
 
 type Props = {
@@ -26,7 +28,7 @@ type Props = {
   pages: Array<{ slug: string; title: string }>;
   disabled: boolean;
   // Typing passes coalesce so a run of keystrokes is one undo step; choosing an option does not.
-  onChange: (content: SiteBlockInput["content"], coalesce?: boolean) => void;
+  onChange: (content: EditorBlock["content"], coalesce?: boolean) => void;
 };
 
 function Choice<T extends string>({ label, value, options, disabled, onChange }: { label: string; value: T; options: Array<[T, string]>; disabled: boolean; onChange: (value: T) => void }) {
@@ -150,5 +152,7 @@ export default function BlockBody({ block, pages, disabled, onChange }: Props) {
       return <Note>Shows your church address, phone and email. Set them under Website settings at the top of this page.</Note>;
     case "IMAGE":
       return <ImageField content={block.content} disabled={disabled} onChange={onChange} />;
+    case "SECTION":
+      return <SectionFields content={block.content} disabled={disabled} onChange={onChange} />;
   }
 }

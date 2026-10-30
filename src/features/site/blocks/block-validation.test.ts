@@ -57,13 +57,13 @@ test("options are limited to left or centre alignment and normal or large text",
   assert.equal(ok({ type: "PARAGRAPH", content: { runs: [{ text: "a" }], align: "left", size: "huge" } }), false);
 });
 
-test("a page is bounded: 60 blocks, 20 pages, and a title that makes an address", () => {
+test("a page is bounded: 100 blocks, 20 pages, and a title that makes an address", () => {
   const block = { type: "SPACER", content: { size: "small" } };
   const page = (blocks: unknown[]) => PageInputSchema.safeParse({ title: "Visit", blocks }).success;
-  assert.equal(SITE_LIMITS.blocksPerPage, 60);
+  assert.equal(SITE_LIMITS.blocksPerPage, 100);
   assert.equal(SITE_LIMITS.pagesPerChurch, 20);
-  assert.ok(page(Array.from({ length: 60 }, () => block)));
-  assert.equal(page(Array.from({ length: 61 }, () => block)), false);
+  assert.ok(page(Array.from({ length: 100 }, () => block)));
+  assert.equal(page(Array.from({ length: 101 }, () => block)), false);
   assert.equal(PageInputSchema.safeParse({ title: "   ", blocks: [] }).success, false);
 });
 

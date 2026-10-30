@@ -1136,6 +1136,7 @@ enum SiteBlockType {
   EVENTS_LIST
   SERVICE_TIMES
   CONTACT
+  SECTION
 }
 
 model SiteSettings {

@@ -11,14 +11,27 @@ export function imageIdFromPath(path: string) {
   return PATH.exec(path)?.[1] ?? null;
 }
 
-export function imageIdsIn(blocks: Array<{ type: string; content: unknown }>) {
+type AnyBlock = { type: string; content: unknown };
+
+// Every picture a page uses, once each, in order: a Section's background picture, the pictures in its blocks, and
+// the page's own picture blocks.
+export function imageIdsIn(blocks: AnyBlock[]) {
   const ids: string[] = [];
-  for (const block of blocks) {
-    if (block.type !== "IMAGE") continue;
-    const path = (block.content as { path?: unknown }).path;
+  const add = (path: unknown) => {
     const imageId = typeof path === "string" ? imageIdFromPath(path) : null;
     if (imageId && !ids.includes(imageId)) ids.push(imageId);
-  }
+  };
+  const visit = (list: AnyBlock[]) => {
+    for (const block of list) {
+      const content = block.content as { path?: unknown; picture?: unknown; blocks?: unknown } | null;
+      if (block.type === "IMAGE") add(content?.path);
+      if (block.type === "SECTION") {
+        add(content?.picture);
+        if (Array.isArray(content?.blocks)) visit(content.blocks as AnyBlock[]);
+      }
+    }
+  };
+  visit(blocks);
   return ids;
 }
 

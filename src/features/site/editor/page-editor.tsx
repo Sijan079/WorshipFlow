@@ -3,16 +3,16 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Check, Plus, Redo2, Trash2, Undo2, X } from "lucide-react";
+import { Check, Redo2, Trash2, Undo2, X } from "lucide-react";
 import { apiFetch, workspaceApiPath } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import { SITE_LIMITS, SiteBlockSchema, type SiteBlockInput } from "../blocks/block-validation";
-import BlockBody, { BLOCK_LABELS } from "./block-editors";
+import BlockList, { type ListContext } from "./block-list";
 import { blockProblems } from "./block-problems";
 import { LOCK_RENEW_SECONDS } from "../pages/page-lock";
 import PreviewPanel from "./preview-panel";
-import { canRedo, canUndo, editorReducer, initialEditorState, newBlock, withKeys, type EditorBlock, type NewBlockKind } from "./editor-state";
+import { canRedo, canUndo, countEditorBlocks, editorReducer, initialEditorState, stripKeys, withKeys, type EditorBlock } from "./editor-state";
 import type { PageDetail, PageListItem } from "./editor-types";
 
 const PRIMARY_BUTTON = "ui-btn-primary pressable inline-flex items-center px-4 text-sm font-semibold disabled:opacity-60";
@@ -21,11 +21,6 @@ const DANGER_BUTTON = "ui-btn-danger-solid pressable inline-flex items-center px
 const KEEP_BUTTON = "inline-flex h-11 items-center rounded-md px-4 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]";
 const ICON_BUTTON = "inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-40";
 const AUTOSAVE_DELAY_MS = 2000;
-
-const ADDABLE: Array<[NewBlockKind, string]> = [
-  ["PARAGRAPH", "Text"], ["HEADING", "Heading"], ["IMAGE", "Picture"], ["LIST", "List"], ["QUOTE", "Quote"], ["BUTTON", "Button"], ["SPACER", "Space"],
-  ["SERVICE_TIMES", "Service times"], ["ANNOUNCEMENTS_LIST", "Announcements"], ["EVENTS_LIST", "Upcoming events"], ["CONTACT", "Contact details"],
-];
 
 type Flags = { canEdit: boolean; canDelete: boolean; canPublish: boolean };
 type Props = { pageId: string; flags: Flags; pages: PageListItem[]; onChanged: () => void; onDeleted: () => void };
@@ -43,7 +38,7 @@ function toEditorBlocks(page: PageDetail) {
 
 // What gets saved: the words and the blocks, without the editor's own keys.
 function snapshot(title: string, description: string, blocks: EditorBlock[]) {
-  return JSON.stringify({ title: title.trim(), description: description.trim(), blocks: blocks.map(({ key, ...block }) => { void key; return block; }) });
+  return JSON.stringify({ title: title.trim(), description: description.trim(), blocks: stripKeys(blocks) });
 }
 
 function ConfirmDelete({ title, onClose, onConfirm, busy }: { title: string; onClose: () => void; onConfirm: () => void; busy: boolean }) {
@@ -70,7 +65,7 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
   const [status, setStatus] = useState(page.status);
   const [isPublic, setIsPublic] = useState(page.isPublic);
   const [notice, setNotice] = useState<string | null>(null);
-  const [pickerAfter, setPickerAfter] = useState<string | "end" | null>(null);
+  const [picker, setPicker] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   // What the server last confirmed, as a snapshot. The page is "dirty" whenever the editor differs from it.
@@ -152,20 +147,7 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
   const isHome = page.slug === "home";
   const pageList = pages.map((item) => ({ slug: item.slug, title: item.title }));
 
-  function addBlock(kind: NewBlockKind, afterKey?: string) {
-    dispatch({ type: "add", block: newBlock(kind), afterKey });
-    setPickerAfter(null);
-  }
-
-  function picker(afterKey?: string) {
-    return (
-      <div className="grid grid-cols-2 gap-2 border-t border-[var(--rule-default)] py-3 sm:grid-cols-3 lg:grid-cols-5" role="group" aria-label="Choose a block to add">
-        {ADDABLE.map(([kind, label]) => (
-          <button key={kind} type="button" onClick={() => addBlock(kind, afterKey)} className={`${SECONDARY_BUTTON} justify-center`}>{label}</button>
-        ))}
-      </div>
-    );
-  }
+  const listContext: ListContext = { dispatch, problems, pages: pageList, readOnly, total: countEditorBlocks(editor.blocks), picker, setPicker };
 
   return (
     <div className="space-y-6">
@@ -217,51 +199,8 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
           </label>
         </div>
 
-        <ol className="divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]" aria-label="Blocks on this page">
-          {editor.blocks.length === 0 ? <li className="py-6 text-sm text-[var(--text-muted)]">This page is empty. Choose Add a block to start.</li> : null}
-          {editor.blocks.map((block, index) => {
-            const problem = problems.get(block.key);
-            return (
-              <li key={block.key} className="py-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">{BLOCK_LABELS[block.type]}</h3>
-                  {!readOnly ? (
-                    <div className="flex items-center">
-                      <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} up`} title="Move up" disabled={index === 0} onClick={() => dispatch({ type: "move", key: block.key, direction: "up" })}><ArrowUp aria-hidden="true" className="h-5 w-5" /></button>
-                      <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} down`} title="Move down" disabled={index === editor.blocks.length - 1} onClick={() => dispatch({ type: "move", key: block.key, direction: "down" })}><ArrowDown aria-hidden="true" className="h-5 w-5" /></button>
-                      <button type="button" className={ICON_BUTTON} aria-label={`Delete ${BLOCK_LABELS[block.type]}`} title="Delete this block" onClick={() => dispatch({ type: "remove", key: block.key })}><Trash2 aria-hidden="true" className="h-5 w-5" /></button>
-                    </div>
-                  ) : null}
-                </div>
-                <BlockBody block={block} pages={pageList} disabled={readOnly} onChange={(content, coalesce) => dispatch({ type: "update", key: block.key, content, coalesce })} />
-                {problem ? <p role="alert" className="mt-2 border-l-2 border-[var(--state-danger)] pl-3 text-sm">{problem}</p> : null}
-                {!readOnly && editor.blocks.length < SITE_LIMITS.blocksPerPage ? (
-                  <div className="mt-2">
-                    <button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--text-accent)]" aria-expanded={pickerAfter === block.key} onClick={() => setPickerAfter(pickerAfter === block.key ? null : block.key)}>
-                      <Plus aria-hidden="true" className="h-4 w-4" />Add a block below
-                    </button>
-                    {pickerAfter === block.key ? picker(block.key) : null}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-
-        {!readOnly ? (
-          <div>
-            {editor.blocks.length >= SITE_LIMITS.blocksPerPage ? (
-              <p className="text-sm text-[var(--text-muted)]">This page has the most blocks it can hold ({SITE_LIMITS.blocksPerPage}).</p>
-            ) : (
-              <>
-                <button type="button" className={SECONDARY_BUTTON + " min-h-11 gap-2"} aria-expanded={pickerAfter === "end"} onClick={() => setPickerAfter(pickerAfter === "end" ? null : "end")}>
-                  <Plus aria-hidden="true" className="h-4 w-4" />Add a block
-                </button>
-                {pickerAfter === "end" ? picker() : null}
-              </>
-            )}
-          </div>
-        ) : <p className="text-sm text-[var(--text-muted)]">{lock === "checking" ? "Checking whether anyone else is editing this page…" : "You can look at this page but not change it."}</p>}
+        <BlockList blocks={editor.blocks} ctx={listContext} />
+        {readOnly ? <p className="text-sm text-[var(--text-muted)]">{lock === "checking" ? "Checking whether anyone else is editing this page…" : "You can look at this page but not change it."}</p> : null}
 
         {flags.canDelete && !isHome && status === "DRAFT" ? (
           <div className="border-t border-[var(--rule-default)] pt-4">

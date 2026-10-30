@@ -27,7 +27,7 @@ function Run({ run, churchSlug }: { run: TextRun; churchSlug: string }) {
 const alignClass = { left: "text-left", center: "text-center" } as const;
 const spacerClass = { small: "h-4", medium: "h-8", large: "h-16" } as const;
 
-function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }) {
+function Block({ block, churchSlug, nested = false }: { block: PublicBlock; churchSlug: string; nested?: boolean }) {
   switch (block.type) {
     case "PARAGRAPH":
       return (
@@ -47,14 +47,19 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
         </Tag>
       );
     }
-    case "IMAGE":
+    case "IMAGE": {
+      // Full width pictures run edge to edge with square corners; the others keep rounded corners.
+      const full = block.width === "full" && !nested;
       return (
-        <figure className={`my-6 ${block.align === "center" ? "text-center" : ""}`}>
+        <figure className={`${full ? "" : "my-6"} ${block.align === "center" ? "text-center" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- already a small WebP made by the site's own upload */}
-          <img src={block.src} alt={block.alt} width={block.width} height={block.height} loading="lazy" className={`h-auto max-w-full rounded-lg ${block.align === "center" ? "mx-auto" : ""}`} />
-          {block.caption ? <figcaption className="mt-2 text-base text-[var(--site-muted)]">{block.caption}</figcaption> : null}
+          <img src={block.src} alt={block.alt} width={block.naturalWidth} height={block.naturalHeight} loading="lazy" className={`h-auto max-w-full ${full ? "w-full" : "rounded-lg"} ${block.align === "center" ? "mx-auto" : ""}`} />
+          {block.caption ? <figcaption className="mt-2 px-6 text-base text-[var(--site-muted)]">{block.caption}</figcaption> : null}
         </figure>
       );
+    }
+    case "SECTION":
+      return <SectionView block={block} churchSlug={churchSlug} />;
     case "QUOTE":
       return (
         <blockquote className="my-6 border-l-4 border-[var(--site-line)] pl-5 text-xl italic">
@@ -66,7 +71,7 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
       return (
         <p className={`my-6 ${alignClass[block.content.align]}`}>
           <a
-            className="inline-block rounded-lg bg-[var(--site-accent)] px-6 py-3 text-lg font-semibold text-[var(--site-accent-text)]"
+            className="inline-block rounded-lg bg-[var(--site-btn-bg)] px-6 py-3 text-lg font-semibold text-[var(--site-btn-text)]"
             href={hrefOf(block.content.link, churchSlug)}
             {...(isOutside(block.content.link) ? { target: "_blank", rel: "noopener noreferrer" } : {})}
           >
@@ -122,6 +127,36 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
   }
 }
 
+const OVERLAY = { light: 0.25, medium: 0.45, strong: 0.65 } as const;
+
+// A band with its own background. Its blocks sit in an inner column at the reading width or the wide width.
+function SectionView({ block, churchSlug }: { block: Extract<PublicBlock, { type: "SECTION" }>; churchSlug: string }) {
+  const tone = block.background === "dark" || block.background === "accent" || block.background === "picture" ? "dark" : "light";
+  const style = block.background === "picture" && block.pictureSrc
+    ? { backgroundImage: `linear-gradient(rgba(10, 12, 30, ${OVERLAY[block.overlay]}), rgba(10, 12, 30, ${OVERLAY[block.overlay]})), url("${block.pictureSrc}")` }
+    : undefined;
+  return (
+    <section className="site-section" data-bg={block.background} data-tone={tone} data-pad={block.padding} style={style}>
+      <div className={`${block.inner === "wide" ? "site-wide" : "site-content"} site-gutter`}>
+        {block.blocks.map((child) => <Block key={child.id} block={child} churchSlug={churchSlug} nested />)}
+      </div>
+    </section>
+  );
+}
+
+// Each block on the page sits at its own width: the reading width, wide, or the full screen.
+function widthOf(block: PublicBlock): "content" | "wide" | "full" {
+  if (block.type === "SECTION") return block.width;
+  if (block.type === "IMAGE") return block.width;
+  return "content";
+}
+
+function Row({ width, children }: { width: "content" | "wide" | "full"; children: React.ReactNode }) {
+  if (width === "full") return <div>{children}</div>;
+  // A wide Section brings its own gutter; everything else needs one so text never touches the screen edge.
+  return <div className={`${width === "wide" ? "site-wide" : "site-content"} site-gutter`}>{children}</div>;
+}
+
 function pageHref(churchSlug: string, pageSlug: string) {
   return pageSlug === "home" ? `/c/${churchSlug}` : `/c/${churchSlug}/${pageSlug}`;
 }
@@ -132,7 +167,7 @@ export function PublicSiteView({ site, churchSlug, preview = false }: { site: Pu
   return (
     <div className="public-site min-h-screen">
       <header className="border-b border-[var(--site-line)] px-6 py-3">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-6 gap-y-1">
+        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1">
           <span className="text-xl font-bold">{site.churchName}</span>
           {site.menu.length > 1 ? (
             <nav aria-label="Main menu">
@@ -151,9 +186,9 @@ export function PublicSiteView({ site, churchSlug, preview = false }: { site: Pu
           ) : null}
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1>
-        {site.page.blocks.map((block) => <Block key={block.id} block={block} churchSlug={churchSlug} />)}
+      <main className="py-10">
+        <Row width="content"><h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1></Row>
+        {site.page.blocks.map((block) => <Row key={block.id} width={widthOf(block)}><Block block={block} churchSlug={churchSlug} /></Row>)}
       </main>
       <footer className="mt-12 border-t border-[var(--site-line)] px-6 py-6 text-center text-base text-[var(--site-muted)]">© {site.churchName}</footer>
     </div>
