@@ -63,6 +63,16 @@ function Block({ block, churchSlug, nested = false }: { block: PublicBlock; chur
       return <SectionView block={block} churchSlug={churchSlug} />;
     case "COVER":
       return <CoverView block={block} churchSlug={churchSlug} />;
+    case "COLUMNS":
+      return (
+        <div className={`site-columns ${block.cards ? "site-columns-cards" : ""}`} data-count={block.columns.length} data-valign={block.valign}>
+          {block.columns.map((column, index) => (
+            <div key={index} className="site-column">
+              {column.map((child) => <Block key={child.id} block={child} churchSlug={churchSlug} nested />)}
+            </div>
+          ))}
+        </div>
+      );
     case "QUOTE":
       return (
         <blockquote className="my-6 border-l-4 border-[var(--site-line)] pl-5 text-xl italic">
@@ -181,7 +191,7 @@ function SectionView({ block, churchSlug }: { block: Extract<PublicBlock, { type
 
 // Each block on the page sits at its own width: the reading width, wide, or the full screen.
 function widthOf(block: PublicBlock): "content" | "wide" | "full" {
-  if (block.type === "SECTION" || block.type === "COVER") return block.width;
+  if (block.type === "SECTION" || block.type === "COVER" || block.type === "COLUMNS") return block.width;
   if (block.type === "IMAGE") return block.width;
   return "content";
 }

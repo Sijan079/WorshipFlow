@@ -2,8 +2,8 @@ import { SiteBlockSchema } from "../blocks/block-validation.ts";
 import type { EditorBlock } from "./editor-state.ts";
 
 // What is wrong with a block, in plain words, by block key. A page with any problem is not saved, because the
-// server refuses it, so the editor says which block to fix instead of failing quietly. A Section is checked on its
-// own settings, and each block inside it is checked and named separately.
+// server refuses it, so the editor says which block to fix instead of failing quietly. A Section or Columns is checked
+// on its own settings, and each block inside it is checked and named separately.
 export function blockProblems(blocks: EditorBlock[]) {
   const problems = new Map<string, string>();
 
@@ -24,6 +24,12 @@ export function blockProblems(blocks: EditorBlock[]) {
     if (plain.type === "SECTION") {
       report(key, SiteBlockSchema.safeParse({ ...plain, content: { ...plain.content, blocks: [] } }));
       for (const child of plain.content.blocks) check(child);
+      return;
+    }
+    if (plain.type === "COLUMNS") {
+      // The columns' own settings are checked without their blocks; each block inside is checked and named by itself.
+      report(key, SiteBlockSchema.safeParse({ ...plain, content: { ...plain.content, columns: plain.content.columns.map(() => ({ blocks: [] })) } }));
+      for (const column of plain.content.columns) for (const child of column.blocks) check(child);
       return;
     }
     report(key, SiteBlockSchema.safeParse(plain));

@@ -1138,6 +1138,7 @@ enum SiteBlockType {
   CONTACT
   SECTION
   COVER
+  COLUMNS
 }
 
 model SiteSettings {

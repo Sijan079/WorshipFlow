@@ -42,6 +42,15 @@ test("a Cover's picture is listed too", () => {
   assert.deepEqual(imageIdsIn([cover]), [a]);
 });
 
+test("pictures inside columns are listed too, on the page and inside a Section", () => {
+  const a = "11111111-2222-4333-8444-555555555555";
+  const b = "66666666-7777-4888-8999-000000000000";
+  const picture = (id: string) => ({ type: "IMAGE", content: { path: imagePathFor(id), alt: "x", align: "left" } });
+  const columns = (...ids: string[]) => ({ type: "COLUMNS", content: { valign: "top", cards: false, width: "wide", columns: [{ blocks: ids.map(picture) }, { blocks: [] }] } });
+  const section = { type: "SECTION", content: { background: "none", overlay: "medium", padding: "small", inner: "wide", width: "full", blocks: [columns(b)] } };
+  assert.deepEqual(imageIdsIn([columns(a), section]), [a, b]);
+});
+
 test("a page cannot use an image that the church does not own", () => {
   const mine = "11111111-2222-4333-8444-555555555555";
   assert.deepEqual(missingImageIds([id, mine], new Set([mine])), [id]);

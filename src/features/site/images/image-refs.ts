@@ -23,9 +23,12 @@ export function imageIdsIn(blocks: AnyBlock[]) {
   };
   const visit = (list: AnyBlock[]) => {
     for (const block of list) {
-      const content = block.content as { path?: unknown; picture?: unknown; blocks?: unknown } | null;
+      const content = block.content as { path?: unknown; picture?: unknown; blocks?: unknown; columns?: unknown } | null;
       if (block.type === "IMAGE") add(content?.path);
       if (block.type === "COVER") add(content?.picture);
+      if (block.type === "COLUMNS" && Array.isArray(content?.columns)) {
+        for (const column of content.columns as Array<{ blocks?: unknown }>) if (Array.isArray(column?.blocks)) visit(column.blocks as AnyBlock[]);
+      }
       if (block.type === "SECTION") {
         add(content?.picture);
         if (Array.isArray(content?.blocks)) visit(content.blocks as AnyBlock[]);

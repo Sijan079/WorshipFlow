@@ -8,6 +8,7 @@ export const SITE_LIMITS = {
   // Counted at every level: a Section and the blocks inside it all count.
   blocksPerPage: 100,
   sectionBlocks: 30,
+  columnBlocks: 15,
   titleMax: 80,
   descriptionMax: 300,
   runsPerParagraph: 200,
@@ -81,6 +82,23 @@ const contact = z.strictObject({ type: z.literal("CONTACT"), content: none });
 export const BaseBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact]);
 export type BaseBlockInput = z.infer<typeof BaseBlockSchema>;
 
+// Two to four equal columns side by side (stacked on phones), each holding blocks. A column holds only ordinary
+// blocks: no Columns inside a column, and no Section or Cover. The card look is one switch for all the columns.
+const columns = z.strictObject({
+  type: z.literal("COLUMNS"),
+  content: z.strictObject({
+    columns: z.array(z.strictObject({ blocks: z.array(BaseBlockSchema).max(SITE_LIMITS.columnBlocks) })).min(2).max(4),
+    valign: z.enum(["top", "center"]),
+    cards: z.boolean(),
+    width: blockWidth,
+  }),
+});
+export type ColumnsBlockInput = z.infer<typeof columns>;
+
+// What a Section can hold: the ordinary blocks, and Columns.
+const SectionChildSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, columns]);
+export type SectionChildInput = z.infer<typeof SectionChildSchema>;
+
 // A full-width band that holds blocks. Colours come from the church's colour set, never from a free colour.
 const section = z.strictObject({
   type: z.literal("SECTION"),
@@ -92,7 +110,7 @@ const section = z.strictObject({
       padding: z.enum(["small", "medium", "large"]),
       inner: z.enum(["content", "wide"]),
       width: z.enum(["wide", "full"]),
-      blocks: z.array(BaseBlockSchema).max(SITE_LIMITS.sectionBlocks),
+      blocks: z.array(SectionChildSchema).max(SITE_LIMITS.sectionBlocks),
     })
     .refine((content) => content.background !== "picture" || Boolean(content.picture), { message: "Choose a picture for the background.", path: ["picture"] }),
 });
@@ -117,7 +135,7 @@ const cover = z.strictObject({
   }),
 });
 
-export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section, cover]);
+export const SiteBlockSchema = z.discriminatedUnion("type", [paragraph, heading, list, quote, image, button, spacer, serviceTimes, announcementsList, eventsList, contact, section, cover, columns]);
 export type SiteBlockInput = z.infer<typeof SiteBlockSchema>;
 export type SectionBlockInput = z.infer<typeof section>;
 export type CoverBlockInput = z.infer<typeof cover>;
@@ -127,8 +145,13 @@ export function countBlocks(blocks: Array<{ type: string; content: unknown }>): 
   let total = 0;
   for (const block of blocks) {
     total += 1;
-    const inner = (block.content as { blocks?: unknown } | null)?.blocks;
-    if (block.type === "SECTION" && Array.isArray(inner)) total += countBlocks(inner as Array<{ type: string; content: unknown }>);
+    const content = block.content as { blocks?: unknown; columns?: unknown } | null;
+    if (block.type === "SECTION" && Array.isArray(content?.blocks)) total += countBlocks(content.blocks as Array<{ type: string; content: unknown }>);
+    if (block.type === "COLUMNS" && Array.isArray(content?.columns)) {
+      for (const column of content.columns as Array<{ blocks?: unknown }>) {
+        if (Array.isArray(column?.blocks)) total += countBlocks(column.blocks as Array<{ type: string; content: unknown }>);
+      }
+    }
   }
   return total;
 }

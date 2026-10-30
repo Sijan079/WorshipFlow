@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
-import { SiteBlockSchema, type BaseBlockInput, type SiteBlockInput } from "@/features/site/blocks/block-validation";
+import { SiteBlockSchema, type BaseBlockInput, type ColumnsBlockInput, type SectionChildInput, type SiteBlockInput } from "@/features/site/blocks/block-validation";
 import { imageIdFromPath, imageIdsIn } from "@/features/site/images/image-refs";
 import { HOME_SLUG, menuPages } from "@/features/site/pages/page-rules";
 import { nextDatePerEvent } from "./public-events";
@@ -13,12 +13,13 @@ type Listed = "ANNOUNCEMENTS_LIST" | "EVENTS_LIST" | "CONTACT";
 type CoverInput = Extract<SiteBlockInput, { type: "COVER" }>["content"];
 export type CoverFocus = CoverInput["focus"];
 export type CoverButton = CoverInput["buttons"][number];
-type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" | "COVER" }>;
+type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" | "SECTION" | "COVER" | "COLUMNS" }>;
 
 export type PublicBlock =
   | (Shown & { id: string })
   | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: "content" | "wide" | "full"; naturalWidth: number; naturalHeight: number }
   | { id: string; type: "SECTION"; background: "none" | "tinted" | "dark" | "accent" | "picture"; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; padding: "small" | "medium" | "large"; inner: "content" | "wide"; width: "wide" | "full"; blocks: PublicBlock[] }
+  | { id: string; type: "COLUMNS"; valign: "top" | "center"; cards: boolean; width: "content" | "wide" | "full"; columns: PublicBlock[][] }
   | { id: string; type: "COVER"; headline: string; text: string | null; pictureSrc: string | null; overlay: "light" | "medium" | "strong"; height: "medium" | "tall" | "screen"; align: "left" | "center"; focus: CoverFocus; width: "wide" | "full"; buttons: CoverButton[] }
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
@@ -141,7 +142,23 @@ async function buildPage({ workspaceId, rows, settings, now, imageSrc }: { works
     }
   }
 
+  async function resolveColumns(block: ColumnsBlockInput, id: string): Promise<PublicBlock> {
+    const columns: PublicBlock[][] = [];
+    for (const [columnIndex, column] of block.content.columns.entries()) {
+      const inner: PublicBlock[] = [];
+      for (const [index, child] of column.blocks.entries()) {
+        const resolved = await resolveBase(child, `${id}-${columnIndex}-${index}`);
+        if (resolved) inner.push(resolved);
+      }
+      columns.push(inner);
+    }
+    return { id, type: "COLUMNS", valign: block.content.valign, cards: block.content.cards, width: block.content.width, columns };
+  }
+
+  const resolveChild = (child: SectionChildInput, id: string) => (child.type === "COLUMNS" ? resolveColumns(child, id) : resolveBase(child, id));
+
   async function resolve(block: SiteBlockInput, id: string): Promise<PublicBlock | null> {
+    if (block.type === "COLUMNS") return resolveColumns(block, id);
     if (block.type === "COVER") {
       // A cover whose picture is gone, or that never had one, uses the church colour, so its words stay readable.
       const picture = pictureFor(block.content.picture);
@@ -151,7 +168,7 @@ async function buildPage({ workspaceId, rows, settings, now, imageSrc }: { works
     if (block.type !== "SECTION") return resolveBase(block, id);
     const inner: PublicBlock[] = [];
     for (const [index, child] of block.content.blocks.entries()) {
-      const resolved = await resolveBase(child, `${id}-${index}`);
+      const resolved = await resolveChild(child, `${id}-${index}`);
       if (resolved) inner.push(resolved);
     }
     const picture = block.content.background === "picture" ? pictureFor(block.content.picture) : null;

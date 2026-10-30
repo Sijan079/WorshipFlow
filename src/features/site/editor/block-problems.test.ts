@@ -44,6 +44,16 @@ test("a Cover asks for a headline, and names a button that has no words or a bad
   assert.equal(blockProblems([fine]).size, 0);
 });
 
+test("a problem inside a column is reported on the block inside it, also when the Columns sit in a Section", () => {
+  const bad = { key: "bad-button", type: "BUTTON" as const, content: { label: "", link: { kind: "page" as const, slug: "visit" }, align: "left" as const } };
+  const columns = { key: "columns-1", type: "COLUMNS" as const, content: { valign: "top" as const, cards: false, width: "wide" as const, columns: [{ key: "col-1", blocks: [bad] }, { key: "col-2", blocks: [] }] } };
+  const problems = blockProblems([columns]);
+  assert.ok(problems.get("bad-button"));
+  assert.equal(problems.has("columns-1"), false);
+  const section = { key: "section-3", type: "SECTION" as const, content: { background: "none" as const, overlay: "medium" as const, padding: "small" as const, inner: "wide" as const, width: "full" as const, blocks: [columns] } };
+  assert.ok(blockProblems([section]).get("bad-button"));
+});
+
 test("a new picture block asks for a picture before anything else", () => {
   const image = newBlock("IMAGE");
   assert.match(blockProblems([image]).get(image.key) ?? "", /choose a picture/i);

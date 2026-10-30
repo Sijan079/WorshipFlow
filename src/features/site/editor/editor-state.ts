@@ -1,15 +1,20 @@
-import { SITE_LIMITS, type BaseBlockInput, type CoverBlockInput, type SectionBlockInput, type SiteBlockInput } from "../blocks/block-validation.ts";
+import { SITE_LIMITS, type BaseBlockInput, type ColumnsBlockInput, type CoverBlockInput, type SectionBlockInput, type SectionChildInput, type SiteBlockInput } from "../blocks/block-validation.ts";
 
 // The editor's blocks while a page is open: the stored block plus a key that stays the same while it is edited,
-// moved or undone. A Section keeps its blocks inside its own content, and they have keys too. Undo and redo are
-// kept here, in the session only (revision history is a later feature).
+// moved or undone. A Section keeps its blocks inside its own content, Columns keep theirs inside each column, and
+// all of them have keys too. Undo and redo are kept here, in the session only (revision history is a later feature).
 
 export type KeyedBase = BaseBlockInput & { key: string };
-export type KeyedSection = { key: string; type: "SECTION"; content: Omit<SectionBlockInput["content"], "blocks"> & { blocks: KeyedBase[] } };
+// A column is not a block of its own: it has a key only so blocks can be added into it.
+export type KeyedColumn = { key: string; blocks: KeyedBase[] };
+export type KeyedColumns = { key: string; type: "COLUMNS"; content: Omit<ColumnsBlockInput["content"], "columns"> & { columns: KeyedColumn[] } };
+export type KeyedSectionChild = KeyedBase | KeyedColumns;
+export type KeyedSection = { key: string; type: "SECTION"; content: Omit<SectionBlockInput["content"], "blocks"> & { blocks: KeyedSectionChild[] } };
 // A Cover has no blocks inside it, but like a Section it can only sit on the page itself.
 export type KeyedCover = CoverBlockInput & { key: string };
-export type EditorBlock = KeyedBase | KeyedSection | KeyedCover;
+export type EditorBlock = KeyedBase | KeyedSection | KeyedCover | KeyedColumns;
 export type NewBlockKind = SiteBlockInput["type"];
+export type ColumnsLayout = "picture-left" | "picture-right" | "cards-3" | "two-columns";
 
 export type EditorState = {
   blocks: EditorBlock[];
@@ -20,11 +25,13 @@ export type EditorState = {
 };
 
 export type EditorAction =
-  // parentKey puts the block inside that Section; without it the block goes on the page itself.
+  // parentKey is the key of a Section or of a column: the block goes inside it. Without it the block goes on the page.
   | { type: "add"; block: EditorBlock; afterKey?: string; parentKey?: string }
   | { type: "remove"; key: string }
   | { type: "move"; key: string; direction: "up" | "down" }
   | { type: "update"; key: string; content: EditorBlock["content"]; coalesce?: boolean }
+  // Two to four columns. Fewer is allowed only when the columns that would go are empty, so nothing is lost.
+  | { type: "setColumns"; key: string; count: number }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "load"; blocks: EditorBlock[] };
@@ -35,25 +42,43 @@ function keyOf() {
   return globalThis.crypto.randomUUID();
 }
 
+const keyBase = (block: BaseBlockInput): KeyedBase => ({ ...block, key: keyOf() });
+const keyColumns = (block: ColumnsBlockInput): KeyedColumns => ({
+  key: keyOf(),
+  type: "COLUMNS",
+  content: { ...block.content, columns: block.content.columns.map((column) => ({ key: keyOf(), blocks: column.blocks.map(keyBase) })) },
+});
+const keyChild = (child: SectionChildInput): KeyedSectionChild => (child.type === "COLUMNS" ? keyColumns(child) : keyBase(child));
+
 // Gives every block, at every level, a key. Used when a saved page is opened.
 export function withKeys(blocks: SiteBlockInput[]): EditorBlock[] {
   return blocks.map((block): EditorBlock => {
-    if (block.type === "SECTION") return { key: keyOf(), type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map((child) => ({ ...child, key: keyOf() })) } };
+    if (block.type === "SECTION") return { key: keyOf(), type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map(keyChild) } };
+    if (block.type === "COLUMNS") return keyColumns(block);
     return { ...block, key: keyOf() };
   });
 }
+
+const unkeyBase = ({ key, ...block }: KeyedBase): BaseBlockInput => { void key; return block; };
+const unkeyColumns = (block: KeyedColumns): ColumnsBlockInput => ({
+  type: "COLUMNS",
+  content: { ...block.content, columns: block.content.columns.map((column) => ({ blocks: column.blocks.map(unkeyBase) })) },
+});
 
 // The reverse: what gets saved, without the editor's own keys.
 export function stripKeys(blocks: EditorBlock[]): SiteBlockInput[] {
   return blocks.map((block): SiteBlockInput => {
     if (block.type === "SECTION") {
-      return { type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map(({ key, ...child }) => { void key; return child; }) } };
+      return { type: "SECTION", content: { ...block.content, blocks: block.content.blocks.map((child): SectionChildInput => (child.type === "COLUMNS" ? unkeyColumns(child) : unkeyBase(child))) } };
     }
+    if (block.type === "COLUMNS") return unkeyColumns(block);
     const { key, ...plain } = block;
     void key;
     return plain;
   });
 }
+
+const emptyColumn = (): KeyedColumn => ({ key: keyOf(), blocks: [] });
 
 export function newBlock(kind: NewBlockKind): EditorBlock {
   const key = keyOf();
@@ -72,6 +97,29 @@ export function newBlock(kind: NewBlockKind): EditorBlock {
     case "CONTACT": return { key, type: kind, content: {} };
     case "SECTION": return { key, type: kind, content: { background: "tinted", overlay: "medium", padding: "medium", inner: "content", width: "full", blocks: [] } };
     case "COVER": return { key, type: kind, content: { headline: "", overlay: "medium", height: "tall", align: "center", focus: "center", width: "full", buttons: [] } };
+    case "COLUMNS": return { key, type: kind, content: { columns: [emptyColumn(), emptyColumn()], valign: "top", cards: false, width: "wide" } };
+  }
+}
+
+const base = (kind: Exclude<NewBlockKind, "SECTION" | "COVER" | "COLUMNS">) => newBlock(kind) as KeyedBase;
+const smallHeading = (): KeyedBase => {
+  const heading = base("HEADING");
+  return heading.type === "HEADING" ? { ...heading, content: { ...heading.content, level: 3 } } : heading;
+};
+
+// The ready-made layouts offered when adding Columns. Their blocks start empty, ready to be filled in.
+export function newColumnsLayout(layout: ColumnsLayout): KeyedColumns {
+  const columns = newBlock("COLUMNS") as KeyedColumns;
+  const textColumn = (): KeyedColumn => ({ key: keyOf(), blocks: [smallHeading(), base("PARAGRAPH")] });
+  switch (layout) {
+    case "picture-left":
+      return { ...columns, content: { ...columns.content, valign: "center", columns: [{ key: keyOf(), blocks: [base("IMAGE")] }, textColumn()] } };
+    case "picture-right":
+      return { ...columns, content: { ...columns.content, valign: "center", columns: [textColumn(), { key: keyOf(), blocks: [base("IMAGE")] }] } };
+    case "cards-3":
+      return { ...columns, content: { ...columns.content, cards: true, columns: [textColumn(), textColumn(), textColumn()] } };
+    case "two-columns":
+      return { ...columns, content: { ...columns.content, columns: [{ key: keyOf(), blocks: [base("PARAGRAPH")] }, { key: keyOf(), blocks: [base("PARAGRAPH")] }] } };
   }
 }
 
@@ -82,34 +130,71 @@ export function initialEditorState(blocks: EditorBlock[]): EditorState {
 export const canUndo = (state: EditorState) => state.past.length > 0;
 export const canRedo = (state: EditorState) => state.future.length > 0;
 
-// Blocks at every level, a Section counting once itself and once for each block inside it.
+// Blocks at every level: a Section or Columns counts once itself and once for each block inside it.
 export function countEditorBlocks(blocks: EditorBlock[]): number {
-  return blocks.reduce((total, block) => total + 1 + (block.type === "SECTION" ? block.content.blocks.length : 0), 0);
+  let total = 0;
+  for (const block of blocks) {
+    total += 1;
+    if (block.type === "SECTION") total += countEditorBlocks(block.content.blocks);
+    if (block.type === "COLUMNS") for (const column of block.content.columns) total += countEditorBlocks(column.blocks);
+  }
+  return total;
 }
 
-export function findBlock(blocks: EditorBlock[], key: string): EditorBlock | null {
+type Container = { kind: "section"; section: KeyedSection } | { kind: "column"; column: KeyedColumn };
+
+// Finds the Section, or the column, that has this key. Sections sit on the page and columns sit on the page or in a Section.
+function findContainer(blocks: EditorBlock[], key: string): Container | null {
   for (const block of blocks) {
-    if (block.key === key) return block;
     if (block.type === "SECTION") {
-      const inner = block.content.blocks.find((child) => child.key === key);
+      if (block.key === key) return { kind: "section", section: block };
+      const inner = findContainer(block.content.blocks, key);
       if (inner) return inner;
+    } else if (block.type === "COLUMNS") {
+      const column = block.content.columns.find((item) => item.key === key);
+      if (column) return { kind: "column", column };
     }
   }
   return null;
 }
 
-// Applies a change to the list that holds the block with this key: the page's own list, or a Section's list.
-// Returns null when no list has that block.
+const replaceAt = <T,>(list: T[], index: number, item: T) => list.map((existing, i) => (i === index ? item : existing));
+
+// Applies a change to the list that holds the block with this key: the page's own list, a Section's list, or a
+// column's list. Returns null when no list has that block.
 function changeListHolding(blocks: EditorBlock[], key: string, change: (list: EditorBlock[], index: number) => EditorBlock[]): EditorBlock[] | null {
   const index = blocks.findIndex((block) => block.key === key);
   if (index >= 0) return change(blocks, index);
   for (let i = 0; i < blocks.length; i += 1) {
     const block = blocks[i];
-    if (block.type !== "SECTION") continue;
-    const inner = changeListHolding(block.content.blocks, key, change);
-    if (inner) return blocks.map((other, j) => (j === i ? { ...block, content: { ...block.content, blocks: inner as KeyedBase[] } } : other));
+    if (block.type === "SECTION") {
+      const inner = changeListHolding(block.content.blocks, key, change);
+      if (inner) return replaceAt(blocks, i, { ...block, content: { ...block.content, blocks: inner as KeyedSectionChild[] } });
+    } else if (block.type === "COLUMNS") {
+      for (let c = 0; c < block.content.columns.length; c += 1) {
+        const inner = changeListHolding(block.content.columns[c].blocks, key, change);
+        if (inner) {
+          const columns = replaceAt(block.content.columns, c, { ...block.content.columns[c], blocks: inner as KeyedBase[] });
+          return replaceAt(blocks, i, { ...block, content: { ...block.content, columns } });
+        }
+      }
+    }
   }
   return null;
+}
+
+// Applies a change to the blocks inside the Section or column with this key.
+function changeChildrenOf(blocks: EditorBlock[], containerKey: string, change: (list: EditorBlock[]) => EditorBlock[]): EditorBlock[] {
+  return blocks.map((block): EditorBlock => {
+    if (block.type === "SECTION") {
+      if (block.key === containerKey) return { ...block, content: { ...block.content, blocks: change(block.content.blocks) as KeyedSectionChild[] } };
+      return { ...block, content: { ...block.content, blocks: changeChildrenOf(block.content.blocks, containerKey, change) as KeyedSectionChild[] } };
+    }
+    if (block.type === "COLUMNS") {
+      return { ...block, content: { ...block.content, columns: block.content.columns.map((column) => (column.key === containerKey ? { ...column, blocks: change(column.blocks) as KeyedBase[] } : column)) } };
+    }
+    return block;
+  });
 }
 
 function insertAfter<T extends { key: string }>(list: T[], block: T, afterKey?: string) {
@@ -124,14 +209,20 @@ function changed(state: EditorState, blocks: EditorBlock[], typingIn: string | n
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "add": {
-      if (countEditorBlocks(state.blocks) >= SITE_LIMITS.blocksPerPage) return state;
+      // A ready-made layout adds several blocks at once, so the whole of it has to fit.
+      if (countEditorBlocks(state.blocks) + countEditorBlocks([action.block]) > SITE_LIMITS.blocksPerPage) return state;
       if (!action.parentKey) return changed(state, insertAfter(state.blocks, action.block, action.afterKey));
-      const parent = state.blocks.find((block) => block.key === action.parentKey);
-      // A Section holds blocks only: no Section inside a Section, and no more than its limit.
-      if (!parent || parent.type !== "SECTION" || action.block.type === "SECTION" || action.block.type === "COVER") return state;
-      if (parent.content.blocks.length >= SITE_LIMITS.sectionBlocks) return state;
-      const child = action.block as KeyedBase;
-      return changed(state, state.blocks.map((block) => (block.key === parent.key && block.type === "SECTION" ? { ...block, content: { ...block.content, blocks: insertAfter(block.content.blocks, child, action.afterKey) } } : block)));
+      const container = findContainer(state.blocks, action.parentKey);
+      if (!container) return state;
+      const type = action.block.type;
+      if (container.kind === "section") {
+        // A Section holds ordinary blocks and Columns: no Section inside a Section, and no Cover.
+        if (type === "SECTION" || type === "COVER" || container.section.content.blocks.length >= SITE_LIMITS.sectionBlocks) return state;
+      } else if (type === "SECTION" || type === "COVER" || type === "COLUMNS" || container.column.blocks.length >= SITE_LIMITS.columnBlocks) {
+        // A column holds ordinary blocks only.
+        return state;
+      }
+      return changed(state, changeChildrenOf(state.blocks, action.parentKey, (list) => insertAfter(list, action.block, action.afterKey)));
     }
     case "remove": {
       const next = changeListHolding(state.blocks, action.key, (list, index) => list.filter((_, i) => i !== index));
@@ -152,6 +243,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!next) return state;
       if (action.coalesce && state.typingIn === action.key) return { ...state, blocks: next, future: [] };
       return changed(state, next, action.coalesce ? action.key : null);
+    }
+    case "setColumns": {
+      if (action.count < 2 || action.count > 4) return state;
+      let refused = false;
+      const next = changeListHolding(state.blocks, action.key, (list, index) => {
+        const block = list[index];
+        if (block.type !== "COLUMNS") { refused = true; return list; }
+        const current = block.content.columns;
+        if (action.count === current.length) { refused = true; return list; }
+        // Fewer columns: the ones that would go must be empty.
+        if (action.count < current.length && current.slice(action.count).some((column) => column.blocks.length > 0)) { refused = true; return list; }
+        const columns = action.count < current.length ? current.slice(0, action.count) : [...current, ...Array.from({ length: action.count - current.length }, emptyColumn)];
+        return replaceAt(list, index, { ...block, content: { ...block.content, columns } });
+      });
+      return next && !refused ? changed(state, next) : state;
     }
     case "undo": {
       const previous = state.past[state.past.length - 1];

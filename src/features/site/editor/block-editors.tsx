@@ -6,6 +6,7 @@ import type { SiteBlockInput } from "../blocks/block-validation";
 import type { EditorBlock } from "./editor-state";
 import ImageField from "./image-field";
 import LinkField from "./link-field";
+import ColumnsFields from "./columns-fields";
 import CoverFields from "./cover-fields";
 import SectionFields from "./section-fields";
 
@@ -23,12 +24,15 @@ export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   CONTACT: "Contact details",
   SECTION: "Section",
   COVER: "Cover",
+  COLUMNS: "Columns",
 };
 
 type Props = {
   block: EditorBlock;
   pages: Array<{ slug: string; title: string }>;
   disabled: boolean;
+  // Columns can change how many columns they have; the editor keeps that rule (see editor-state).
+  onSetColumns?: (count: number) => void;
   // Typing passes coalesce so a run of keystrokes is one undo step; choosing an option does not.
   onChange: (content: EditorBlock["content"], coalesce?: boolean) => void;
 };
@@ -50,7 +54,7 @@ function Note({ children }: { children: ReactNode }) {
   return <p className="text-sm text-[var(--text-muted)]">{children}</p>;
 }
 
-export default function BlockBody({ block, pages, disabled, onChange }: Props) {
+export default function BlockBody({ block, pages, disabled, onChange, onSetColumns }: Props) {
   switch (block.type) {
     case "PARAGRAPH": {
       const c = block.content;
@@ -158,5 +162,7 @@ export default function BlockBody({ block, pages, disabled, onChange }: Props) {
       return <SectionFields content={block.content} disabled={disabled} onChange={onChange} />;
     case "COVER":
       return <CoverFields content={block.content} pages={pages} disabled={disabled} onChange={onChange} />;
+    case "COLUMNS":
+      return <ColumnsFields content={block.content} disabled={disabled} onChange={onChange} onSetColumns={onSetColumns ?? (() => undefined)} />;
   }
 }

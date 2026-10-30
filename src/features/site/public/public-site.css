@@ -71,3 +71,20 @@
 }
 .public-site .site-cover-button-filled { background-color: #ffffff; color: var(--site-dark); }
 .public-site .site-cover-button-outline { border: 2px solid #ffffff; color: #ffffff; background-color: transparent; }
+
+/* Columns: stacked on a phone, side by side from the same width as the other size changes. Equal widths. */
+.public-site .site-columns { display: grid; gap: 1.5rem; margin-block: 1.5rem; }
+.public-site .site-columns[data-valign="center"] { align-items: center; }
+.public-site .site-columns[data-valign="top"] { align-items: start; }
+@container (min-width: 672px) {
+  .public-site .site-columns[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-site .site-columns[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .public-site .site-columns[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.public-site .site-column { min-width: 0; }
+/* The card look: a light panel with padding and rounded corners. On dark bands the panel turns translucent. */
+.public-site .site-columns-cards .site-column { background-color: var(--site-soft); border-radius: 0.75rem; padding: 1.5rem; }
+
+/* Blocks that sit at the top or bottom of a band or a column do not add their own space there. */
+.public-site .site-section .site-gutter > :first-child, .public-site .site-column > :first-child { margin-top: 0; }
+.public-site .site-section .site-gutter > :last-child, .public-site .site-column > :last-child { margin-bottom: 0; }
