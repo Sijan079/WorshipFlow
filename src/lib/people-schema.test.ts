@@ -85,5 +85,5 @@ export function runPeopleSchemaTests() {
     join(root, "src", "app", "api", "workspaces", "[workspaceSlug]", "members", "permissions", "route.ts"),
     "utf8",
   );
-  assert.match(permissionsRoute, /z\.enum\(\["EVENTS", "ANNOUNCEMENTS", "CAPTIONS", "PEOPLE"\]\)/);
+  assert.match(permissionsRoute, /z\.enum\(\["EVENTS", "ANNOUNCEMENTS", "CAPTIONS", "PEOPLE", "SITE"\]\)/);
 }

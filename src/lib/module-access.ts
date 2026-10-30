@@ -17,6 +17,16 @@ export const CONFIGURABLE_MODULE_ACTIONS = [
     // Needs View. Publishing, unpublishing, and the website switch.
     { action: "PUBLISH", label: "Publish announcements" },
   ] },
+  { module: "SITE", label: "Church website", actions: [
+    { action: "VIEW", label: "View website pages" },
+    { action: "CREATE", label: "Add pages" },
+    // Needs View. Edits to a live page send it back to Draft unless the person can also publish.
+    { action: "EDIT", label: "Edit pages" },
+    // Needs View. Only a draft can be deleted, and never the home page.
+    { action: "DELETE", label: "Delete pages" },
+    // Needs View. Publishing, unpublishing, and the website switch.
+    { action: "PUBLISH", label: "Publish pages" },
+  ] },
   { module: "CAPTIONS", label: "Sermon Captions", actions: [
     { action: "VIEW", label: "View captions" },
     { action: "OPERATE", label: "Operate live captions" },

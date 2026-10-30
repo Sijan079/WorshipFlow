@@ -40,3 +40,8 @@ test("only implemented actions can be assigned", () => {
   assert.equal(isConfigurableModuleAction("CAPTIONS", "OPERATE"), true);
   assert.equal(isConfigurableModuleAction("CAPTIONS", "DELETE"), false);
 });
+
+test("the Site permissions can be assigned: view, create, edit, delete and publish", () => {
+  for (const action of ["VIEW", "CREATE", "EDIT", "DELETE", "PUBLISH"]) assert.equal(isConfigurableModuleAction("SITE", action), true, action);
+  assert.equal(isConfigurableModuleAction("SITE", "OPERATE"), false);
+});
