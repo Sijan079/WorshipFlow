@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown } from "lucide-react";
 import { apiFetch, type ChecklistPresetRecord } from "@/lib/api-client";
+import { SkeletonText } from "@/components/ui/skeleton";
 
 export default function WorshipServicePlannerClient() {
   const [checklistOpen, setChecklistOpen] = useState(true);
@@ -68,9 +69,7 @@ export default function WorshipServicePlannerClient() {
           <div id="dashboard-checklist-items" className="ui-collapse" data-open={checklistOpen}>
             <div>
               {checklistQuery.isLoading ? (
-                <p className="mt-5 border-t border-[var(--border-default)] pt-4 text-sm text-[var(--text-secondary)]">
-                  Loading checklist...
-                </p>
+                <SkeletonText label="Loading checklist" lines={4} className="mt-5 border-t border-[var(--border-default)] pt-4" />
               ) : checklistItems.length === 0 ? (
                 <p className="mt-5 border-t border-[var(--border-default)] pt-4 text-sm text-[var(--text-secondary)]">
                   No active checklist items are configured.
@@ -115,7 +114,7 @@ export default function WorshipServicePlannerClient() {
             <div>
               <p className="technical-label">CURRENT SERVICE</p>
               {servicesQuery.isLoading ? (
-                <p className="mt-3 text-sm text-[var(--text-secondary)]">Loading Sunday&apos;s service...</p>
+                <SkeletonText label="Loading the service" lines={3} className="mt-3" />
               ) : currentService ? (
                 <>
                   <h2 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{formatServiceDate(currentService.serviceDate)}</h2>

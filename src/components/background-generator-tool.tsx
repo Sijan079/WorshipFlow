@@ -17,6 +17,7 @@ import {
 } from "@/lib/api-client";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProductionSelect } from "@/components/ui/production-select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type BackgroundGeneratorToolProps = {
   showToast: (message: string, tone?: "success" | "info" | "error") => void;
@@ -518,7 +519,7 @@ function RecentBackgroundShelf({
       </div>
 
       {isLoading ? (
-        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] p-6 text-sm text-[var(--text-secondary)]">Loading images...</div>
+        <div role="status" aria-label="Loading images" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="aspect-video w-full" />)}</div>
       ) : null}
 
       {!isLoading && backgrounds.length === 0 ? (

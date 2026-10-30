@@ -80,6 +80,7 @@ import { MEDIA_TOOLS_MODULE, type WorkspaceModule } from "@/lib/workspace-module
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProductionDatePicker } from "@/components/ui/production-date-picker";
 import { ProductionSelect } from "@/components/ui/production-select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   analyzeServiceText,
   type AnalyzedServiceDetail,
@@ -309,7 +310,7 @@ function getSongWorkflowStep(pathname: string, fallback: SongWorkflowStep = "upl
 
 const SongDocumentEditor = dynamic(() => import("@/features/song-formatter/song-document-editor"), {
   ssr: false,
-  loading: () => <p className="p-8 text-sm text-[var(--text-secondary)]" role="status">Loading song editor…</p>,
+  loading: () => <div className="space-y-3 p-8" role="status" aria-label="Loading song editor"><Skeleton className="h-8 w-1/3" /><Skeleton className="h-64 w-full" /></div>,
 });
 
 export default function ServiceBuilderClient({

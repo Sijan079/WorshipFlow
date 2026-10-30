@@ -7,6 +7,7 @@ import { AlertTriangle, FileWarning, Trash2, X } from "lucide-react";
 import { apiFetch, fetchErrorNotifications, type ErrorNotificationRecord } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { notificationDeleteScope, useErrorNotificationDeleteQueue } from "@/features/error-notifications/use-delete-queue";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 function formatWhen(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -48,7 +49,7 @@ export default function ErrorNotificationsPage() {
       </div>
 
       {queueError ? <p role="alert" className="text-sm text-[var(--text-danger)]">{queueError}</p> : null}
-      {notificationsQuery.isPending ? <div className="ui-surface-panel p-6 text-sm text-[var(--text-secondary)]" role="status">Loading error notifications…</div> : notificationsQuery.error ? <div className="ui-surface-panel flex items-center justify-between gap-3 p-6 text-sm text-[var(--text-danger)]" role="alert"><span>Could not load error notifications.</span><button type="button" onClick={() => void notificationsQuery.refetch()} className="ui-btn-secondary px-3 py-2 text-sm font-semibold">Retry</button></div> : notifications.length === 0 ? (
+      {notificationsQuery.isPending ? <div className="ui-surface-panel overflow-hidden"><SkeletonRows label="Loading error notifications" rows={4} /></div> : notificationsQuery.error ? <div className="ui-surface-panel flex items-center justify-between gap-3 p-6 text-sm text-[var(--text-danger)]" role="alert"><span>Could not load error notifications.</span><button type="button" onClick={() => void notificationsQuery.refetch()} className="ui-btn-secondary px-3 py-2 text-sm font-semibold">Retry</button></div> : notifications.length === 0 ? (
         <div className="ui-surface-panel flex min-h-48 flex-col items-center justify-center p-6 text-center">
           <AlertTriangle className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />
           <p className="mt-3 text-sm font-semibold text-[var(--text-primary)]">No unresolved errors</p>

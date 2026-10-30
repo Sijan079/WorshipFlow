@@ -73,6 +73,22 @@ const NAV_GROUPS = [
   { label: "Workspace", items: WORKSPACE_NAV_ITEMS },
 ] as const;
 
+// Shown until the session says which modules this person can see. Some items depend on that, so drawing the
+// menu earlier would show some of it first and the rest a moment later.
+function NavSkeleton() {
+  return <div role="status" aria-label="Loading menu">
+    {NAV_GROUPS.map((group, groupIndex) => <div key={group.label} className={groupIndex === 0 ? "" : "mt-4"}>
+      <div className="mx-3 h-3 w-16 animate-pulse rounded bg-white/15" />
+      <div className="mt-2 flex flex-col gap-1">
+        {group.items.map((item) => <div key={item.href} className="flex h-10 items-center gap-3 px-3">
+          <div className="size-5 animate-pulse rounded bg-white/15" />
+          <div className="h-3.5 w-24 animate-pulse rounded bg-white/15" />
+        </div>)}
+      </div>
+    </div>)}
+  </div>;
+}
+
 const MEDIA_TOOL_NAV = [
   { href: "/media-tools/phone-transfer", label: "Phone Transfer" },
   { href: "/media-tools/qr-generator", label: "QR Generator" },
@@ -396,8 +412,8 @@ export default function WorkspaceShell({ children, workspaceSlug }: { children: 
             {alertCount > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-[var(--action-primary-bg)] px-1 text-center font-[var(--font-mono)] text-[9px] font-bold leading-4 text-[var(--action-primary-ink)]">{alertCount > 99 ? "99+" : alertCount}</span> : null}
           </Link>
         </div>
-        <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" aria-label="Production workspace">
-          {NAV_GROUPS.map((group, groupIndex) => (
+        <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Production workspace" aria-busy={sessionQuery.isPending}>
+          {sessionQuery.isPending ? <NavSkeleton /> : NAV_GROUPS.map((group, groupIndex) => (
             <section
               key={group.label}
               aria-labelledby={`nav-group-${group.label.toLowerCase()}`}

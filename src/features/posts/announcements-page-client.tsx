@@ -9,6 +9,7 @@ import AnnouncementDetails, { dateRange } from "./announcement-details";
 import AnnouncementForm from "./announcement-form";
 import { announcementGroups } from "./post-rules";
 import type { AnnouncementItem, AnnouncementListResponse } from "./post-types";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 function Row({ item, selected, onSelect }: { item: AnnouncementItem; selected: boolean; onSelect: () => void }) {
   return (
@@ -70,7 +71,7 @@ export default function AnnouncementsPageClient() {
         ) : null}
       </header>
 
-      {query.isPending ? <p role="status" className="py-12 text-sm text-[var(--text-muted)]">Loading announcements…</p> : null}
+      {query.isPending ? <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)]"><SkeletonRows label="Loading announcements" rows={4} /></div> : null}
       {query.isError ? <div role="alert" className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-5 text-sm"><p>Announcements could not be loaded. {query.error instanceof Error ? query.error.message : ""}</p><button type="button" onClick={() => void query.refetch()} className="mt-3 min-h-11 text-sm font-semibold text-[var(--text-accent)] underline">Try again</button></div> : null}
       {query.isSuccess ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">

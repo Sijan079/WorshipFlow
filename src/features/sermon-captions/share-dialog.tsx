@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { Collapsible } from "radix-ui";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   link: { url: string; canRegenerate: boolean } | null;
@@ -66,7 +67,7 @@ export default function ShareDialog({ link, loading, error, running, regeneratin
         <div className="mt-5 space-y-5">
           {error ? <p role="alert" className="text-sm text-[var(--text-danger)]">{error}</p> : null}
           {loading ? (
-            <p className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin" />Loading the link…</p>
+            <div role="status" aria-label="Loading the link" className="space-y-3"><Skeleton className="h-11 w-full" /><Skeleton className="mx-auto size-40" /></div>
           ) : null}
           {link ? (
             <>

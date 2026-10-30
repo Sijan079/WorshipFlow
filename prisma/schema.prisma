@@ -268,6 +268,7 @@ model Workspace {
   captionSessions CaptionSession[]
   captionSettings CaptionSettings?
   captionUsageDays CaptionUsageDay[]
+  captionUsageHours CaptionUsageHour[]
   captionUsageBaselines CaptionUsageBaseline[]
   people    Person[]
   ministries Ministry[]
@@ -935,6 +936,31 @@ model CaptionUsageDay {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, day])
+}
+
+// Translated characters for each UTC hour, so the Usage tab can show a single day by the hour. Kept next to the
+// daily totals, which stay the figure the monthly limit counts.
+model CaptionUsageHour {
+  id String @id @default(uuid())
+  workspaceId String
+  hour DateTime
+  meteredCharacters Int @default(0)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, hour])
+}
+
+// Deepgram only reports the balance it has now, so each day's last reading is kept here to draw the
+// balance over time. The Deepgram project is shared by every church, so a reading belongs to no workspace.
+model CaptionBalanceSnapshot {
+  id String @id @default(uuid())
+  day DateTime @db.Date
+  units String
+  amount Float
+  recordedAt DateTime @default(now())
+
+  @@unique([day, units])
 }
 
 model CaptionUsageBaseline {

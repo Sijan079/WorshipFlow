@@ -55,3 +55,6 @@ export function captionBudget(used: number, cap: number): { state: "ok" | "warni
   const state = used >= cap ? "blocked" : used >= cap * 0.8 ? "warning" : "ok";
   return { state, percent, used, cap };
 }
+
+
+export type UsagePoint = { day: string; value: number };

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { PublicSiteView } from "../public/public-site-view";
 import type { PublicSite } from "../public/public-site-data";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const DEVICES = [
   { id: "phone", label: "Phone", width: "390px" },
@@ -41,7 +42,7 @@ export default function PreviewPanel({ pageId, churchSlug, savedKey, saving, uns
           {saving ? "Saving your latest changes…" : unsaved ? "Some changes are not saved yet, so they are not shown here." : "This is how visitors will see the page."}
         </p>
       </div>
-      {query.isPending ? <p role="status" className="py-8 text-sm text-[var(--text-muted)]">Loading the preview…</p> : null}
+      {query.isPending ? <div className="space-y-3 py-6" role="status" aria-label="Loading the preview"><Skeleton className="h-40 w-full" /><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /></div> : null}
       {query.isError ? <p role="alert" className="py-4 text-sm">The preview could not be loaded. <button type="button" className="font-semibold underline" onClick={() => void query.refetch()}>Try again</button></p> : null}
       {query.data ? (
         <div className="flex justify-center overflow-x-auto bg-[var(--surface-panel-alt)] py-4">

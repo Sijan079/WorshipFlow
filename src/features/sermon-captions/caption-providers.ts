@@ -35,6 +35,40 @@ export async function getDeepgramBalances(projectId: string, apiKey: string, fet
   });
 }
 
+// Turns one page of Deepgram's request list into [started, seconds, usd] rows. A request without a length
+// or a cost (one still running, or an unexpected shape) is left out rather than guessed.
+export function parseDeepgramRequests(data: unknown): Array<[number, number, number]> {
+  if (!data || typeof data !== "object" || !("requests" in data) || !Array.isArray(data.requests)) throw new Error("Invalid Deepgram requests response.");
+  return data.requests.flatMap((item: unknown) => {
+    const request = item as { created?: unknown; response?: { details?: { duration?: unknown; usd?: unknown } } } | null;
+    const details = request?.response?.details;
+    const started = typeof request?.created === "string" ? Date.parse(request.created) : NaN;
+    if (!Number.isFinite(started) || typeof details?.duration !== "number" || typeof details.usd !== "number") return [];
+    return [[started, details.duration, details.usd] as [number, number, number]];
+  });
+}
+
+// Every Deepgram stream between two moments, newest first, a page at a time. Best effort: the caller shows
+// the balance without a chart if this fails.
+export async function getDeepgramRequests(projectId: string, apiKey: string, start: Date, end: Date, fetcher: Fetcher = fetch) {
+  const limit = 100;
+  const rows: Array<[number, number, number]> = [];
+  for (let page = 0; page < 30; page += 1) {
+    const query = `start=${start.toISOString()}&end=${end.toISOString()}&limit=${limit}&page=${page}`;
+    const response = await fetcher(`https://api.deepgram.com/v1/projects/${encodeURIComponent(projectId)}/requests?${query}`, {
+      headers: { Authorization: `Token ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`Deepgram requests failed (${response.status}).`);
+    const data: unknown = await response.json();
+    rows.push(...parseDeepgramRequests(data));
+    const returned = (data as { requests: unknown[] }).requests.length;
+    if (returned < limit) break;
+  }
+  return rows;
+}
+
 export async function requestDeepgramToken(apiKey: string, fetcher: Fetcher = fetch): Promise<string> {
   const response = await fetcher("https://api.deepgram.com/v1/auth/grant", {
     method: "POST",

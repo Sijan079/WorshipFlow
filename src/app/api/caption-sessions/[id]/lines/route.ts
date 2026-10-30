@@ -70,11 +70,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       translated
         ? (() => {
             const delta = meteredUsageDelta(translated.meteredCharacters);
-            return prisma.captionUsageDay.upsert({
-              where: { workspaceId_day: { workspaceId: context.workspaceId, day } },
-              update: { meteredCharacters: { increment: delta.meteredCharacters }, unmeteredRequests: { increment: delta.unmeteredRequests } },
-              create: { workspaceId: context.workspaceId, day, ...delta },
-            });
+            const hour = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
+            return Promise.all([
+              prisma.captionUsageDay.upsert({
+                where: { workspaceId_day: { workspaceId: context.workspaceId, day } },
+                update: { meteredCharacters: { increment: delta.meteredCharacters }, unmeteredRequests: { increment: delta.unmeteredRequests } },
+                create: { workspaceId: context.workspaceId, day, ...delta },
+              }),
+              // The hourly record only feeds the Usage chart, so a failure here must not fail the caption.
+              delta.meteredCharacters > 0 ? prisma.captionUsageHour.upsert({
+                where: { workspaceId_hour: { workspaceId: context.workspaceId, hour } },
+                update: { meteredCharacters: { increment: delta.meteredCharacters } },
+                create: { workspaceId: context.workspaceId, hour, meteredCharacters: delta.meteredCharacters },
+              }).catch(() => null) : null,
+            ]);
           })()
         : Promise.resolve(null),
       prisma.captionLine.upsert({

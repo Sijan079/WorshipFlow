@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CaptionProviderQuotaError, translatorBaseUrl, getDeepgramBalances, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
+import { CaptionProviderQuotaError, translatorBaseUrl, getDeepgramBalances, parseDeepgramRequests, requestDeepgramToken, translateCaption } from "./caption-providers.ts";
 
 test("Deepgram grant returns only a temporary token to the caller", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -97,4 +97,14 @@ test("Azure over-quota is reported plainly, apart from key problems and plain th
     () => translateCaption("Kumusta", "key", "eastus", respond(401, body(401000, "Unauthorized."))),
     /key and region/,
   );
+});
+
+test("Deepgram requests become started, seconds and cost rows, and unfinished ones are left out", () => {
+  const rows = parseDeepgramRequests({ requests: [
+    { created: "2026-10-26T16:50:37.745723Z", response: { details: { duration: 20.94, usd: 0.00204 } } },
+    { created: "2026-10-26T17:00:00Z" },
+    { created: "not a date", response: { details: { duration: 5, usd: 1 } } },
+  ] });
+  assert.deepEqual(rows, [[Date.parse("2026-10-26T16:50:37.745723Z"), 20.94, 0.00204]]);
+  assert.throws(() => parseDeepgramRequests({}), /Invalid/);
 });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { CONFIGURABLE_MODULE_ACTIONS, resolveModuleAction } from "@/lib/module-access";
+import { SkeletonPanel } from "@/components/ui/skeleton";
 
 type Member = { role: "OWNER" | "ADMIN" | "MEMBER"; user: { id: string; email: string; displayName: string | null } };
 type PermissionRow = { module: string; action: string };
@@ -35,7 +36,7 @@ export function MemberPermissions({ members }: { members: Member[] }) {
       <h4 className="text-base font-semibold text-[var(--text-primary)]">Module access</h4>
       <p className="mt-1 text-sm text-[var(--text-secondary)]">Admins have full access. Set the Member defaults, then adjust individual Members. Only available actions appear here.</p>
     </div>
-    {permissions.isLoading ? <p className="text-sm text-[var(--text-muted)]">Loading permissions…</p> : null}
+    {permissions.isLoading ? <SkeletonPanel label="Loading permissions" rows={5} /> : null}
     {permissions.isError ? <p role="alert" className="text-sm text-[var(--text-danger)]">Could not load permissions.</p> : null}
     {permissions.data ? <div className="overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)]">
       <div className="border-b border-[var(--border-default)] px-4 py-4 sm:px-6">

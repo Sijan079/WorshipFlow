@@ -10,6 +10,7 @@ import { PAPToastViewport, usePAPToasts } from "@/features/pap/components/pap-to
 import { MINISTRIES_QUERY_KEY, PEOPLE_QUERY_KEY, createMinistry, fetchMinistries, fetchPeople, updateMinistry } from "@/features/people/people-api";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import type { MinistryRecord } from "./ministry-types";
+import { SkeletonText } from "@/components/ui/skeleton";
 
 const GRID = "grid-cols-[minmax(0,1fr)_44px] min-[1200px]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(90px,.5fr)_minmax(100px,.5fr)_44px]";
 
@@ -76,7 +77,7 @@ function MinistryDialog({
               <div>
                 <p className={FIELD_LABEL_CLASS}>Members ({members.length})</p>
                 {membersQuery.isLoading ? (
-                  <p className="text-sm text-[var(--text-secondary)]">Loading members…</p>
+                  <SkeletonText label="Loading members" lines={3} />
                 ) : members.length === 0 ? (
                   <p className="text-sm text-[var(--text-secondary)]">No one belongs to this ministry yet.</p>
                 ) : (

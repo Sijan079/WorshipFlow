@@ -10,6 +10,7 @@ import { ProductionSelect } from "@/components/ui/production-select";
 import { apiFetch, type WorkspaceIntegrationRecord, type WorkspaceSettingsRecord } from "@/lib/api-client";
 import { canManageMember, type WorkspaceRole } from "@/lib/workspace-auth";
 import { MemberPermissions } from "@/components/member-permissions";
+import { SkeletonPanel, SkeletonRows } from "@/components/ui/skeleton";
 
 function workspaceApiPath(path: string) {
   const slug = window.location.pathname.match(/^\/w\/([^/]+)/)?.[1];
@@ -34,7 +35,7 @@ export function WorkspaceSection() {
     },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["settings", "workspace"] }); },
   });
-  if (query.isLoading) return <p className="text-sm text-[var(--text-secondary)]">Loading workspace…</p>;
+  if (query.isLoading) return <SkeletonPanel label="Loading workspace" rows={3} />;
   if (query.error) return <p role="alert" className="text-sm text-[var(--text-danger)]">Could not load workspace settings.</p>;
   const value = name || query.data?.name || "";
   const hasLogo = Boolean(query.data?.logoDataUrl);
@@ -110,9 +111,7 @@ export function MembershipSection() {
     <section className="space-y-10">
       <div className="space-y-10">
         {members.isLoading ? (
-          <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
-            <p className="px-5 py-6 text-sm text-[var(--text-secondary)] sm:px-6">Loading members…</p>
-          </div>
+          <SkeletonPanel label="Loading members" rows={5} round />
         ) : members.error ? (
           <div role="alert" className="border-y border-[var(--state-danger)] bg-[var(--state-danger-soft)] px-4 py-3 text-sm text-[var(--text-danger)]">Could not load members.</div>
         ) : (
@@ -133,7 +132,7 @@ export function MembershipSection() {
 
               <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-[var(--elevation-subtle)]">
                 <div className="min-w-0 divide-y divide-[var(--border-default)]">
-                  {invitations.isLoading ? <p className="px-4 py-6 text-sm text-[var(--text-secondary)] sm:px-6">Loading invitations…</p> : null}
+                  {invitations.isLoading ? <SkeletonRows label="Loading invitations" rows={2} /> : null}
                   {!invitations.isLoading && pendingInvitations.length === 0 ? <p className="px-4 py-8 text-center text-sm text-[var(--text-secondary)] sm:px-6">No pending invitations.</p> : null}
                   {pendingInvitations.slice(invitationPage * MEMBERSHIP_PAGE_SIZE, (invitationPage + 1) * MEMBERSHIP_PAGE_SIZE).map((item) => (
                     <div key={item.id} className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm text-[var(--text-secondary)] sm:px-6 sm:py-3">
@@ -302,7 +301,7 @@ export function IntegrationsSection() {
   const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(true);
   const mutation = useMutation({ mutationFn: () => apiFetch(`/api/settings/integrations`, { method: "PUT", body: JSON.stringify({ provider, apiKey: apiKey || undefined, enabled }) }), onSuccess: () => { setApiKey(""); void queryClient.invalidateQueries({ queryKey: ["settings", "integrations"] }); } });
-  if (query.isLoading) return <p className="text-sm text-[var(--text-secondary)]">Loading integrations…</p>;
+  if (query.isLoading) return <SkeletonPanel label="Loading integrations" rows={2} />;
   const current = query.data?.find((item) => item.provider === provider);
   return <section className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4"><div className="border-b border-[var(--border-default)] pb-3"><h2 className="text-base font-semibold text-[var(--text-primary)]">AI integrations</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Keys are stored server-side and are never displayed after saving.</p></div><div className="grid gap-3 pt-4 sm:grid-cols-[12rem_minmax(0,1fr)_auto]"><ProductionSelect value={provider} onValueChange={setProvider} options={[{ value: "OPENAI", label: "OpenAI" }, { value: "GEMINI", label: "Gemini" }]} ariaLabel="AI provider" triggerClassName="h-11" /><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={current?.apiKeyConfigured ? "Key configured — enter replacement" : "API key"} className="h-11 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel-alt)] px-3 text-sm text-[var(--text-primary)]" /><button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending || (!apiKey && !current)} className="ui-btn-primary h-11 px-3 text-sm font-semibold">{mutation.isPending ? "Saving…" : "Save"}</button></div><label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Enabled</label>{mutation.isError ? <p role="alert" className="mt-3 text-sm text-[var(--text-danger)]">Could not save integration settings.</p> : null}</section>;
 }

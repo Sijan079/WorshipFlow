@@ -15,6 +15,7 @@ import { hasMainHeading } from "../pages/page-rules";
 import PreviewPanel from "./preview-panel";
 import { canRedo, canUndo, countEditorBlocks, editorReducer, initialEditorState, stripKeys, withKeys, type EditorBlock } from "./editor-state";
 import type { PageDetail, PageListItem } from "./editor-types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PRIMARY_BUTTON = "ui-btn-primary pressable inline-flex items-center px-4 text-sm font-semibold disabled:opacity-60";
 const SECONDARY_BUTTON = "ui-btn-secondary pressable inline-flex items-center px-4 text-sm font-semibold disabled:opacity-60";
@@ -265,7 +266,7 @@ export default function PageEditor({ pageId, ...rest }: Props) {
   // Loaded once per page. Saving updates what the editor shows itself, so a refetch never replaces what is being typed.
   const query = useQuery({ queryKey: ["site-page", pageId], queryFn: () => apiFetch<PageDetail>(`/api/site/pages/${pageId}`), staleTime: Infinity, refetchOnWindowFocus: false, gcTime: 0 });
   const prepared = useMemo(() => (query.data ? toEditorBlocks(query.data) : null), [query.data]);
-  if (query.isPending) return <p role="status" className="py-8 text-sm text-[var(--text-muted)]">Loading the page…</p>;
+  if (query.isPending) return <div className="space-y-4 py-6" role="status" aria-label="Loading the page"><Skeleton className="h-10 w-1/2" /><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>;
   if (query.isError || !query.data || !prepared) {
     return <div role="alert" className="py-8 text-sm"><p>The page could not be loaded.</p><button type="button" onClick={() => void query.refetch()} className="mt-3 min-h-11 text-sm font-semibold text-[var(--text-accent)] underline">Try again</button></div>;
   }
