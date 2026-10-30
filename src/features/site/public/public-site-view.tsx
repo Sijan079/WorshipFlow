@@ -47,6 +47,14 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
         </Tag>
       );
     }
+    case "IMAGE":
+      return (
+        <figure className={`my-6 ${block.align === "center" ? "text-center" : ""}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- already a small WebP made by the site's own upload */}
+          <img src={block.src} alt={block.alt} width={block.width} height={block.height} loading="lazy" className={`h-auto max-w-full rounded-lg ${block.align === "center" ? "mx-auto" : ""}`} />
+          {block.caption ? <figcaption className="mt-2 text-base text-[var(--site-muted)]">{block.caption}</figcaption> : null}
+        </figure>
+      );
     case "QUOTE":
       return (
         <blockquote className="my-6 border-l-4 border-[var(--site-line)] pl-5 text-xl italic">

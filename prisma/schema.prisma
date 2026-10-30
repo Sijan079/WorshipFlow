@@ -277,6 +277,7 @@ model Workspace {
   posts Post[]
   siteSettings SiteSettings?
   sitePages SitePage[]
+  siteImages SiteImage[]
   actionGrants WorkspaceActionGrant[]
   roleActionDefaults WorkspaceRoleActionDefault[]
 }
@@ -1181,4 +1182,20 @@ model SitePageBlock {
   page SitePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId, sortOrder])
+}
+
+// A picture uploaded for the website: always a WebP, at most 1600 px wide. The file lives in private storage;
+// the public site serves it only while a published, public page uses it.
+model SiteImage {
+  id          String   @id @default(uuid())
+  workspaceId String
+  storagePath String
+  width       Int
+  height      Int
+  bytes       Int
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }

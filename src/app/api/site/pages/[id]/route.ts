@@ -7,6 +7,7 @@ import { WorkspaceAuthorizationError } from "@/lib/security-context";
 import { canPublishSite, requireSiteAction } from "@/features/site/site-access";
 import { canDeletePage, decidePageUpdate } from "@/features/site/pages/page-rules";
 import { UpdatePageSchema } from "@/features/site/pages/page-validation";
+import { unavailableImagesIn } from "@/features/site/images/image-ownership";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -52,6 +53,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const existing = await prisma.sitePage.findFirst({ where: { id, workspaceId: context.workspaceId }, select: { status: true, isPublic: true } });
     if (!existing) return notFound();
+
+    if (input.blocks && (await unavailableImagesIn(context.workspaceId, input.blocks)).length > 0) {
+      return NextResponse.json({ error: "One of the pictures is no longer available. Add it again." }, { status: 400 });
+    }
 
     const decision = decidePageUpdate({ existing, input, canPublish: await canPublishSite(context) });
     if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 403 });

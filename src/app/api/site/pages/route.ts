@@ -9,6 +9,7 @@ import { HOME_SLUG, canAddPage, nextSortOrder, uniquePageSlug } from "@/features
 import { CreatePageSchema } from "@/features/site/pages/page-validation";
 import { STARTER_HOME_BLOCKS } from "@/features/site/pages/starter-home";
 import { SITE_LIMITS } from "@/features/site/blocks/block-validation";
+import { unavailableImagesIn } from "@/features/site/images/image-ownership";
 
 function errorResponse(error: unknown, request: Request, method: string, fallback: string) {
   const status = error instanceof WorkspaceAuthorizationError ? error.status : 500;
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
     const isFirst = existing.length === 0;
     const slug = isFirst ? HOME_SLUG : uniquePageSlug(input.title, new Set(existing.map((page) => page.slug)));
     const blocks = input.blocks ?? (isFirst && input.starter ? STARTER_HOME_BLOCKS : []);
+    if ((await unavailableImagesIn(context.workspaceId, blocks)).length > 0) {
+      return NextResponse.json({ error: "One of the pictures is no longer available. Add it again." }, { status: 400 });
+    }
 
     const created = await prisma.sitePage.create({
       data: {

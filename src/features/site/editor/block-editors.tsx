@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-styles";
 import type { SiteBlockInput } from "../blocks/block-validation";
 import type { EditorBlock } from "./editor-state";
+import ImageField from "./image-field";
 import LinkField from "./link-field";
 
 export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
@@ -11,7 +12,7 @@ export const BLOCK_LABELS: Record<SiteBlockInput["type"], string> = {
   HEADING: "Heading",
   LIST: "List",
   QUOTE: "Quote",
-  IMAGE: "Image",
+  IMAGE: "Picture",
   BUTTON: "Button",
   SPACER: "Space",
   SERVICE_TIMES: "Service times",
@@ -148,6 +149,6 @@ export default function BlockBody({ block, pages, disabled, onChange }: Props) {
     case "CONTACT":
       return <Note>Shows your church address, phone and email. Set them under Website settings at the top of this page.</Note>;
     case "IMAGE":
-      return <Note>Image blocks can be added once image upload is ready.</Note>;
+      return <ImageField content={block.content} disabled={disabled} onChange={onChange} />;
   }
 }

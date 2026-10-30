@@ -24,3 +24,8 @@ test("a button with an empty label is a problem", () => {
   const button = { key: "k2", type: "BUTTON" as const, content: { label: "", link: { kind: "page" as const, slug: "visit" }, align: "left" as const } };
   assert.ok(blockProblems([button]).get(button.key));
 });
+
+test("a new picture block asks for a picture before anything else", () => {
+  const image = newBlock("IMAGE");
+  assert.match(blockProblems([image]).get(image.key) ?? "", /choose a picture/i);
+});

@@ -4,7 +4,7 @@ import { SITE_LIMITS, type SiteBlockInput } from "../blocks/block-validation.ts"
 // moved or undone. Undo and redo are kept here, in the session only (revision history is a later feature).
 
 export type EditorBlock = SiteBlockInput & { key: string };
-export type NewBlockKind = Exclude<SiteBlockInput["type"], "IMAGE">;
+export type NewBlockKind = SiteBlockInput["type"];
 
 export type EditorState = {
   blocks: EditorBlock[];
@@ -41,6 +41,8 @@ export function newBlock(kind: NewBlockKind): EditorBlock {
     case "LIST": return { key, type: kind, content: { ordered: false, items: [""] } };
     case "QUOTE": return { key, type: kind, content: { text: "" } };
     case "BUTTON": return { key, type: kind, content: { label: "Learn more", link: { kind: "url", url: "https://" }, align: "left" } };
+    // No picture chosen yet: the editor says so until one is uploaded.
+    case "IMAGE": return { key, type: kind, content: { path: "", alt: "", align: "left" } };
     case "SPACER": return { key, type: kind, content: { size: "medium" } };
     case "SERVICE_TIMES": return { key, type: kind, content: { lines: [""] } };
     case "ANNOUNCEMENTS_LIST":

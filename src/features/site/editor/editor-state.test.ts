@@ -11,7 +11,7 @@ function start(...kinds: Array<Parameters<typeof newBlock>[0]>) {
 }
 
 test("every block kind can be created with valid, empty-ish content", () => {
-  for (const kind of ["PARAGRAPH", "HEADING", "LIST", "QUOTE", "BUTTON", "SPACER", "SERVICE_TIMES", "ANNOUNCEMENTS_LIST", "EVENTS_LIST", "CONTACT"] as const) {
+  for (const kind of ["PARAGRAPH", "HEADING", "LIST", "QUOTE", "IMAGE", "BUTTON", "SPACER", "SERVICE_TIMES", "ANNOUNCEMENTS_LIST", "EVENTS_LIST", "CONTACT"] as const) {
     assert.equal(newBlock(kind).type, kind);
   }
 });

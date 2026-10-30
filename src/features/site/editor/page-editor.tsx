@@ -21,7 +21,7 @@ const ICON_BUTTON = "inline-flex h-11 w-11 items-center justify-center rounded-m
 const AUTOSAVE_DELAY_MS = 2000;
 
 const ADDABLE: Array<[NewBlockKind, string]> = [
-  ["PARAGRAPH", "Text"], ["HEADING", "Heading"], ["LIST", "List"], ["QUOTE", "Quote"], ["BUTTON", "Button"], ["SPACER", "Space"],
+  ["PARAGRAPH", "Text"], ["HEADING", "Heading"], ["IMAGE", "Picture"], ["LIST", "List"], ["QUOTE", "Quote"], ["BUTTON", "Button"], ["SPACER", "Space"],
   ["SERVICE_TIMES", "Service times"], ["ANNOUNCEMENTS_LIST", "Announcements"], ["EVENTS_LIST", "Upcoming events"], ["CONTACT", "Contact details"],
 ];
 

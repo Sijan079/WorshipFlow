@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { isPubliclyVisible } from "@/features/posts/post-rules";
 import { SiteBlockSchema, type SiteBlockInput } from "@/features/site/blocks/block-validation";
+import { imageIdFromPath } from "@/features/site/images/image-refs";
 import { nextDatePerEvent } from "./public-events";
 
 // The only door the public site (/c/{slug}) reads through. It returns a small set of public-safe fields and
@@ -11,6 +12,7 @@ type Shown = Exclude<SiteBlockInput, { type: Listed | "IMAGE" }>;
 
 export type PublicBlock =
   | (Shown & { id: string })
+  | { id: string; type: "IMAGE"; src: string; alt: string; caption: string | null; align: "left" | "center"; width: number; height: number }
   | { id: string; type: "ANNOUNCEMENTS_LIST"; items: Array<{ id: string; title: string; body: string }> }
   | { id: string; type: "EVENTS_LIST"; items: Array<{ id: string; title: string; venue: string | null; startsAt: string; timezone: string }> }
   | { id: string; type: "CONTACT"; email: string | null; phone: string | null; address: string | null };
@@ -41,14 +43,28 @@ export async function getPublicSite(workspaceSlug: string, now = new Date()): Pr
 
   const settings = workspace.siteSettings;
   const blocks: PublicBlock[] = [];
+  // Only pictures this church uploaded count, however a block spells its path.
+  const wantedImages = page.blocks.flatMap((row) => {
+    const path = (row.content as { path?: unknown } | null)?.path;
+    return row.type === "IMAGE" && typeof path === "string" ? [imageIdFromPath(path)].filter((id): id is string => id !== null) : [];
+  });
+  const images = new Map(
+    (wantedImages.length === 0 ? [] : await prisma.siteImage.findMany({ where: { workspaceId: workspace.id, id: { in: wantedImages } }, select: { id: true, width: true, height: true } })).map((image) => [image.id, image]),
+  );
   for (const row of page.blocks) {
     // A stored block that no longer fits the rules is left out rather than shown half-broken.
     const parsed = SiteBlockSchema.safeParse({ type: row.type, content: row.content });
     if (!parsed.success) continue;
     const block = parsed.data;
     switch (block.type) {
-      case "IMAGE":
-        break; // Images arrive with the image upload piece.
+      case "IMAGE": {
+        const imageId = imageIdFromPath(block.content.path);
+        const image = imageId ? images.get(imageId) : undefined;
+        if (imageId && image) {
+          blocks.push({ id: row.id, type: "IMAGE", src: `/c/${workspaceSlug}/image/${imageId}.webp`, alt: block.content.alt, caption: block.content.caption?.trim() || null, align: block.content.align, width: image.width, height: image.height });
+        }
+        break;
+      }
       case "CONTACT":
         blocks.push({ id: row.id, type: "CONTACT", email: settings?.contactEmail ?? null, phone: settings?.contactPhone ?? null, address: settings?.address ?? null });
         break;
