@@ -122,10 +122,35 @@ function Block({ block, churchSlug }: { block: PublicBlock; churchSlug: string }
   }
 }
 
-export function PublicSiteView({ site, churchSlug }: { site: PublicSite; churchSlug: string }) {
+function pageHref(churchSlug: string, pageSlug: string) {
+  return pageSlug === "home" ? `/c/${churchSlug}` : `/c/${churchSlug}/${pageSlug}`;
+}
+
+// In the editor's preview the menu is shown but does not leave the editor.
+export function PublicSiteView({ site, churchSlug, preview = false }: { site: PublicSite; churchSlug: string; preview?: boolean }) {
+  const linkClass = "inline-flex min-h-11 items-center px-1 text-lg";
   return (
     <div className="public-site min-h-screen">
-      <header className="border-b border-[var(--site-line)] px-6 py-4 text-xl font-bold">{site.churchName}</header>
+      <header className="border-b border-[var(--site-line)] px-6 py-3">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-6 gap-y-1">
+          <span className="text-xl font-bold">{site.churchName}</span>
+          {site.menu.length > 1 ? (
+            <nav aria-label="Main menu">
+              <ul className="flex flex-wrap gap-x-4">
+                {site.menu.map((item) => (
+                  <li key={item.slug}>
+                    {preview ? (
+                      <span className={`${linkClass} ${item.slug === site.page.slug ? "font-semibold underline" : ""}`}>{item.title}</span>
+                    ) : (
+                      <a href={pageHref(churchSlug, item.slug)} aria-current={item.slug === site.page.slug ? "page" : undefined} className={`${linkClass} hover:underline ${item.slug === site.page.slug ? "font-semibold underline" : ""}`}>{item.title}</a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
+        </div>
+      </header>
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="mb-6 text-4xl font-bold leading-tight">{site.page.title}</h1>
         {site.page.blocks.map((block) => <Block key={block.id} block={block} churchSlug={churchSlug} />)}

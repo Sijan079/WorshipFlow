@@ -60,3 +60,8 @@ test("a new page goes last in the menu", () => {
   assert.equal(nextSortOrder([]), 0);
   assert.equal(nextSortOrder([0, 3, 1]), 4);
 });
+
+test("a page cannot take an address the site already uses for something else", () => {
+  assert.equal(uniquePageSlug("Image", new Set()), "image-2");
+  assert.equal(uniquePageSlug("Images", new Set()), "images");
+});

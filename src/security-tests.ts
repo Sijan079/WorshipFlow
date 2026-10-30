@@ -75,6 +75,7 @@ import "./features/site/site-api.test.ts";
 import "./features/site/editor/editor-state.test.ts";
 import "./features/site/editor/block-problems.test.ts";
 import "./features/site/public/public-events.test.ts";
+import "./features/site/public/page-description.test.ts";
 import "./features/site/images/image-refs.test.ts";
 import "./features/site/images/site-image-processing.test.ts";
 import "./features/site/settings/settings-validation.test.ts";

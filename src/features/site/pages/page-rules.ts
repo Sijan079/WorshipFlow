@@ -1,6 +1,8 @@
 import { SITE_LIMITS, pageSlugFromTitle } from "../blocks/block-validation.ts";
 
 export const HOME_SLUG = "home";
+// Addresses the public site already uses for something else: the home page, and /c/{church}/image/{picture}.
+const RESERVED_SLUGS = [HOME_SLUG, "image"];
 
 type Status = "DRAFT" | "PUBLISHED";
 type PageUpdateInput = { title?: string; description?: string; blocks?: unknown[]; status?: Status; isPublic?: boolean };
@@ -29,10 +31,10 @@ export function canAddPage(currentCount: number) {
   return currentCount < SITE_LIMITS.pagesPerChurch;
 }
 
-// "home" always belongs to the home page, so a page titled "Home" becomes home-2.
+// "home" always belongs to the home page, and "image" to the pictures, so a page titled "Home" becomes home-2.
 export function uniquePageSlug(title: string, taken: Set<string>) {
   const base = pageSlugFromTitle(title);
-  const used = new Set(taken).add(HOME_SLUG);
+  const used = new Set([...taken, ...RESERVED_SLUGS]);
   if (!used.has(base)) return base;
   for (let n = 2; ; n += 1) {
     const candidate = `${base}-${n}`;
