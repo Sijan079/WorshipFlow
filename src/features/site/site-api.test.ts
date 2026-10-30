@@ -45,3 +45,10 @@ test("the website settings route reads with View, writes with Edit, and keeps th
   assert.match(route, /decideSettingsUpdate\(/);
   for (const clause of route.match(/where: \{[^}]*\}/g) ?? []) assert.match(clause, /workspaceId/, `no query without the church: ${clause}`);
 });
+
+test("the preview route needs View, reads only this church's page, and is never cached", () => {
+  const route = read("src", "app", "api", "site", "pages", "[id]", "preview", "route.ts");
+  assert.match(route, /requireSiteAction\("VIEW"\)/);
+  assert.match(route, /getPreviewSite\(context\.workspaceId, id, context\.workspaceSlug\)/);
+  assert.match(route, /"Cache-Control": "no-store"/);
+});

@@ -10,6 +10,7 @@ import { FIELD_LABEL_CLASS, TEXT_FIELD_CLASS } from "@/features/people/field-sty
 import { SITE_LIMITS, SiteBlockSchema, type SiteBlockInput } from "../blocks/block-validation";
 import BlockBody, { BLOCK_LABELS } from "./block-editors";
 import { blockProblems } from "./block-problems";
+import PreviewPanel from "./preview-panel";
 import { canRedo, canUndo, editorReducer, initialEditorState, newBlock, withKeys, type EditorBlock, type NewBlockKind } from "./editor-state";
 import type { PageDetail, PageListItem } from "./editor-types";
 
@@ -70,6 +71,7 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
   const [notice, setNotice] = useState<string | null>(null);
   const [pickerAfter, setPickerAfter] = useState<string | "end" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
   // What the server last confirmed, as a snapshot. The page is "dirty" whenever the editor differs from it.
   const [saved, setSaved] = useState(() => snapshot(page.title, page.description ?? "", initial));
 
@@ -148,8 +150,12 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
           {saveLine}
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={ICON_BUTTON} aria-label="Undo" title="Undo" disabled={!canUndo(editor) || readOnly} onClick={() => dispatch({ type: "undo" })}><Undo2 aria-hidden="true" className="h-5 w-5" /></button>
-          <button type="button" className={ICON_BUTTON} aria-label="Redo" title="Redo" disabled={!canRedo(editor) || readOnly} onClick={() => dispatch({ type: "redo" })}><Redo2 aria-hidden="true" className="h-5 w-5" /></button>
+          <div role="group" aria-label="Edit or preview" className="flex gap-2">
+            <button type="button" aria-pressed={mode === "edit"} className={`pressable inline-flex min-h-11 items-center px-4 text-sm font-semibold ${mode === "edit" ? "ui-btn-primary" : "ui-btn-secondary"}`} onClick={() => setMode("edit")}>Edit</button>
+            <button type="button" aria-pressed={mode === "preview"} className={`pressable inline-flex min-h-11 items-center px-4 text-sm font-semibold ${mode === "preview" ? "ui-btn-primary" : "ui-btn-secondary"}`} onClick={() => setMode("preview")}>Preview</button>
+          </div>
+          <button type="button" className={ICON_BUTTON} aria-label="Undo" title="Undo" disabled={!canUndo(editor) || readOnly || mode === "preview"} onClick={() => dispatch({ type: "undo" })}><Undo2 aria-hidden="true" className="h-5 w-5" /></button>
+          <button type="button" className={ICON_BUTTON} aria-label="Redo" title="Redo" disabled={!canRedo(editor) || readOnly || mode === "preview"} onClick={() => dispatch({ type: "redo" })}><Redo2 aria-hidden="true" className="h-5 w-5" /></button>
           {live ? <a className={SECONDARY_BUTTON + " min-h-11"} href={isHome ? `/c/${workspaceSlug}` : `/c/${workspaceSlug}/${page.slug}`} target="_blank" rel="noopener noreferrer">View live page</a> : null}
           {flags.canPublish ? (
             live ? (
@@ -165,68 +171,75 @@ function Loaded({ page, skipped, initial, flags, pages, onChanged, onDeleted }: 
       {skipped > 0 ? <p role="alert" className="border-l-2 border-[var(--state-warning)] pl-3 text-sm">{skipped} block{skipped === 1 ? "" : "s"} on this page could not be read and {skipped === 1 ? "is" : "are"} hidden. Saving will remove {skipped === 1 ? "it" : "them"}.</p> : null}
       {save.isError ? <p role="alert" className="border-l-2 border-[var(--state-danger)] pl-3 text-sm">{save.error instanceof Error ? save.error.message : "The page could not be saved."} <button type="button" className="font-semibold underline" onClick={() => save.mutate(undefined)}>Try again</button></p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className={FIELD_LABEL_CLASS}>Page title</span>
-          <input className={TEXT_FIELD_CLASS} value={title} maxLength={SITE_LIMITS.titleMax} disabled={readOnly} onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <label className="block">
-          <span className={FIELD_LABEL_CLASS}>Short description for search results (optional)</span>
-          <input className={TEXT_FIELD_CLASS} value={description} maxLength={SITE_LIMITS.descriptionMax} disabled={readOnly} onChange={(event) => setDescription(event.target.value)} />
-        </label>
-      </div>
+      {mode === "preview" ? (
+        <PreviewPanel pageId={page.id} churchSlug={workspaceSlug} savedKey={saved} saving={save.isPending} unsaved={dirty} />
+      ) : (
+        <>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className={FIELD_LABEL_CLASS}>Page title</span>
+            <input className={TEXT_FIELD_CLASS} value={title} maxLength={SITE_LIMITS.titleMax} disabled={readOnly} onChange={(event) => setTitle(event.target.value)} />
+          </label>
+          <label className="block">
+            <span className={FIELD_LABEL_CLASS}>Short description for search results (optional)</span>
+            <input className={TEXT_FIELD_CLASS} value={description} maxLength={SITE_LIMITS.descriptionMax} disabled={readOnly} onChange={(event) => setDescription(event.target.value)} />
+          </label>
+        </div>
 
-      <ol className="divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]" aria-label="Blocks on this page">
-        {editor.blocks.length === 0 ? <li className="py-6 text-sm text-[var(--text-muted)]">This page is empty. Choose Add a block to start.</li> : null}
-        {editor.blocks.map((block, index) => {
-          const problem = problems.get(block.key);
-          return (
-            <li key={block.key} className="py-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">{BLOCK_LABELS[block.type]}</h3>
-                {!readOnly ? (
-                  <div className="flex items-center">
-                    <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} up`} title="Move up" disabled={index === 0} onClick={() => dispatch({ type: "move", key: block.key, direction: "up" })}><ArrowUp aria-hidden="true" className="h-5 w-5" /></button>
-                    <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} down`} title="Move down" disabled={index === editor.blocks.length - 1} onClick={() => dispatch({ type: "move", key: block.key, direction: "down" })}><ArrowDown aria-hidden="true" className="h-5 w-5" /></button>
-                    <button type="button" className={ICON_BUTTON} aria-label={`Delete ${BLOCK_LABELS[block.type]}`} title="Delete this block" onClick={() => dispatch({ type: "remove", key: block.key })}><Trash2 aria-hidden="true" className="h-5 w-5" /></button>
+        <ol className="divide-y divide-[var(--rule-default)] border-y border-[var(--rule-default)]" aria-label="Blocks on this page">
+          {editor.blocks.length === 0 ? <li className="py-6 text-sm text-[var(--text-muted)]">This page is empty. Choose Add a block to start.</li> : null}
+          {editor.blocks.map((block, index) => {
+            const problem = problems.get(block.key);
+            return (
+              <li key={block.key} className="py-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">{BLOCK_LABELS[block.type]}</h3>
+                  {!readOnly ? (
+                    <div className="flex items-center">
+                      <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} up`} title="Move up" disabled={index === 0} onClick={() => dispatch({ type: "move", key: block.key, direction: "up" })}><ArrowUp aria-hidden="true" className="h-5 w-5" /></button>
+                      <button type="button" className={ICON_BUTTON} aria-label={`Move ${BLOCK_LABELS[block.type]} down`} title="Move down" disabled={index === editor.blocks.length - 1} onClick={() => dispatch({ type: "move", key: block.key, direction: "down" })}><ArrowDown aria-hidden="true" className="h-5 w-5" /></button>
+                      <button type="button" className={ICON_BUTTON} aria-label={`Delete ${BLOCK_LABELS[block.type]}`} title="Delete this block" onClick={() => dispatch({ type: "remove", key: block.key })}><Trash2 aria-hidden="true" className="h-5 w-5" /></button>
+                    </div>
+                  ) : null}
+                </div>
+                <BlockBody block={block} pages={pageList} disabled={readOnly} onChange={(content, coalesce) => dispatch({ type: "update", key: block.key, content, coalesce })} />
+                {problem ? <p role="alert" className="mt-2 border-l-2 border-[var(--state-danger)] pl-3 text-sm">{problem}</p> : null}
+                {!readOnly && editor.blocks.length < SITE_LIMITS.blocksPerPage ? (
+                  <div className="mt-2">
+                    <button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--text-accent)]" aria-expanded={pickerAfter === block.key} onClick={() => setPickerAfter(pickerAfter === block.key ? null : block.key)}>
+                      <Plus aria-hidden="true" className="h-4 w-4" />Add a block below
+                    </button>
+                    {pickerAfter === block.key ? picker(block.key) : null}
                   </div>
                 ) : null}
-              </div>
-              <BlockBody block={block} pages={pageList} disabled={readOnly} onChange={(content, coalesce) => dispatch({ type: "update", key: block.key, content, coalesce })} />
-              {problem ? <p role="alert" className="mt-2 border-l-2 border-[var(--state-danger)] pl-3 text-sm">{problem}</p> : null}
-              {!readOnly && editor.blocks.length < SITE_LIMITS.blocksPerPage ? (
-                <div className="mt-2">
-                  <button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--text-accent)]" aria-expanded={pickerAfter === block.key} onClick={() => setPickerAfter(pickerAfter === block.key ? null : block.key)}>
-                    <Plus aria-hidden="true" className="h-4 w-4" />Add a block below
-                  </button>
-                  {pickerAfter === block.key ? picker(block.key) : null}
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
 
-      {!readOnly ? (
-        <div>
-          {editor.blocks.length >= SITE_LIMITS.blocksPerPage ? (
-            <p className="text-sm text-[var(--text-muted)]">This page has the most blocks it can hold ({SITE_LIMITS.blocksPerPage}).</p>
-          ) : (
-            <>
-              <button type="button" className={SECONDARY_BUTTON + " min-h-11 gap-2"} aria-expanded={pickerAfter === "end"} onClick={() => setPickerAfter(pickerAfter === "end" ? null : "end")}>
-                <Plus aria-hidden="true" className="h-4 w-4" />Add a block
-              </button>
-              {pickerAfter === "end" ? picker() : null}
-            </>
-          )}
-        </div>
-      ) : <p className="text-sm text-[var(--text-muted)]">You can look at this page but not change it.</p>}
+        {!readOnly ? (
+          <div>
+            {editor.blocks.length >= SITE_LIMITS.blocksPerPage ? (
+              <p className="text-sm text-[var(--text-muted)]">This page has the most blocks it can hold ({SITE_LIMITS.blocksPerPage}).</p>
+            ) : (
+              <>
+                <button type="button" className={SECONDARY_BUTTON + " min-h-11 gap-2"} aria-expanded={pickerAfter === "end"} onClick={() => setPickerAfter(pickerAfter === "end" ? null : "end")}>
+                  <Plus aria-hidden="true" className="h-4 w-4" />Add a block
+                </button>
+                {pickerAfter === "end" ? picker() : null}
+              </>
+            )}
+          </div>
+        ) : <p className="text-sm text-[var(--text-muted)]">You can look at this page but not change it.</p>}
 
-      {flags.canDelete && !isHome && status === "DRAFT" ? (
-        <div className="border-t border-[var(--rule-default)] pt-4">
-          <button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--state-danger)]" onClick={() => setConfirmDelete(true)}><Trash2 aria-hidden="true" className="h-4 w-4" />Delete this page</button>
-        </div>
-      ) : null}
+        {flags.canDelete && !isHome && status === "DRAFT" ? (
+          <div className="border-t border-[var(--rule-default)] pt-4">
+            <button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--state-danger)]" onClick={() => setConfirmDelete(true)}><Trash2 aria-hidden="true" className="h-4 w-4" />Delete this page</button>
+          </div>
+        ) : null}
+        </>
+      )}
+
       {confirmDelete ? <ConfirmDelete title={title} busy={remove.isPending} onClose={() => setConfirmDelete(false)} onConfirm={() => remove.mutate()} /> : null}
       {remove.isError ? <p role="alert" className="text-sm">{remove.error instanceof Error ? remove.error.message : "The page could not be deleted."}</p> : null}
     </div>
