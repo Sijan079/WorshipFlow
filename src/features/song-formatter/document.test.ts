@@ -4,7 +4,7 @@ import { EditorState, TextSelection } from "prosemirror-state";
 import { undo } from "prosemirror-history";
 import { joinBackward } from "prosemirror-commands";
 import {
-  copyActiveSection, documentFromText, documentToText, tagSelection, sectionCommand, groupSections,
+  copyActiveSection, documentFromText, documentToText, getSections, tagSelection, sectionCommand, groupSections,
   pasteSection, sectionPosition, shortcutFallbackSelection,
 } from "./document.ts";
 import { paginateGroups, pageOrigin, pageColumns } from "./pagination.ts";
@@ -135,7 +135,19 @@ test("page columns respect zoom, width, mobile and page count", () => {
 test("line grouping only changes the selected tag, preserving lyric order", () => {
   let current = state("[Verse]\nA\nB\nC\n[Chorus]\nD\nE");
   groupSections("Verse", 2)(current, tr => { current = current.apply(tr); });
-  assert.equal(documentToText(current.doc), "[Verse]\nA\nB\n\n[Verse]\nC\n[Chorus]\nD\nE");
+  // One verse stays one verse: the slides are separated by a blank line inside it, not by a second [Verse] tag.
+  assert.equal(documentToText(current.doc), "[Verse]\nA\nB\n\nC\n[Chorus]\nD\nE");
+  assert.equal(getSections(current.doc).length, 2);
+});
+
+test("grouping joins neighbouring sections with the same tag into one part, with a blank line between slides", () => {
+  let current = state("[Verse]\nA\nB\n[Verse]\nC\nD\nE\n[Chorus]\nF");
+  groupSections("Verse", 2)(current, tr => { current = current.apply(tr); });
+  assert.equal(documentToText(current.doc), "[Verse]\nA\nB\n\nC\nD\n\nE\n[Chorus]\nF");
+  // The text reads back as the same two parts, so a saved draft opens the way it was left.
+  const text = documentToText(current.doc);
+  assert.equal(documentToText(documentFromText(text)), text);
+  assert.equal(getSections(documentFromText(text)).length, 2);
 });
 
 test("pagination keeps fitting groups together and splits oversized groups", () => {

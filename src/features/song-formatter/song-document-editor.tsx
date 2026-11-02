@@ -23,6 +23,7 @@ import styles from "./song-document-editor.module.css";
 import { draftSaveState } from "./save-status";
 import { shortcutKey, shortcutLabel } from "./shortcuts";
 import { shortcutTargetPlugin, shortcutTargetTransaction } from "./shortcut-target-plugin";
+import PresenterExportDialog from "./presenter-export-dialog";
 
 type Props = {
   text: string; songTitle: string; tags: SongTagPresetRecord[]; recoveryStatus: string;
@@ -81,6 +82,7 @@ export default function SongDocumentEditor(props: Props) {
   const [viewportWidth, setViewportWidth] = useState(0);
   const [groupSize, setGroupSize] = useState<"2" | "3">("2");
   const [clearOpen, setClearOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const saveStatus = props.aiPending ? "Reformatting lyrics…"
@@ -391,8 +393,8 @@ export default function SongDocumentEditor(props: Props) {
             <span className="sr-only">{saveStatus}</span>
           </span>
         </div>
-        <button type="button" className="ui-btn-primary inline-flex items-center gap-2 px-4 text-sm font-semibold" onClick={props.onExport} disabled={props.exportPending || props.aiPending || !props.text.trim()}>
-          {props.exportPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{props.exportPending ? "Exporting…" : "Export DOCX"}
+        <button type="button" className="ui-btn-primary inline-flex items-center gap-2 px-4 text-sm font-semibold" onClick={() => setExportOpen(true)} disabled={props.exportPending || props.aiPending || !props.text.trim()}>
+          {props.exportPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{props.exportPending ? "Exporting…" : "Export"}
         </button>
       </header>
       <div className={`ui-register-toolbar ${styles.toolbar}`} role="group" aria-label="Document controls">
@@ -526,6 +528,7 @@ export default function SongDocumentEditor(props: Props) {
         </ContextMenu.Root>
         </div>
       </div>
+      <PresenterExportDialog open={exportOpen} onOpenChange={setExportOpen} text={props.text} songTitle={props.songTitle} wordPending={props.exportPending} onWord={() => { props.onExport(); setExportOpen(false); }} />
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
         <DialogContent className="workspace-content-light" onOpenAutoFocus={event => { event.preventDefault(); cancelClear.current?.focus(); }}>
           <DialogTitle>Clear This Song Draft?</DialogTitle><DialogDescription>This marks the conversion Done, deletes its temporary draft across your devices, and returns to song selection. Export a DOCX first if you want to keep it.</DialogDescription>

@@ -88,7 +88,9 @@ Worship; they are not standalone modules.
   library of images and 1080p video loops. AI generation may return later as an
   "add to library" action once cost and provider are decided.
 - Phone transfer, comment card, QR generator: kept, refined first.
-- Song formatter, resize image, background removal: kept, no new investment now.
+- Song formatter, resize image, background removal: kept. The Song Formatter has one active investment: making any song
+  ready for a presenter app (FreeShow first, built; ProPresenter after a tested sample). See
+  `docs/changes/20261102-formatter.md`.
 - Captions: optional module behind its own permissions and flag. One stable link per church (shared as a QR code)
   serves the congregation; Start and Stop only control whether captions are live.
 

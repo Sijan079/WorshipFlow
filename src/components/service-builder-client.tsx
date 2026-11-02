@@ -1926,7 +1926,7 @@ export default function ServiceBuilderClient({
                               Supported output
                             </h2>
                             <ul className="mt-3 space-y-2 text-sm font-semibold text-[var(--text-secondary)]">
-                              {["Planning Center XML", "ProPresenter 7 Slides", "Standard PDF Chords", "Markdown Text"].map((output) => (
+                              {["FreeShow text file", "Word document (DOCX)"].map((output) => (
                                 <li key={output} className="flex items-center gap-3">
                                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--text-accent)]" aria-hidden="true" />
                                   {output}

@@ -1,11 +1,16 @@
 /** Download names, not storage paths. Preserve human-readable song titles. */
-export function songDocxFileName(title: string) {
-  let base = title.trim().replace(/\.docx$/i, "");
+function songFileBase(title: string, extension: string) {
+  const suffix = `.${extension}`;
+  let base = title.trim();
+  if (base.toLowerCase().endsWith(suffix)) base = base.slice(0, -suffix.length);
   base = Array.from(base, char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 || /[<>:"/\\|?*]/.test(char) ? "_" : char).join("");
   base = Array.from(base).slice(0, 120).join("").replace(/[. ]+$/, "") || "Untitled song";
   if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base)) base = `_${base}`;
-  return `${base}.docx`;
+  return `${base}.${extension}`;
 }
+
+export const songDocxFileName = (title: string) => songFileBase(title, "docx");
+export const songTextFileName = (title: string) => songFileBase(title, "txt");
 
 export function songDownloadDisposition(title: string) {
   const name = songDocxFileName(title);

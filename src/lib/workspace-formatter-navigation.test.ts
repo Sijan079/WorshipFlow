@@ -59,8 +59,10 @@ test("upload page keeps supported outputs in a header information popover", () =
   assert.match(upload, /text-\[var\(--text-accent\)\]/);
   assert.doesNotMatch(upload, /aria-label="Supported output formats"[\s\S]{0,300}ui-btn-secondary/);
   assert.match(upload, /<Popover\.Content[\s\S]*align="end"/);
-  assert.match(upload, /Planning Center XML/);
-  assert.match(upload, /ProPresenter 7 Slides/);
+  // Only outputs that really exist are listed.
+  assert.match(upload, /FreeShow text file/);
+  assert.match(upload, /Word document \(DOCX\)/);
+  for (const notBuilt of ["Planning Center XML", "ProPresenter 7 Slides", "Standard PDF Chords", "Markdown Text"]) assert.doesNotMatch(upload, new RegExp(notBuilt), notBuilt);
   assert.doesNotMatch(upload, /md:grid-cols-3/);
 });
 

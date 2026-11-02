@@ -57,8 +57,9 @@ Owner/Admin can open `/w/{workspaceSlug}/settings?tab=usage` to see the current 
 - Extract and normalize lyrics locally or with optional AI assistance
 - Edit lyrics directly on Word-style pages with section tagging, grouping,
   an optional outline, and undo/redo
-- Export FreeShow-compatible DOCX and resume the latest temporary draft across
-  your devices; phones use continuous editing with a separate page preview
+- Export a song for FreeShow as a text file (one part header per part, a blank
+  line between slides, 2 to 4 lines per slide or as written), or as a Word
+  document, and resume the latest temporary draft across your devices; phones use continuous editing with a separate page preview
 - Maintain a song repository with musical and language metadata
 
 ### Production Media

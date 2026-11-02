@@ -246,11 +246,14 @@ export function groupSections(tag: string, size: 2 | 3): Command {
       while (i < source.length && source[i].tag?.toLowerCase() === tag.toLowerCase()) lines.push(...source[i++].lines);
       const lyrics = lines.filter(line => line.trim());
       if (!lyrics.length) { output.push(makeSection(section)); continue; }
+      // One part, with a blank line between its slides. A second tag for each slide would make a presenter app read one
+      // verse as several verses (FreeShow numbers them Verse 1, 2, 3).
+      const grouped: string[] = [];
       for (let j = 0; j < lyrics.length; j += size) {
-        const group = lyrics.slice(j, j + size);
-        if (j + size < lyrics.length) group.push("");
-        output.push(makeSection({ tag: section.tag, lines: group }));
+        if (j > 0) grouped.push("");
+        grouped.push(...lyrics.slice(j, j + size));
       }
+      output.push(makeSection({ tag: section.tag, lines: grouped }));
     }
     return replaceSections(state, dispatch, output, 0);
   };
