@@ -8,6 +8,7 @@ import { createTicker } from "./heartbeat-ticker";
 import { recognitionLagMs } from "./caption-metrics";
 import { canResumeSession } from "./caption-resume";
 import { claimStreamLock } from "./stream-lock";
+import { logMic } from "./caption-log";
 import type { CaptionRunState } from "./caption-ui";
 import {
   extendSession, fetchActiveSession, fetchDeepgramToken, publishLine, sendPresence, setSessionPaused, startSession, stopSession,
@@ -274,6 +275,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
       streamLockRef.current = await claimStreamLock(current.id);
       beginStreaming(current, token, deepgramToken, stream, mimeType, { id: inputId, label: inputLabel }, 0);
     } catch (error) {
+      logMic("start-failed", {}, error);
       stoppingRef.current = true;
       activeRef.current = null;
       releaseAudio();
@@ -315,7 +317,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
       beginStreaming(current, token, deepgramToken, stream, mimeType, saved, current.lastLine ?? 0);
       setMessage("Captions resumed after the page reloaded. Audio during the gap may be missing.");
       notify("Captions resumed.", "success");
-    } catch {
+    } catch (error) {
+      logMic("resume-failed", {}, error);
       releaseAudio();
       setState("idle");
       setMessage("Captions were running before this page reloaded, and this browser did not allow the input again. Press Stop current session, then Start captions.");

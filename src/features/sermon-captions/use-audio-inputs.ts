@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { calculateAudioLevel, resolveAudioInput } from "./audio-level";
+import { logMic } from "./caption-log";
 import { usableAudioInputs } from "./caption-ui";
 
 export type AudioCheckState = "idle" | "checking" | "receiving" | "error";
@@ -43,13 +44,15 @@ export function useAudioInputs(selectedId: string) {
     try {
       const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "audioinput");
       setDevices(inputs);
+      logMic("detected", { inputs: inputs.length });
       if (inputs.length === 0) {
         setState("error");
         setMessage("No recording input was found. Check that the PC Line In is enabled in Windows Sound settings.");
         return false;
       }
       return true;
-    } catch {
+    } catch (error) {
+      logMic("list-failed", {}, error);
       setState("error");
       setMessage("The browser could not list recording inputs. Check its microphone permission.");
       return false;
@@ -82,6 +85,7 @@ export function useAudioInputs(selectedId: string) {
         setState("idle");
       }
     } catch (error) {
+      logMic("permission-failed", {}, error);
       setState("error");
       setMessage(error instanceof DOMException && error.name === "NotAllowedError"
         ? "Microphone access was denied. Allow it in your browser to test the PC Line In."
@@ -119,6 +123,7 @@ export function useAudioInputs(selectedId: string) {
         frameRef.current = requestAnimationFrame(update);
       };
       stream.getAudioTracks()[0]?.addEventListener("ended", () => {
+        logMic("disconnected");
         stopAudio();
         setState("error");
         setMessage("The selected input disconnected. Reconnect it and select it again.");
@@ -128,6 +133,7 @@ export function useAudioInputs(selectedId: string) {
       update();
     } catch (error) {
       if (!mountedRef.current || requestId !== requestRef.current) return;
+      logMic("open-failed", {}, error);
       stopAudio();
       setState("error");
       setMessage(error instanceof DOMException && error.name === "NotAllowedError"

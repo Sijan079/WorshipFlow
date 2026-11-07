@@ -98,6 +98,21 @@ write the failing check first, build, verify, document.
     comment card, QR generator.
 13. **Rewrite `AGENTS.md` and `README.md`** to point at these docs.
 
+## Enhancements (GitHub issue #9, Priority 1)
+
+Planned 2026-11-03, in this order; decisions in `docs/changes/20261103.md`. Not started.
+
+- **E1. Global Search.** Top bar box with Ctrl+K, grouped results, grant-aware, archived hidden by default.
+  Check: a Member without People view never sees People results; archived records appear only when switched on.
+- **E2. Export.** New Export permission; Owner/Admin JSON backup; CSV per list with column tickboxes; export log.
+  Check: a Member without the grant is refused; sensitive People fields are absent from CSV unless ticked.
+- **E3. Templates.** "Save as template" on a service and "Copy event" on an event.
+  Check: a service made from the template has the same block order and no people or songs.
+- **E4. Import.** Songs from CSV, with a preview and duplicate check.
+  Check: nothing is saved until the preview is confirmed; duplicates are flagged.
+- **E5. Files.** Links on songs and services first, then small capped uploads.
+  Check: an upload over 10 MB or over the church cap is refused.
+
 ## Design direction
 
 Decided 2026-10-26: no mockup set is chosen. The direction is the approach
