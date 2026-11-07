@@ -15,8 +15,8 @@ not yet in the code). New screens follow both.
 ## Experience principles
 
 The design starts from how the app should feel to a person, not from how it is
-laid out. Many users are elderly and not tech-savvy; the rest are a busy tech
-team. The reference for **feel** is the Song Formatter. The reference for
+laid out. Users are mostly aged 18 to 40 and comfortable with apps, and they are often busy,
+so screens favor few steps and plain wording. The reference for **feel** is the Song Formatter. The reference for
 **structure** (tabular data) is Services.
 
 1. **One job per screen, in a straight line.** The Formatter goes upload, then
@@ -44,7 +44,7 @@ rewritten in the owner's own words.
 ## Two surfaces
 
 - **App** (`/w/{workspaceSlug}`): used by the church's tech team. Light work
-  surfaces, a dark navigation rail, purple as a signal. Everything below applies
+  surfaces, a dark navigation rail, one main color (Indigo, or Teal if the person chose it) as a signal. Everything below applies
   to it.
 - **Public site** (`/c/{workspaceSlug}`): read by anyone, including many
   seniors. It has the church's identity, not the admin tool's. See "Public
@@ -84,7 +84,7 @@ are brought in line when a change touches them.
    active), then the count, then refresh, then bulk-action icons (only once rows
    are selected). The Add action stays in the header, never the toolbar.
 4. **Ledger** (Built; `ui-ledger-header`, `ui-ledger-row`): aligned columns, hairline
-   rules, selection as a faint purple wash with no second border. Below 1200px
+   rules, selection as a faint main-color wash with no second border. Below 1200px
    secondary columns collapse into a muted line under the title.
 5. **Rows**: a trailing row menu (`ui-row-menu-trigger`, 44px). The
    hover rule is Built: on screens that support hover
@@ -93,7 +93,7 @@ are brought in line when a change touches them.
    not screen width. The three-dot icon is Target (Services and Teams show a
    hamburger icon today). Clicking a row either expands it inline or opens its
    edit dialog; pick one per module and keep it. Expanded rows stay connected to their row
-   with one purple left rule.
+   with one main-color left rule.
 6. **States**: loading is a row skeleton (Built) that does not flash on refetch
    (Target); empty states say what is missing and what to do (Built); list-load
    errors show a danger band with a Retry button (Built in Settings only, Target
@@ -106,14 +106,14 @@ are brought in line when a change touches them.
 
 ## Controls
 
-- Buttons: `ui-btn-primary` (purple, 44px), `ui-btn-secondary`, `ui-btn-cancel`
+- Buttons: `ui-btn-primary` (main color, 44px), `ui-btn-secondary`, `ui-btn-cancel`
   (outline, red on hover) are Built. `ui-btn-danger-solid` (solid red with white text) is Built, for
   an action that ends something live, such as Stop captions. `ui-btn-danger` visibly red at rest is
   Target for Delete buttons; today they, and Services and Teams, turn red only on hover.
 - Text fields in forms follow the Services text boxes (`.ui-text-field` in
   `globals.css`, used by the People and Ministries dialogs through
   `src/features/people/field-styles.ts`): a plain rounded 1px `--border-default`
-  border on a transparent field, never sunken, and the border turns purple
+  border on a transparent field, never sunken, and the border turns the main color
   (`--border-focus`) when the field is selected, with no outline ring. The label sits
   above in sentence case, `text-sm`, regular weight, secondary color. Every input gets a
   global grey fill and inset shadow, which only a `globals.css` rule can switch off, so
@@ -143,21 +143,24 @@ are brought in line when a change touches them.
   put raw colors in components or `globals.css`.
 - Light workspace palette (see `tokens.css`): canvas and panels `#ffffff`,
   subtle fields `#f8fafc`, inactive controls `#f1f5f9`, text `#111827`
-  `#475569` `#64748b`, rules `#e2e8f0` `#cbd5e1`, action and focus `#7c3aed`
-  (hover `#8754ee`), danger `#b91c1c`, success `#047857`, warning `#b45309`.
-- Purple is a signal: primary actions, focus rings, selection, the active tab, and one floating button
+  `#475569` `#64748b`, rules `#e2e8f0` `#cbd5e1`, action and focus Indigo `#4338ca`
+  (hover `#3730a3`, darker), danger `#b91c1c`, success `#047857`, warning `#b45309`.
+- The main color is a signal: primary actions, focus rings, selection, the active tab, and one floating button
   that also marks something running live for you (the captions button, which pulses). It is never a
-  status color and never a ledger background.
-- **Trial (2026-10-27):** sky blue `#0369a1` is the secondary accent for accent text, links, and the
-  hover and active states of secondary actions (5.9:1 on white; its light wash `#e0f2fe` marks a
-  highlighted row). It is one token, `--workspace-text-accent`, with `--action-secondary-accent-*` and
-  `--surface-highlight`; pointing them back at the purple tokens undoes the trial everywhere. The owner
-  decides after living with it whether it becomes Built (rolled out in the design unification pass) or
-  is dropped.
+  status color and never a ledger background. Indigo `#4338ca` is the default (Built, 2026-11-01).
+- **Teal theme (Built, 2026-11-01):** each person can pick Teal in Settings > Appearance, saved in a cookie on
+  their device. It swaps the main color to `#0f766e` (hover `#115e59`) and the rail to a deep green-slate, through
+  palette tokens only (`:root:has([data-app-theme="teal"])` in `tokens.css`). Teal also has its own slate
+  secondary accent `#334155` (hover `#1e293b`, wash `#e2e8f0`). Status colors and neutrals never change. It applies to the staff app only: the landing page, login page, listener
+  captions page, and public church sites are not themed. Hovers go darker in both themes.
+- Sky blue `#0369a1` is the secondary accent (Built, 2026-11-01; a trial before that) for accent text, links, and
+  the hover and active states of secondary actions (5.9:1 on white; its light wash `#e0f2fe` marks a highlighted
+  row). It is one token, `--workspace-text-accent`, with `--action-secondary-accent-*` and `--surface-highlight`,
+  and belongs to Indigo; Teal swaps in the slate secondary above.
 - Status is a small dot plus a colored label, not a filled badge. Red means an
   error, or an action that is destructive or disruptive to an operation (Stop, Delete); "Draft" uses a
   neutral color.
-- The dark navigation rail uses `--rail-*` tokens and stays.
+- The dark navigation rail uses `--rail-*` tokens and stays; it follows the chosen theme.
 
 ## Typography
 
@@ -225,7 +228,7 @@ Target: nothing here is built yet.
 
 - It looks like the church, not the admin tool. Default template is neutral,
   warm, and light, with large readable type. It does not inherit the app's
-  purple production look.
+  production look.
 - Each church picks one of about five color and font presets. Block layouts are
   fixed; there are no custom layouts or themes beyond the presets.
 - Body text is at least 18px, tap targets at least 44px, contrast meets AA, and
@@ -266,7 +269,7 @@ one piece of equipment, because this is a multi-church product.
 1. **One screen, no tabs.** Setup lives in a dialog opened by an options icon, and Start with no input
    chosen opens it instead of being a dead button.
 2. **The next action sits at the top right.** Start and Stop go in the page header, never inside a card.
-   Start is the one purple button; Stop is solid red (`ui-btn-danger-solid`).
+   Start is the one main-color button; Stop is solid red (`ui-btn-danger-solid`).
 3. **Quiet controls.** A secondary action that needs no words is an icon with no border and no fill,
    with a label and a tooltip. If it needs words, the word sits beside the icon (Test).
 4. **A status is a signal.** A dot and a label in the same colour; Live pulses; red means an error or
@@ -286,7 +289,7 @@ one piece of equipment, because this is a multi-church product.
 11. **One link, one control.** The congregation gets one stable link and QR code; Start and Stop only
     decide whether captions are live.
 12. **Words are plain and honest.** Messages say what was found and what to do.
-13. **One floating live button.** While captions run behind other pages, a purple pulsing microphone sits
+13. **One floating live button.** While captions run behind other pages, a pulsing main-color microphone sits
     at the bottom right; it opens a small panel to go back or stop. It is the only floating button in
     the app.
 
@@ -311,8 +314,7 @@ Ask of any new screen:
 
 ### Open questions
 
-- The secondary accent trial (sky blue `#0369a1`): keep it and roll it out app-wide in the unification
-  pass, or drop it? The owner decides after living with it.
+- None about the secondary accent: the owner kept sky blue (2026-11-01).
 
 ## Automated checks
 

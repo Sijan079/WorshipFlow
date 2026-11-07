@@ -234,7 +234,7 @@ textarea:focus-visible {
 }
 
 /* Plain text fields in forms, matching the Services text boxes: a rounded border on a
-   transparent field, never sunken, and the border turns purple when the field is selected.
+   transparent field, never sunken, and the border turns the main color when the field is selected.
    Every input gets a global grey fill and inset shadow above, so this has to be a rule here. */
 .ui-text-field {
   background-color: transparent;

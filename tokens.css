@@ -1,6 +1,6 @@
 /* Worship Flow OS design tokens
  * Reference surfaces: Services and Teams operational registers
- * Visual model: light production workspace + dark production rail + electric purple actions
+ * Visual model: light production workspace + dark production rail + indigo actions (Teal is a selectable theme)
  */
 :root {
   /* Legacy dark palette (default and compatibility layer) */
@@ -15,10 +15,10 @@
   --palette-text-muted: #8994aa;
   --palette-border-default: #36445c;
   --palette-border-strong: #71809a;
-  --palette-primary-fill: #7c3aed;
-  --palette-primary-fill-hover: #8b5cf6;
-  --palette-primary-ink: #f6f0ff;
-  --palette-primary-focus: #c4b5fd;
+  --palette-primary-fill: #4338ca;
+  --palette-primary-fill-hover: #4f46e5;
+  --palette-primary-ink: #eef0ff;
+  --palette-primary-focus: #a5b4fc;
   --palette-secondary-fill: #89ceff;
   --palette-secondary-strong: #00a2e6;
   --palette-tertiary-soft: #ffb2b7;
@@ -49,12 +49,12 @@
   --palette-workspace-text-muted: #64748b;
   --palette-workspace-border: #e2e8f0;
   --palette-workspace-border-strong: #cbd5e1;
-  --palette-workspace-accent: #7c3aed;
-  --palette-workspace-accent-hover: #8754ee;
+  --palette-workspace-accent: #4338ca;
+  --palette-workspace-accent-hover: #3730a3;
   /* Trial (2026-10-27): sky blue is the secondary accent for accent text, links, and the hover and
      active states of secondary actions. Sky 700 is 5.9:1 on white. Purple stays for primary actions,
      focus rings, and selection. To undo the trial, point --workspace-text-accent and the
-     --workspace-action-secondary-accent-* tokens back at the purple tokens above. */
+     --workspace-action-secondary-accent-* tokens back at the main-color tokens above. */
   --palette-workspace-secondary: #0369a1;
   --palette-workspace-secondary-hover: #075985;
   --palette-workspace-secondary-soft: #e0f2fe;
@@ -71,20 +71,21 @@
   --palette-workspace-idle: #64748b;
 
   /* Production rail palette */
-  --palette-rail-canvas: #090512;
-  --palette-rail-panel: #12091f;
-  --palette-rail-panel-alt: #100817;
-  --palette-rail-panel-strong: #1a0d2a;
-  --palette-rail-panel-elevated: #24113b;
-  --palette-rail-text-primary: #f7f1ff;
-  --palette-rail-text-secondary: #d0c1e5;
-  --palette-rail-text-muted: #9f84c7;
-  --palette-rail-accent: #a875ff;
-  --palette-rail-border: rgb(168 117 255 / 22%);
-  --palette-rail-border-strong: rgb(168 117 255 / 42%);
-  --palette-rail-action: #8f4dff;
+  --palette-rail-canvas: #070a1a;
+  --palette-rail-panel: #0e1330;
+  --palette-rail-panel-alt: #0b0f26;
+  --palette-rail-panel-strong: #151a40;
+  --palette-rail-panel-elevated: #1a2150;
+  --palette-rail-text-primary: #eef0ff;
+  --palette-rail-text-secondary: #c3c9ee;
+  --palette-rail-text-muted: #98a2d6;
+  --palette-rail-accent: #a5b4fc;
+  --palette-rail-border: rgb(165 180 252 / 22%);
+  --palette-rail-border-strong: rgb(165 180 252 / 42%);
+  --palette-rail-action: #4f46e5;
+  --palette-rail-action-hover: #4338ca;
   --palette-rail-action-ink: #ffffff;
-  --palette-rail-ghost-hover: rgb(168 117 255 / 14%);
+  --palette-rail-ghost-hover: rgb(165 180 252 / 14%);
 
   /* Operational workspace semantic contract */
   --workspace-surface-app: var(--palette-workspace-canvas);
@@ -141,7 +142,7 @@
   --rail-border-strong: var(--palette-rail-border-strong);
   --rail-border-focus: var(--palette-rail-accent);
   --rail-action-primary-bg: var(--palette-rail-action);
-  --rail-action-primary-bg-hover: var(--palette-rail-accent);
+  --rail-action-primary-bg-hover: var(--palette-rail-action-hover);
   --rail-action-primary-ink: var(--palette-rail-action-ink);
   --rail-action-secondary-bg: var(--palette-rail-panel-strong);
   --rail-action-secondary-bg-hover: var(--palette-rail-panel-elevated);
@@ -329,3 +330,29 @@
   --color-pastel-sky: var(--palette-pastel-sky);
   --color-pastel-yellow: var(--palette-pastel-yellow);
 }
+
+/* Teal theme (selected per person in Settings > Appearance, 2026-11-01).
+ * The staff-app layout renders [data-app-theme="teal"]; this block must sit on the document root so
+ * dialogs, menus and toasts follow too. It overrides palette tokens only: status colors and neutrals never change. */
+:root:has([data-app-theme="teal"]) {
+  --palette-workspace-accent: #0f766e;
+  --palette-workspace-accent-hover: #115e59;
+  --palette-workspace-secondary: #334155;
+  --palette-workspace-secondary-hover: #1e293b;
+  --palette-workspace-secondary-soft: #e2e8f0;
+  --palette-rail-canvas: #04130f;
+  --palette-rail-panel: #0a1f1a;
+  --palette-rail-panel-alt: #071813;
+  --palette-rail-panel-strong: #0e2a23;
+  --palette-rail-panel-elevated: #12332b;
+  --palette-rail-text-primary: #ecfdf5;
+  --palette-rail-text-secondary: #b7e3d6;
+  --palette-rail-text-muted: #8fb8ab;
+  --palette-rail-accent: #5eead4;
+  --palette-rail-border: rgb(94 234 212 / 22%);
+  --palette-rail-border-strong: rgb(94 234 212 / 42%);
+  --palette-rail-action: #0f766e;
+  --palette-rail-action-hover: #115e59;
+  --palette-rail-ghost-hover: rgb(94 234 212 / 14%);
+}
+

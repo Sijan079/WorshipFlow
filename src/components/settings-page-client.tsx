@@ -25,6 +25,7 @@ import {
 import { moveTemplateBlock, normalizePresetCode } from "@/lib/settings-presets";
 import type { EnvironmentReport } from "@/lib/server-env";
 import { MembershipSection, WorkspaceSection } from "@/components/settings-admin-sections";
+import { AppearanceSection } from "@/components/appearance-section";
 import CaptionUsageSection from "@/features/sermon-captions/caption-usage-section";
 
 type ChecklistItemForm = {
@@ -77,6 +78,7 @@ const SETTINGS_TABS = [
   { id: "checklist", label: "Checklist" },
   { id: "integrations", label: "Integrations" },
   { id: "usage", label: "Usage" },
+  { id: "appearance", label: "Appearance" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
@@ -85,6 +87,7 @@ const SETTINGS_NAV_GROUPS: Array<{ label: string; tabs: SettingsTab[] }> = [
   { label: "Workspace", tabs: ["general", "membership"] },
   { label: "Service setup", tabs: ["templates", "tags", "checklist"] },
   { label: "Connections", tabs: ["integrations", "usage"] },
+  { label: "Personal", tabs: ["appearance"] },
 ];
 
 type ProgramFieldForm = {
@@ -1766,6 +1769,10 @@ export default function SettingsPageClient({ environment, canViewUsage }: { envi
       {canViewUsage ? <div id="settings-panel-usage" role="tabpanel" aria-labelledby="settings-tab-usage" tabIndex={0} hidden={activeTab !== "usage"} className="space-y-5">
         {activeTab === "usage" ? <CaptionUsageSection /> : null}
       </div> : null}
+
+      <div id="settings-panel-appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" tabIndex={0} hidden={activeTab !== "appearance"} className="space-y-5">
+        {activeTab === "appearance" ? <AppearanceSection /> : null}
+      </div>
 
         </div>
       </div>

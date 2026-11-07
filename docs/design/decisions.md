@@ -21,7 +21,7 @@ Built in: Sermon Captions. Status: Built.
 
 ### The next action sits at the top right
 Start and Stop go in the page header, in the same place as Add person and Add service, never inside a
-card. Start is the one purple button; Stop is solid red (`ui-btn-danger-solid`).
+card. Start is the one main-color button; Stop is solid red (`ui-btn-danger-solid`).
 **Why:** a person always knows where to look, and there is only ever one primary action.
 Built in: Sermon Captions, People, Ministries, Services. Status: Built.
 
@@ -76,11 +76,22 @@ Built in: Sermon Captions (Stop). Status: Built; older Delete buttons turn red o
 
 ### The secondary accent (sky blue)
 Sky blue `#0369a1` is the secondary accent for accent text, links, and the hover and active states of
-secondary actions. Purple stays for primary actions, focus rings, selection, and the active tab.
-**Why:** the owner wanted a colour that complements the purple theme, so secondary actions do not all
-read as primary ones. It is one token, so it is easy to undo.
-Built in: the whole light workspace, as a trial from 2026-10-27. Status: Trial. The owner decides after
-living with it.
+secondary actions. The main color (Indigo, or Teal) stays for primary actions, focus rings, selection, and
+the active tab.
+**Why:** the owner wanted a colour that complements the main colour, so secondary actions do not all
+read as primary ones. It is one token. Indigo keeps sky blue; Teal swaps it for slate `#334155` (see below).
+Built in: the whole light workspace. Status: Built (2026-11-01; a trial from 2026-10-27).
+
+### Indigo main color and the Teal theme
+Indigo `#4338ca` replaced purple as the main color. Each person can pick Teal (`#0f766e`) in Settings >
+Appearance; it also swaps the rail to a deep green-slate. Hovers are darker in both themes.
+**Why:** indigo has better contrast than purple (7.9:1 on white) and sits next to sky blue on the colour wheel;
+Teal gives people a calmer option, which suits long stretches in the app. It is a personal choice saved
+on the device, so it never changes what other people see. A lighter teal hover failed 4.5:1 with white text.
+Teal's own secondary is slate `#334155` (10.4:1 on white), because sky blue next to teal looked like the
+same blue (owner, 2026-11-01); slate stays clear of the Warning, Danger and Success colors.
+Built in: the staff app only (not the landing page, login, listener captions page, or public sites). Status:
+Built (2026-11-01). Record: `docs/changes/20261101.md`.
 
 ## Status
 
@@ -92,7 +103,7 @@ Built in: Sermon Captions. Status: Built.
 
 ### The floating live button
 While this browser is broadcasting captions and the Captions page is not open, one floating button sits at
-the bottom right: a purple microphone that pulses (amber while starting or recovering, red when it needs
+the bottom right: a main-color microphone that pulses (amber while starting or recovering, red when it needs
 attention). Pressing it opens a small panel with the status, the input in use, Open Captions, and Stop
 captions (which asks first). It sits under dialogs and above the phone's safe area, is hidden on the
 Captions, login, and listener pages, and is the only floating button in the app, reserved for "something
@@ -181,5 +192,5 @@ Built in: Sermon Captions. Status: Built.
 ### Words are plain and honest
 Messages say what was found and what to do, and tell the truth about uncertainty (a copy that may not
 work in this browser says so and points to the download).
-**Why:** many users are elderly and not technical.
+**Why:** the audience is busy, so a message should be quick to read and say what to do.
 Built in: Sermon Captions. Status: Built.

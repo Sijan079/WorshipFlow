@@ -21,8 +21,8 @@ function contrast(a: string, b: string) {
   return (high + 0.05) / (low + 0.05);
 }
 
-// Trial (2026-10-27): sky blue is the secondary accent for accent text, links, and the hover and
-// active states of secondary actions. Purple stays for primary actions, focus rings, and selection.
+// Built (2026-11-01, was a trial from 2026-10-27): sky blue is the secondary accent for accent text, links, and the hover and
+// active states of secondary actions. The main color (Indigo, or Teal when chosen) stays for primary actions, focus rings, and selection.
 export function runSecondaryAccentTests() {
   const tokens = read("tokens.css");
   const globals = read("src", "app", "globals.css");
@@ -53,12 +53,12 @@ export function runSecondaryAccentTests() {
   assert.match(globals, /--action-secondary-accent-bg-hover: var\(--workspace-action-secondary-accent-bg-hover\);/);
   assert.match(globals, /--action-secondary-accent-ink: var\(--workspace-action-secondary-accent-ink\);/);
   assert.match(globals, /--surface-highlight: var\(--workspace-surface-highlight\);/);
-  // Outside the light workspace (the dark rail, the login page) the accent falls back to purple.
+  // Outside the light workspace (the dark rail, the login page) the accent falls back to the main color.
   assert.match(tokens, /--action-secondary-accent-bg: var\(--palette-primary-fill\);/);
   assert.match(tokens, /--surface-highlight: var\(--palette-primary-focus\);/);
 
-  // Purple is untouched where it must stay: primary fills, selection, and the focus ring.
-  assert.match(tokens, /--palette-workspace-accent: #7c3aed;/);
+  // The main color is untouched where it must stay: primary fills, selection, and the focus ring.
+  assert.match(tokens, /--palette-workspace-accent: #4338ca;/);
   assert.match(tokens, /--workspace-border-focus: var\(--palette-workspace-accent\);/);
   assert.match(tokens, /--workspace-action-primary-bg: var\(--palette-workspace-accent\);/);
 
@@ -97,6 +97,7 @@ export function runSecondaryAccentTests() {
 
   // The trial is on the record, with how to undo it.
   const design = read("DESIGN.md");
-  assert.match(design, /Trial/);
-  assert.match(design, /sky blue `#0369a1`/);
+  // Built on 2026-11-01 (it was a trial from 2026-10-27); Teal has its own secondary.
+  assert.match(design, /Sky blue `#0369a1` is the secondary accent \(Built, 2026-11-01; a trial before that\)/);
+  assert.match(design, /Teal theme \(Built, 2026-11-01\)/);
 }
