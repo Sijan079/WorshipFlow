@@ -42,10 +42,10 @@ export function buildBibleGatewayUrl(verse: string) {
 }
 
 export function getDefaultNextServiceSunday(baseDate = new Date()) {
-  const utcDate = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
-  const currentDay = utcDate.getUTCDay();
-  const daysUntilNextSunday = currentDay === 0 ? 7 : 14 - currentDay;
-  utcDate.setUTCDate(utcDate.getUTCDate() + daysUntilNextSunday);
+  // Local calendar date (a Sunday morning in Manila is still Saturday in UTC). Today counts when it is a Sunday.
+  const utcDate = new Date(Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate()));
+  const daysUntilSunday = (7 - utcDate.getUTCDay()) % 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + daysUntilSunday);
   return utcDate;
 }
 

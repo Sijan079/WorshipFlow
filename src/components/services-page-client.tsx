@@ -573,6 +573,7 @@ export default function ServicesPageClient({ initialServices }: { initialService
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const selectionCheckboxRef = useRef<HTMLInputElement>(null);
   const compactSelectionCheckboxRef = useRef<HTMLInputElement>(null);
@@ -623,8 +624,11 @@ export default function ServicesPageClient({ initialServices }: { initialService
       })),
     [ministryLabelByCode, servicesQuery.data, templateLabelByCode]
   );
-  // The newest service is always first, whatever order the server sends them in.
-  const newestServices = useMemo(() => latestFirst(services, (service) => service.serviceDate), [services]);
+  // Newest first by default, whatever order the server sends them in; the sort control can flip it.
+  const newestServices = useMemo(() => {
+    const newestFirst = latestFirst(services, (service) => service.serviceDate);
+    return sortOrder === "newest" ? newestFirst : [...newestFirst].reverse();
+  }, [services, sortOrder]);
   const filteredServices = useMemo(() => {
     return newestServices.filter((service) => {
       const matchesDate = !dateFilter || service.dateKey === dateFilter;
@@ -918,6 +922,15 @@ export default function ServicesPageClient({ initialServices }: { initialService
                   value={ministryFilter}
                   onValueChange={(value) => { setMinistryFilter(value); setCurrentPage(1); }}
                   options={[{ value: "", label: "All ministries" }, ...ministryOptions]}
+                />
+              </div>
+
+              <div className="min-w-[160px] flex-1 sm:max-w-[200px]">
+                <ProductionSelect
+                  ariaLabel="Sort services by date"
+                  value={sortOrder}
+                  onValueChange={(value) => { setSortOrder(value === "oldest" ? "oldest" : "newest"); setCurrentPage(1); }}
+                  options={[{ value: "newest", label: "Newest first" }, { value: "oldest", label: "Oldest first" }]}
                 />
               </div>
 

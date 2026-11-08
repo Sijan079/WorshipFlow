@@ -25,7 +25,7 @@ function errorMessage(error: unknown) {
 }
 
 function openDeepgramSocket(token: string) {
-  return new WebSocket("wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&language_hint=tl&language_hint=en&interim_results=true&smart_format=true&endpointing=500", ["bearer", token]);
+  return new WebSocket("wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&language_hint=tl&language_hint=en&interim_results=true&smart_format=true&endpointing=300", ["bearer", token]);
 }
 
 // Owns one captions session from start to stop: the audio stream, the provider connection, the
@@ -40,6 +40,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   const [state, setState] = useState<CaptionRunState>("idle");
   const [message, setMessage] = useState("Choose an audio input with the options button, then start captions.");
   const [lines, setLines] = useState<CaptionLine[]>([]);
+  // What the speech recognizer heard, by line number, so a wrong caption can be traced to recognition or translation.
+  const [heard, setHeard] = useState<Record<number, string>>({});
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   const [canShare, setCanShare] = useState(false);
@@ -49,6 +51,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   const connectionRef = useRef<CaptionStreamConnection | null>(null);
   const assemblerRef = useRef(new CaptionAssembler());
   const queueRef = useRef<Promise<void>>(Promise.resolve());
+  // Updates waiting for their turn. A newer update for the same line replaces an older unsent interim one.
+  const pendingRef = useRef<CaptionUpdate[]>([]);
   const activeRef = useRef<{ id: string; token: string } | null>(null);
   const stoppingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -132,9 +136,18 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   function publish(update: CaptionUpdate) {
     const active = activeRef.current;
     if (!active) return;
+    setHeard((previous) => ({ ...previous, [update.line]: update.source }));
+    // Latest wins: an interim that has not gone out yet is stale once a newer update for the same line
+    // arrives, so it is replaced in place (order kept) instead of costing another translation.
+    // Final lines are never dropped.
+    const waiting = pendingRef.current.findIndex((item) => item.line === update.line && !item.final);
+    if (waiting >= 0) pendingRef.current[waiting] = update;
+    else pendingRef.current.push(update);
     queueRef.current = queueRef.current.then(async () => {
+      const next = pendingRef.current.shift();
+      if (!next) return;
       const startedAt = performance.now();
-      const line = await publishLine(active.id, active.token, update, lastRoundTripRef.current);
+      const line = await publishLine(active.id, active.token, next, lastRoundTripRef.current);
       lastRoundTripRef.current = Math.round(performance.now() - startedAt);
       setLines((previous) => latestCaptionLines(previous, line));
     }).catch((error) => {
@@ -191,10 +204,12 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     setSession(current);
     setOperatorToken(token);
     setLines([]);
+    setHeard({});
     pausedRef.current = Boolean(current.paused);
     setPaused(pausedRef.current);
     assemblerRef.current = new CaptionAssembler(startAfterLine);
     queueRef.current = Promise.resolve();
+    pendingRef.current = [];
     stoppingRef.current = false;
     presenceSequenceRef.current = 0;
     quotaNotifiedRef.current = false;
@@ -376,7 +391,7 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   }
 
   return {
-    state, session, message, lines, canOperate, canShare, canRegenerate, devAgainstLiveDatabase,
+    state, session, message, lines, heard, canOperate, canShare, canRegenerate, devAgainstLiveDatabase,
     canStopExisting: canOperate && Boolean(operatorToken || session?.canManage),
     paused, pause: () => setPausedTo(true), resume: () => setPausedTo(false),
     start, stop, stopExisting, extend,

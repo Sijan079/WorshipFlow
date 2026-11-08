@@ -56,7 +56,7 @@ export default function SermonCaptionsPage() {
           <CaptionInfo inputLabel={engine.input.label} running={engine.running} />
           <CaptionStatus state={engine.state} hasSession={Boolean(engine.session)} paused={engine.paused} />
         </div>
-        <CaptionPreview lines={engine.lines} />
+        <CaptionPreview lines={engine.lines} heard={engine.heard} />
         <div className="px-4 py-3 sm:px-6">
           <CaptionMessage message={engine.message} />
         </div>

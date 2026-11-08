@@ -104,14 +104,20 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      reportRouteFailure(new Error(`GitHub feedback request failed with status ${response.status}.`), {
+      // Keep GitHub's own reason in the server log (never the token) so a bad or expired key is easy to spot.
+      const upstreamMessage = await response.json().then((body: { message?: unknown }) => String(body?.message ?? "")).catch(() => "");
+      reportRouteFailure(new Error(`GitHub feedback request failed with status ${response.status}${upstreamMessage ? `: ${upstreamMessage}` : ""}.`), {
         route: "/api/feedback",
         method: "POST",
         status: 502,
         request,
         event: "feedback.upstream.failure",
       });
-      return NextResponse.json({ error: "Could not send report." }, { status: 502 });
+      const tokenProblem = response.status === 401 || response.status === 403 || response.status === 404;
+      return NextResponse.json(
+        { error: tokenProblem ? "Reporting is not set up correctly. Please tell the admin." : "Could not send report." },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({ success: true }, { status: 201 });
