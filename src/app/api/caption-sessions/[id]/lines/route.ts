@@ -93,6 +93,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         update: { source, english, final: parsed.data.final },
         create: { sessionId: id, line: parsed.data.line, source, english, final: parsed.data.final },
       }),
+      // A private record of what was heard and its translation, kept for checking quality. It runs alongside
+      // the save, only for finished lines, and a failure here never fails the caption. Nothing reads it.
+      parsed.data.final
+        ? prisma.captionTranscriptLine.upsert({
+            where: { sessionId_line: { sessionId: id, line: parsed.data.line } },
+            update: { source, english },
+            create: { workspaceId: context.workspaceId, sessionId: id, line: parsed.data.line, source, english },
+          }).catch(() => null)
+        : null,
     ]);
     timer.mark("save");
     const [current] = await Promise.all([

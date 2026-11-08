@@ -26,24 +26,53 @@ test("operator captions keep the ten newest lines first and replace partial upda
   assert.equal(lines[0].english, "Updated line 11");
 });
 
-test("caption assembler updates the same line until speech ends", () => {
+const chunk = (transcript: string, flags: { is_final?: boolean; speech_final?: boolean } = { is_final: true }) => ({ ...flags, channel: { alternatives: [{ transcript }] } });
+
+test("caption assembler keeps a line open until the sentence ends", () => {
   const assembler = new CaptionAssembler();
-  assert.deepEqual(assembler.accept({ is_final: true, speech_final: false, channel: { alternatives: [{ transcript: "Kumusta" }] } }),
-    [{ line: 1, source: "Kumusta", final: false }]);
-  assert.deepEqual(assembler.accept({ is_final: false, speech_final: false, channel: { alternatives: [{ transcript: "Kumusta ka" }] } }), []);
-  assert.deepEqual(assembler.accept({ is_final: true, speech_final: false, channel: { alternatives: [{ transcript: "ka na?" }] } }),
-    [{ line: 1, source: "Kumusta ka na?", final: false }]);
-  assert.deepEqual(assembler.accept({ is_final: false, speech_final: true, channel: { alternatives: [{ transcript: "" }] } }),
-    [{ line: 1, source: "Kumusta ka na?", final: true }]);
-  assert.deepEqual(assembler.accept({ is_final: true, speech_final: true, channel: { alternatives: [{ transcript: "Welcome." }] } }),
-    [{ line: 2, source: "Welcome.", final: true }]);
+  assert.deepEqual(assembler.accept(chunk("Kumusta")), [{ line: 1, source: "Kumusta", final: false }]);
+  assert.deepEqual(assembler.accept(chunk("Kumusta ka", { is_final: false })), []);
+  // A sentence ending closes the line as soon as it arrives, without waiting for a pause.
+  assert.deepEqual(assembler.accept(chunk("ka na?")), [{ line: 1, source: "Kumusta ka na?", final: true }]);
+  assert.deepEqual(assembler.accept(chunk("", { is_final: false, speech_final: true })), []);
+  assert.deepEqual(assembler.accept(chunk("Welcome.", { is_final: true, speech_final: true })), [{ line: 2, source: "Welcome.", final: true }]);
+});
+
+test("a pause without punctuation keeps the line open instead of cutting the sentence", () => {
+  const assembler = new CaptionAssembler();
+  assert.deepEqual(assembler.accept(chunk("Kumusta po", { is_final: true, speech_final: true })), [{ line: 1, source: "Kumusta po", final: false }]);
+  // The same text is not sent again.
+  assert.deepEqual(assembler.accept(chunk("", { is_final: false, speech_final: true })), []);
+  assert.deepEqual(assembler.accept(chunk("sa inyo.")), [{ line: 1, source: "Kumusta po sa inyo.", final: true }]);
+});
+
+test("a long pause closes an open line, and so does a line that has run too long", () => {
+  let now = 0;
+  const assembler = new CaptionAssembler(0, () => now);
+  assembler.accept(chunk("Kumusta po"));
+  now = 1_000;
+  assert.deepEqual(assembler.closeIfIdle(), []);
+  now = 1_500;
+  assert.deepEqual(assembler.closeIfIdle(), [{ line: 1, source: "Kumusta po", final: true }]);
+  assert.deepEqual(assembler.closeIfIdle(), []);
+  assert.deepEqual(assembler.accept(chunk("Next")), [{ line: 2, source: "Next", final: false }]);
+
+  // Speech that never pauses or ends a sentence is still cut after a while.
+  now = 10_000;
+  assembler.accept(chunk("one"));
+  now = 14_000;
+  assembler.accept(chunk("two"));
+  now = 17_000;
+  assembler.accept(chunk("three"));
+  now = 18_000;
+  assert.deepEqual(assembler.closeIfIdle(), [{ line: 2, source: "Next one two three", final: true }]);
 });
 
 test("caption assembler splits continuous speech before an oversized line", () => {
   const assembler = new CaptionAssembler();
   const first = "a".repeat(160);
-  assembler.accept({ is_final: true, speech_final: false, channel: { alternatives: [{ transcript: first }] } });
-  const output = assembler.accept({ is_final: true, speech_final: false, channel: { alternatives: [{ transcript: "b".repeat(50) }] } });
+  assembler.accept(chunk(first));
+  const output = assembler.accept(chunk("b".repeat(50)));
   assert.deepEqual(output, [
     { line: 1, source: first, final: true },
     { line: 2, source: "b".repeat(50), final: false },
@@ -52,11 +81,22 @@ test("caption assembler splits continuous speech before an oversized line", () =
 
 test("caption assembler bounds an unusually long final transcript", () => {
   const assembler = new CaptionAssembler();
-  const updates = assembler.accept({ is_final: true, speech_final: true, channel: { alternatives: [{ transcript: "a".repeat(410) }] } });
+  const updates = assembler.accept(chunk("a".repeat(410), { is_final: true, speech_final: true }));
   assert.equal(updates.length, 3);
   assert.equal(updates.every((item) => item.source.length <= 200), true);
   assert.equal(updates.map((item) => item.source).join(""), "a".repeat(410));
-  assert.equal(updates.every((item) => item.final), true);
+  // The last piece has no sentence ending yet, so it stays open.
+  assert.deepEqual(updates.map((item) => item.final), [true, true, false]);
+});
+
+test("a forced cut prefers a comma or a conjunction over a random space", () => {
+  const withComma = `${"alpha ".repeat(25).trim()}, ${"beta ".repeat(30).trim()}`;
+  const [firstComma] = new CaptionAssembler().accept(chunk(withComma, { is_final: true, speech_final: true }));
+  assert.equal(firstComma.source.endsWith("alpha,"), true);
+  const withConjunction = `${"word ".repeat(32).trim()} pero ${"tama ".repeat(20).trim()}`;
+  const [firstConjunction, second] = new CaptionAssembler().accept(chunk(withConjunction, { is_final: true, speech_final: true }));
+  assert.equal(firstConjunction.source.endsWith("word"), true);
+  assert.equal(second.source.startsWith("pero tama"), true);
 });
 
 test("caption source is bounded and viewer access expires", () => {

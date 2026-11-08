@@ -25,7 +25,7 @@ function errorMessage(error: unknown) {
 }
 
 function openDeepgramSocket(token: string) {
-  return new WebSocket("wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&language_hint=tl&language_hint=en&interim_results=true&smart_format=true&endpointing=300", ["bearer", token]);
+  return new WebSocket("wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&language_hint=tl&language_hint=en&interim_results=true&smart_format=true&endpointing=500", ["bearer", token]);
 }
 
 // Owns one captions session from start to stop: the audio stream, the provider connection, the
@@ -58,6 +58,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
   const mountedRef = useRef(true);
   const expiryTimerRef = useRef<number | null>(null);
   const presenceTickerRef = useRef<{ stop: () => void } | null>(null);
+  // Closes a caption line after a long pause or when it has run too long; see CaptionAssembler.closeIfIdle.
+  const idleTickerRef = useRef<{ stop: () => void } | null>(null);
   const presenceSequenceRef = useRef(0);
   const quotaNotifiedRef = useRef(false);
   const streamLockRef = useRef<{ release: () => void } | null>(null);
@@ -72,6 +74,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     expiryTimerRef.current = null;
     presenceTickerRef.current?.stop();
     presenceTickerRef.current = null;
+    idleTickerRef.current?.stop();
+    idleTickerRef.current = null;
     streamLockRef.current?.release();
     streamLockRef.current = null;
     connectionRef.current?.stop();
@@ -166,6 +170,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     stoppingRef.current = true;
     presenceTickerRef.current?.stop();
     presenceTickerRef.current = null;
+    idleTickerRef.current?.stop();
+    idleTickerRef.current = null;
     setState("stopping");
     setMessage("Finishing the last caption…");
     const active = activeRef.current;
@@ -216,6 +222,8 @@ export function useCaptionSession({ inputId, inputLabel, notify, enabled, onInpu
     lastRoundTripRef.current = undefined;
     connectionStatusRef.current = "CONNECTING";
     presenceTickerRef.current = createTicker(5_000, () => heartbeat(connectionStatusRef.current));
+    idleTickerRef.current?.stop();
+    idleTickerRef.current = createTicker(500, () => { for (const update of assemblerRef.current.closeIfIdle()) publish(update); });
 
     const connection = new CaptionStreamConnection({
       initialToken: deepgramToken,

@@ -76,12 +76,43 @@ type DeepgramResult = {
   channel?: { alternatives?: Array<{ transcript?: string }> };
 };
 
+// A caption line is one sentence where possible. Lines are closed by, whichever comes first:
+//   1. a sentence ending (. ? !) in the recognized text,
+//   2. a long pause with nothing new (the line is closed by closeIfIdle),
+//   3. a line that has been open too long, or is too long to read (200 characters).
+// A short pause alone does not close a line, because speakers pause in the middle of a sentence and the
+// translation needs the whole sentence for context.
+export const LINE_MAX_CHARS = 200;
+export const LINE_LONG_PAUSE_MS = 1_500;
+export const LINE_MAX_OPEN_MS = 8_000;
+
+const SENTENCE_END = /[.?!…]["'”’)\]]*$/;
+
+function endsSentence(text: string) {
+  return SENTENCE_END.test(text.trim());
+}
+
+// Where to cut text that is too long: after the last comma, or before the last common joining word
+// (Filipino and English), if one is in the second half of the window; otherwise at the last space.
+const JOINING_WORDS = /\s(?=(?:at|pero|kasi|dahil|kaya|ngunit|and|but|because|so|that|which|then)\s)/gi;
+
+function findCut(window: string, minimum: number) {
+  let best = -1;
+  const comma = window.lastIndexOf(", ");
+  if (comma + 1 >= minimum) best = comma + 1;
+  for (const match of window.matchAll(JOINING_WORDS)) {
+    if (match.index >= minimum && match.index > best) best = match.index;
+  }
+  if (best >= minimum) return best;
+  const space = window.lastIndexOf(" ");
+  return space >= minimum ? space : LINE_MAX_CHARS;
+}
+
 function splitTranscript(value: string) {
   const pieces: string[] = [];
   let remaining = value;
-  while (remaining.length > 200) {
-    const space = remaining.lastIndexOf(" ", 200);
-    const cut = space >= 100 ? space : 200;
+  while (remaining.length > LINE_MAX_CHARS) {
+    const cut = findCut(remaining.slice(0, LINE_MAX_CHARS + 1), 100);
     pieces.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trimStart();
   }
@@ -101,43 +132,69 @@ export function canReadCaptionSession(session: { status: string; expiresAt: Date
 export class CaptionAssembler {
   private parts: string[] = [];
   private line = 0;
+  private lineStartedAt = 0;
+  private lastActivityAt = 0;
+  private lastSent = "";
+  private readonly clock: () => number;
 
   // After a reload, numbering continues after the last stored line: the server ignores a line number
   // that is already final, so starting again at 1 would drop every resumed caption.
-  constructor(startAfterLine = 0) {
+  constructor(startAfterLine = 0, clock: () => number = Date.now) {
     this.line = startAfterLine;
+    this.clock = clock;
   }
 
   accept(result: DeepgramResult): CaptionUpdate[] {
     const updates: CaptionUpdate[] = [];
     const transcript = result.channel?.alternatives?.[0]?.transcript?.trim();
     if (result.is_final && transcript) {
+      const now = this.clock();
+      this.lastActivityAt = now;
       const pieces = splitTranscript(transcript);
       pieces.forEach((piece, index) => {
-        if (this.parts.length && [...this.parts, piece].join(" ").length > 200) {
-          updates.push({ line: this.line, source: this.parts.join(" "), final: true });
-          this.parts = [];
+        if (this.parts.length && [...this.parts, piece].join(" ").length > LINE_MAX_CHARS) {
+          updates.push(this.close());
         }
-        if (this.parts.length === 0) this.line += 1;
+        if (this.parts.length === 0) {
+          this.line += 1;
+          this.lineStartedAt = now;
+        }
         this.parts.push(piece);
-        if (index < pieces.length - 1) {
-          updates.push({ line: this.line, source: this.parts.join(" "), final: true });
-          this.parts = [];
-        }
+        if (index < pieces.length - 1) updates.push(this.close());
       });
     }
     if (this.parts.length > 0 && (result.is_final || result.speech_final)) {
-      updates.push({ line: this.line, source: this.parts.join(" "), final: Boolean(result.speech_final) });
+      const source = this.parts.join(" ");
+      // Only a sentence ending closes the line here; a pause on its own leaves it open.
+      if (result.is_final && endsSentence(source)) updates.push(this.close());
+      else if (source !== this.lastSent) updates.push(this.send(source, false));
     }
-    if (result.speech_final) this.parts = [];
     return updates;
   }
 
-  flush(): CaptionUpdate[] {
+  // Called on a timer. Closes the open line after a long pause, or when it has been open too long, so a
+  // speaker who never ends a sentence still gets captions that move on.
+  closeIfIdle(): CaptionUpdate[] {
     if (!this.parts.length) return [];
-    const update = { line: this.line, source: this.parts.join(" "), final: true };
+    const now = this.clock();
+    if (now - this.lastActivityAt >= LINE_LONG_PAUSE_MS || now - this.lineStartedAt >= LINE_MAX_OPEN_MS) return [this.close()];
+    return [];
+  }
+
+  flush(): CaptionUpdate[] {
+    return this.parts.length ? [this.close()] : [];
+  }
+
+  private close(): CaptionUpdate {
+    const update = this.send(this.parts.join(" "), true);
     this.parts = [];
-    return [update];
+    this.lastSent = "";
+    return update;
+  }
+
+  private send(source: string, final: boolean): CaptionUpdate {
+    this.lastSent = source;
+    return { line: this.line, source, final };
   }
 }
 

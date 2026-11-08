@@ -269,6 +269,7 @@ model Workspace {
   captionSettings CaptionSettings?
   captionUsageDays CaptionUsageDay[]
   captionUsageHours CaptionUsageHour[]
+  captionTranscriptLines CaptionTranscriptLine[]
   captionUsageBaselines CaptionUsageBaseline[]
   people    Person[]
   ministries Ministry[]
@@ -940,6 +941,23 @@ model CaptionUsageDay {
 
 // Translated characters for each UTC hour, so the Usage tab can show a single day by the hour. Kept next to the
 // daily totals, which stay the figure the monthly limit counts.
+// A private record of what was heard and what it was translated to, for checking translation quality.
+// Nothing in the app reads it; see the migration. sessionId has no relation so the record outlives the session.
+model CaptionTranscriptLine {
+  id String @id @default(uuid())
+  workspaceId String
+  sessionId String
+  line Int
+  source String @db.Text
+  english String @db.Text
+  createdAt DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, line])
+  @@index([workspaceId, createdAt])
+}
+
 model CaptionUsageHour {
   id String @id @default(uuid())
   workspaceId String
