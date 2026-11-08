@@ -52,6 +52,7 @@ import { runCaptionBackgroundTests } from "./features/sermon-captions/caption-ba
 import { runCaptionHardeningTests } from "./features/sermon-captions/caption-hardening.test.ts";
 import { runCaptionEngineTests } from "./features/sermon-captions/caption-engine.test.ts";
 import { runCaptionResumeTests } from "./features/sermon-captions/caption-resume.test.ts";
+import { runCaptionRealtimeTests } from "./features/sermon-captions/caption-realtime.test.ts";
 import { runCaptionMetricsTests } from "./features/sermon-captions/caption-metrics.test.ts";
 import { runDialogTitleTests } from "./lib/dialog-titles.test.ts";
 import "./lib/module-access.test.ts";
@@ -173,6 +174,7 @@ runCaptionBackgroundTests();
 await runCaptionEngineTests();
 await runCaptionResumeTests();
 runCaptionMetricsTests();
+await runCaptionRealtimeTests();
 runDialogTitleTests();
 runWorkspaceShellTests();
 runFeedbackTests();

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import type { CaptionPublicStatus } from "./caption-contract";
 import { viewerPollMs } from "./caption-link";
+import { CAPTION_BROADCAST_EVENT, addPushedLine, captionTopic, overlayPushedLines, parsePushedLine } from "./caption-realtime";
 
 type CaptionLine = { line: number; english: string; final: boolean };
 type Feed = { status: CaptionPublicStatus; lines: CaptionLine[]; churchName?: string; expiresAt?: string };
@@ -30,17 +32,20 @@ function describe(feed: Feed | null, problem: Problem) {
 export default function CaptionViewer({ token }: { token: string }) {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [problem, setProblem] = useState<Problem>("none");
+  // Lines pushed to this phone the moment they are saved; the poll below is the safety net behind them.
+  const [pushed, setPushed] = useState<CaptionLine[]>([]);
 
   useEffect(() => {
     let active = true;
     let timer: number | undefined;
     let latest: CaptionPublicStatus | undefined;
+    let pushConnected = false;
 
     // The page keeps asking after a session ends, slowly, so it returns by itself when the next one
     // starts. It stops only while the tab is hidden, or when the link itself is not valid.
     function schedule() {
       if (!active || document.hidden) return;
-      timer = window.setTimeout(() => void refresh(), viewerPollMs(latest));
+      timer = window.setTimeout(() => void refresh(), viewerPollMs(latest, pushConnected));
     }
     async function refresh() {
       window.clearTimeout(timer);
@@ -52,6 +57,8 @@ export default function CaptionViewer({ token }: { token: string }) {
         const current = await response.json() as Feed;
         if (!active) return;
         latest = current.status;
+        // Nothing is live, so lines pushed earlier belong to a session that is over.
+        if (current.status === "waiting" || current.status === "ended") setPushed([]);
         setFeed(current);
         setProblem("none");
       } catch {
@@ -64,15 +71,42 @@ export default function CaptionViewer({ token }: { token: string }) {
       else void refresh();
     }
 
+    // Listen for pushed lines on this church's private channel. If anything about it fails, the page just
+    // keeps polling every second, as before.
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    let cleanupPush = () => {};
+    if (url && key) {
+      try {
+        const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+        const channel = client
+          .channel(captionTopic(token), { config: { private: true } })
+          .on("broadcast", { event: CAPTION_BROADCAST_EVENT }, ({ payload }) => {
+            const line = parsePushedLine(payload);
+            if (line && active) setPushed((previous) => addPushedLine(previous, line));
+          })
+          .subscribe((status) => {
+            pushConnected = status === "SUBSCRIBED";
+            // Going back to fast polling takes effect now, not after the slow wait already scheduled.
+            if (!pushConnected && active) { window.clearTimeout(timer); schedule(); }
+          });
+        cleanupPush = () => { void client.removeChannel(channel); };
+      } catch {
+        pushConnected = false;
+      }
+    }
+
     document.addEventListener("visibilitychange", onVisibility);
     void refresh();
     return () => {
       active = false;
       window.clearTimeout(timer);
+      cleanupPush();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [token]);
 
+  const shownLines = useMemo(() => overlayPushedLines(feed?.lines ?? [], pushed), [feed, pushed]);
   const attention = problem !== "none" || feed?.status === "interrupted" || feed?.status === "error";
 
   return <main className="min-h-screen bg-[var(--rail-surface-canvas)] px-4 py-8 text-[var(--rail-text-primary)] sm:px-8">
@@ -81,8 +115,8 @@ export default function CaptionViewer({ token }: { token: string }) {
       {feed?.churchName ? <p className="mt-1 text-base text-[var(--rail-text-secondary)]">Live English captions</p> : null}
       <p className={`mt-4 font-medium ${attention ? "rounded-lg border border-[var(--rail-border-strong)] bg-[var(--rail-surface-panel)] p-4 text-base text-[var(--rail-text-primary)]" : "text-base text-[var(--rail-text-secondary)]"}`} role="status">{describe(feed, problem)}</p>
       <div className="mt-8 space-y-4" aria-live="polite" aria-relevant="additions text">
-        {feed?.lines.length
-          ? feed.lines.map((item, index) => <p key={item.line} className={`border-b border-[var(--rail-border-default)] pb-4 leading-snug ${index === 0 ? "text-3xl font-medium text-[var(--rail-text-primary)] sm:text-4xl" : "text-2xl text-[var(--rail-text-secondary)] sm:text-3xl"}`}>{item.english}</p>)
+        {shownLines.length
+          ? shownLines.map((item, index) => <p key={item.line} className={`border-b border-[var(--rail-border-default)] pb-4 leading-snug ${index === 0 ? "text-3xl font-medium text-[var(--rail-text-primary)] sm:text-4xl" : "text-2xl text-[var(--rail-text-secondary)] sm:text-3xl"}`}>{item.english}</p>)
           : feed?.status === "live" ? <p className="text-xl text-[var(--rail-text-secondary)]">Waiting for speech…</p> : null}
       </div>
     </div>

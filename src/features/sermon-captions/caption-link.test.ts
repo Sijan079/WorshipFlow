@@ -74,6 +74,10 @@ export function runCaptionLinkTests() {
   assert.equal(viewerPollMs("error"), 1000);
   assert.equal(viewerPollMs("waiting"), 15000);
   assert.equal(viewerPollMs("ended"), 15000);
+  // Pushed captions make the poll a slow safety net, but never faster than the waiting rules allow.
+  assert.equal(viewerPollMs("live", true), 5000);
+  assert.equal(viewerPollMs(undefined, true), 5000);
+  assert.equal(viewerPollMs("waiting", true), 15000);
 
   // Schema and migration: one settings row per church, an additive SHARE action, row-level security.
   const schema = read("prisma", "schema.prisma");

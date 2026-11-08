@@ -28,8 +28,10 @@ export function canRegenerateCaptionLink(role: string) {
 
 // How often the public page asks for captions: quickly while they flow, slowly while it waits for
 // the next service, so people come back without anyone sending a new link.
-export function viewerPollMs(status: CaptionPublicStatus | undefined) {
-  return status === "waiting" || status === "ended" ? 15_000 : 1_000;
+// While captions are pushed to the phone, polling is only a slow safety net.
+export function viewerPollMs(status: CaptionPublicStatus | undefined, pushConnected = false) {
+  if (status === "waiting" || status === "ended") return 15_000;
+  return pushConnected ? 5_000 : 1_000;
 }
 
 // Turns a base64 data URL (the QR code image) into bytes without any network request. The site's

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireCaptionAction } from "@/features/sermon-captions/caption-access";
 import { canReadCaptionSession, normalizeCaptionSource } from "@/features/sermon-captions/caption-contract";
 import { createStageTimer, serverTimingHeader } from "@/features/sermon-captions/caption-metrics";
+import { broadcastCaptionLine } from "@/features/sermon-captions/caption-realtime";
 import { translateCaption } from "@/features/sermon-captions/caption-providers";
 import { meteredUsageDelta, usageUtcDay } from "@/features/sermon-captions/caption-usage";
 import { captionErrorResponse, validOperatorToken } from "@/features/sermon-captions/caption-server";
@@ -30,9 +31,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const parsed = LineInput.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "Invalid caption line." }, { status: 400 });
     // The database is a round trip away, so calls that do not depend on each other go out together.
-    const [session, existing] = await Promise.all([
+    const [session, existing, linkSettings] = await Promise.all([
       prisma.captionSession.findFirst({ where: { id, workspaceId: context.workspaceId } }),
       prisma.captionLine.findUnique({ where: { sessionId_line: { sessionId: id, line: parsed.data.line } } }),
+      prisma.captionSettings.findUnique({ where: { workspaceId: context.workspaceId }, select: { viewerToken: true } }),
     ]);
     timer.mark("lookup");
     if (!session || !canReadCaptionSession(session)) return NextResponse.json({ error: "Caption session is not active." }, { status: 409 });
@@ -101,6 +103,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!current || !canReadCaptionSession(current)) {
       await prisma.captionLine.deleteMany({ where: { sessionId: id } });
       return NextResponse.json({ error: "Caption session has ended." }, { status: 409 });
+    }
+    // Push the line to listeners' phones. Polling still delivers it if this fails, so it never fails the caption.
+    if (linkSettings?.viewerToken) {
+      await broadcastCaptionLine(linkSettings.viewerToken, { line: line.line, english: line.english, final: line.final }, { url: process.env.NEXT_PUBLIC_SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY });
+      timer.mark("push");
     }
     return finish({ line }, Boolean(translated));
   } catch (error) {
